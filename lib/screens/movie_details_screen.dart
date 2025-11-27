@@ -20,12 +20,55 @@ class MovieDetailsScreen extends StatefulWidget {
 
 class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
   List<Map<String, dynamic>> cast = [];
+  List<Map<String, dynamic>> similarMovies = [];
   bool isLoadingCast = true;
+  bool isLoadingSimilar = true;
+  bool isFavorite = false;
 
   @override
   void initState() {
     super.initState();
     fetchCast();
+    fetchSimilarMovies();
+    _loadFavoriteStatus();
+  }
+
+  void _loadFavoriteStatus() {
+    setState(() {
+      isFavorite = false; // Replace with actual logic if using persistence
+    });
+  }
+
+  void _toggleFavorite() {
+    setState(() {
+      isFavorite = !isFavorite;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          isFavorite ? 'Added to favorites' : 'Removed from favorites',
+          style:
+              const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+        ),
+        backgroundColor: isFavorite ? const Color(0xFF00D4FF) : Colors.grey,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showSnackMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style:
+              const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+        ),
+        backgroundColor: const Color(0xFF00D4FF),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   Future<void> fetchCast() async {
@@ -46,15 +89,35 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
           isLoadingCast = false;
         });
       } else {
-        setState(() {
-          isLoadingCast = false;
-        });
+        setState(() => isLoadingCast = false);
       }
     } catch (e) {
-      print('Error fetching cast: $e');
-      setState(() {
-        isLoadingCast = false;
-      });
+      setState(() => isLoadingCast = false);
+    }
+  }
+
+  Future<void> fetchSimilarMovies() async {
+    try {
+      final movieId = widget.movie['id'];
+      final response = await http.get(
+        Uri.parse('$baseUrl/movie/$movieId/similar?api_key=$apiKey'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          similarMovies = (data['results'] as List?)
+                  ?.take(12)
+                  .map((e) => e as Map<String, dynamic>)
+                  .toList() ??
+              [];
+          isLoadingSimilar = false;
+        });
+      } else {
+        setState(() => isLoadingSimilar = false);
+      }
+    } catch (e) {
+      setState(() => isLoadingSimilar = false);
     }
   }
 
@@ -67,7 +130,6 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
         ),
       );
     }
-
     if (cast.isEmpty) return const SizedBox();
 
     return Column(
@@ -167,6 +229,100 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
     );
   }
 
+  Widget _buildSimilarMoviesSection() {
+    if (isLoadingSimilar) {
+      return const SizedBox(
+        height: 200,
+        child: Center(
+          child: CircularProgressIndicator(color: Color(0xFF00D4FF)),
+        ),
+      );
+    }
+
+    if (similarMovies.isEmpty) return const SizedBox();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Text(
+            'Similar Movies',
+            style: TextStyle(
+                color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+        ),
+        SizedBox(
+          height: 200,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 15),
+            itemCount: similarMovies.length,
+            itemBuilder: (context, index) {
+              final movie = similarMovies[index];
+              final posterUrl = movie['poster_path'] != null
+                  ? '$imageBase${movie['poster_path']}'
+                  : null;
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MovieDetailsScreen(movie: movie),
+                    ),
+                  );
+                },
+                child: Container(
+                  width: 120,
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(15),
+                          child: posterUrl != null
+                              ? CachedNetworkImage(
+                                  imageUrl: posterUrl,
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  placeholder: (context, url) => Container(
+                                      color: const Color(0xFF1A1A1A),
+                                      child: const Center(
+                                          child: CircularProgressIndicator(
+                                              color: Color(0xFF00D4FF)))),
+                                  errorWidget: (context, url, error) =>
+                                      Container(
+                                          color: const Color(0xFF1A1A1A),
+                                          child: const Icon(Icons.movie_rounded,
+                                              color: Colors.white38, size: 30)),
+                                )
+                              : Container(
+                                  color: const Color(0xFF1A1A1A),
+                                  child: const Icon(Icons.movie_rounded,
+                                      color: Colors.white38, size: 30),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        movie['title'] ?? 'Unknown',
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 12),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final movie = widget.movie;
@@ -235,6 +391,23 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
               ),
               onPressed: () => Navigator.pop(context),
             ),
+            actions: [
+              IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isFavorite ? Icons.favorite : Icons.favorite_border,
+                    color: isFavorite ? Colors.red : Colors.white,
+                    size: 20,
+                  ),
+                ),
+                onPressed: _toggleFavorite,
+              ),
+            ],
           ),
           SliverToBoxAdapter(
             child: Padding(
@@ -242,9 +415,11 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // ---------------- MOVIE INFO ROW ----------------
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Movie Poster
                       Container(
                         width: 120,
                         height: 180,
@@ -285,6 +460,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
                         ),
                       ),
                       const SizedBox(width: 16),
+                      // Movie Details
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -339,26 +515,162 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
                       ),
                     ],
                   ),
+
                   const SizedBox(height: 24),
+
+                  // ---------------- TRAILERS & DOWNLOAD BUTTONS ----------------
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Color(0xFF00D4FF).withOpacity(0.1),
+                          Color(0xFF0099CC).withOpacity(0.05)
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Color(0xFF00D4FF).withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Trailers & Downloads',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 15),
+                        Row(
+                          children: [
+                            // Trailer Button
+                            Expanded(
+                              child: Container(
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1A1A1A),
+                                  borderRadius: BorderRadius.circular(15),
+                                  border: Border.all(
+                                    color: const Color(0xFF00D4FF),
+                                    width: 2,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF00D4FF)
+                                          .withOpacity(0.2),
+                                      blurRadius: 10,
+                                      spreadRadius: 1,
+                                    ),
+                                  ],
+                                ),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(15),
+                                    onTap: () => _showSnackMessage(
+                                        'Trailer Coming Soon'),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: const [
+                                        Icon(Icons.play_arrow_rounded,
+                                            color: Color(0xFF00D4FF), size: 22),
+                                        SizedBox(width: 10),
+                                        Text(
+                                          'Watch Trailer',
+                                          style: TextStyle(
+                                              color: Color(0xFF00D4FF),
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            // Download Button
+                            Expanded(
+                              child: Container(
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1A1A1A),
+                                  borderRadius: BorderRadius.circular(15),
+                                  border: Border.all(
+                                    color: const Color(0xFF00D4FF),
+                                    width: 2,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF00D4FF)
+                                          .withOpacity(0.2),
+                                      blurRadius: 10,
+                                      spreadRadius: 1,
+                                    ),
+                                  ],
+                                ),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(15),
+                                    onTap: () => _showSnackMessage(
+                                        'Download Coming Soon'),
+                                    child: const Center(
+                                      child: Text(
+                                        'Download Now',
+                                        style: TextStyle(
+                                            color: Color(0xFF00D4FF),
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // ---------------- MOVIE OVERVIEW ----------------
                   if (movie['overview'] != null &&
-                      movie['overview'].isNotEmpty) ...[
+                      (movie['overview'] as String).isNotEmpty) ...[
                     const Text(
                       'Overview',
                       style: TextStyle(
                           color: Colors.white,
-                          fontSize: 18,
+                          fontSize: 20,
                           fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 12),
                     Text(
                       movie['overview'],
-                      style: const TextStyle(
-                          color: Colors.white70, fontSize: 16, height: 1.5),
+                      style:
+                          const TextStyle(color: Colors.white70, fontSize: 14),
                     ),
                     const SizedBox(height: 24),
                   ],
+
+                  // Cast Section
                   _buildCastSection(),
-                  const SizedBox(height: 20),
+
+                  const SizedBox(height: 24),
+
+                  // Similar Movies Section
+                  _buildSimilarMoviesSection(),
                 ],
               ),
             ),
@@ -369,11 +681,11 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
   }
 
   String _getYearFromDate(String? date) {
-    if (date == null || date.isEmpty) return '';
+    if (date == null || date.isEmpty) return 'Unknown';
     try {
       return DateTime.parse(date).year.toString();
     } catch (e) {
-      return '';
+      return 'Unknown';
     }
   }
 }

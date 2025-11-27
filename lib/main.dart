@@ -1,19 +1,13 @@
 import 'package:flutter/material.dart';
-import 'screens/home_screen.dart';
-import 'screens/explore_screen.dart';
-import 'screens/search_screen.dart';
-
+import 'screens/reveal_splash_screen.dart';
 void main() {
-  runApp(const CinemaxApp());
-}
-
-class CinemaxApp extends StatelessWidget {
-  const CinemaxApp({super.key});
-
+  runApp(const FlixoraApp()); 
+}class FlixoraApp extends StatelessWidget {
+  const FlixoraApp({super.key});
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Cinemax',
+      title: 'Flixora X',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
@@ -34,7 +28,7 @@ class CinemaxApp extends StatelessWidget {
           iconTheme: IconThemeData(color: Colors.white),
         ),
       ),
-      home: const HomeScreen(), //
+      home: const RevealSplashScreen(),
     );
   }
 }
