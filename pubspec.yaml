@@ -10,30 +10,38 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  
+
   # HTTP & API
   http: ^1.6.0
   dio: ^5.4.0
-  
+
   # UI & Design
   carousel_slider: ^5.1.1
   cached_network_image: ^3.3.0
   google_fonts: ^6.3.2
   cupertino_icons: ^1.0.8
   animated_text_kit: ^4.2.2
-  
+
   # State Management & Storage
   provider: ^6.1.1
   shared_preferences: ^2.2.2
-  
+
   # Connectivity & Permissions
-  connectivity_plus: ^5.0.1
+  connectivity_plus: ^7.0.0
   permission_handler: ^12.0.1
-  
+
   # File & System
   url_launcher: ^6.3.2
   path_provider: ^2.1.5
   open_file: ^3.3.3
+
+  # Firebase
+  firebase_core: ^4.2.1
+  firebase_analytics: ^12.0.4
+  path: ^1.9.1
+
+  # Google Mobile Ads
+  google_mobile_ads: ^5.3.1
 
 dev_dependencies:
   flutter_test:
@@ -41,13 +49,14 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
 
-flutter_launcher_icons:
-  android: "launcher_icon"
-  ios: true
-  image_path: "assets/images/icon.png"
-
 flutter:
   uses-material-design: true
-  
+
   assets:
     - assets/images/
+
+# Launcher icon
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/popcorn.png"

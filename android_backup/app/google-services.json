@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "609797109604",
+    "project_id": "my-flutter-app-hezra-202-12dc9",
+    "storage_bucket": "my-flutter-app-hezra-202-12dc9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:609797109604:android:472c1897ef2d9b9df12c71",
+        "android_client_info": {
+          "package_name": "com.example.flutter_application_1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBKaFmilc3TrmwCsM6vAoSNTd498AG6NhA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
