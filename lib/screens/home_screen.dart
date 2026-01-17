@@ -1,4 +1,3 @@
-// lib/screens/home_screen.dart
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -6,38 +5,35 @@ import 'package:http/http.dart' as http;
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'movie_details_screen.dart';
 import 'full_category_screen.dart';
-
-const String apiKey = '9c12c3b471405cfbfeca767fa3ea8907';
+import '../utils/my_list.dart';
+final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '9c12c3b471405cfbfeca767fa3ea8907';
 const String baseUrl = 'https://api.themoviedb.org/3';
 const String imageBase = 'https://image.tmdb.org/t/p/w300';
 const String backdropBase = 'https://image.tmdb.org/t/p/w780';
-
 class HomeScreen extends StatefulWidget {
   final Set<int> myListIds;
-
   const HomeScreen({super.key, required this.myListIds});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
-
 class _HomeScreenState extends State<HomeScreen> {
   bool isLoading = true;
-
-  // Ads
-  late BannerAd _bannerAd;
+  bool _isConnected = true;
+  late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
+  BannerAd? _bannerAd;
   bool _isBannerAdReady = false;
   InterstitialAd? _interstitialAd;
   bool _isInterstitialReady = false;
-
-  // Filters
   String _currentFilter = 'All Movies';
 
-  // Categories
+  final List<Map<String, dynamic>> _allLoadedMovies = [];
+
   final Map<String, List<Map<String, dynamic>>> _movieCategories = {
-    // Movie categories
     'Trending Today': [],
     'Trending This Week': [],
     'Now Playing': [],
@@ -51,7 +47,12 @@ class _HomeScreenState extends State<HomeScreen> {
     'Hollywood Movies': [],
     'Romance & Fantasy': [],
     'Horror & Mystery': [],
-    // TV categories
+    'Action & Thriller': [],
+    'Comedy': [],
+    'Crime & Thriller': [],
+    'Family & Kids': [],
+    'Animation & Anime': [],
+    'International Films': [],
     'TV Shows': [],
     'Trending TV Today': [],
     'Trending TV This Week': [],
@@ -63,7 +64,6 @@ class _HomeScreenState extends State<HomeScreen> {
   };
 
   final Map<String, String> _categoryUrls = {
-    // Movie URLs
     'Trending Today':
         '$baseUrl/trending/movie/day?api_key=$apiKey&language=en-US',
     'Trending This Week':
@@ -87,8 +87,18 @@ class _HomeScreenState extends State<HomeScreen> {
         '$baseUrl/discover/movie?api_key=$apiKey&with_genres=10749,14&sort_by=popularity.desc',
     'Horror & Mystery':
         '$baseUrl/discover/movie?api_key=$apiKey&with_genres=27,9648&sort_by=popularity.desc',
-
-    // TV URLs
+    'Action & Thriller':
+        '$baseUrl/discover/movie?api_key=$apiKey&with_genres=28,53&sort_by=popularity.desc',
+    'Comedy':
+        '$baseUrl/discover/movie?api_key=$apiKey&with_genres=35&sort_by=popularity.desc',
+    'Crime & Thriller':
+        '$baseUrl/discover/movie?api_key=$apiKey&with_genres=80,53&sort_by=popularity.desc',
+    'Family & Kids':
+        '$baseUrl/discover/movie?api_key=$apiKey&with_genres=10751&sort_by=popularity.desc',
+    'Animation & Anime':
+        '$baseUrl/discover/movie?api_key=$apiKey&with_genres=16&sort_by=popularity.desc',
+    'International Films':
+        '$baseUrl/discover/movie?api_key=$apiKey&sort_by=popularity.desc&region=XX',
     'TV Shows': '$baseUrl/tv/popular?api_key=$apiKey&language=en-US',
     'Trending TV Today':
         '$baseUrl/trending/tv/day?api_key=$apiKey&language=en-US',
@@ -115,10 +125,46 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeAds();
-      _fetchAllCategoriesBatched();
+    _initConnectivity();
+    _initializeAds();
+    _checkAndLoadData();
+  }
+
+  Future<void> _checkAndLoadData() async {
+    final connectivityResult = await Connectivity().checkConnectivity();
+    _isConnected = connectivityResult != ConnectivityResult.none;
+    if (mounted) {
+      setState(() {});
+    }
+    if (_isConnected) {
+      _loadInitialData();
+    } else {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
+  }
+
+  void _initConnectivity() {
+    _connectivitySubscription = Connectivity()
+        .onConnectivityChanged
+        .listen((List<ConnectivityResult> results) {
+      final result =
+          results.isNotEmpty ? results.first : ConnectivityResult.none;
+      _updateConnectionStatus(result);
     });
+  }
+
+  Future<void> _updateConnectionStatus(ConnectivityResult result) async {
+    bool isConnected = result != ConnectivityResult.none;
+    if (_isConnected != isConnected) {
+      setState(() {
+        _isConnected = isConnected;
+      });
+      if (isConnected) {
+        _loadInitialData();
+      }
+    }
   }
 
   void _initializeAds() {
@@ -127,8 +173,21 @@ class _HomeScreenState extends State<HomeScreen> {
       size: AdSize.banner,
       request: const AdRequest(),
       listener: BannerAdListener(
-        onAdLoaded: (_) => setState(() => _isBannerAdReady = true),
-        onAdFailedToLoad: (ad, error) => ad.dispose(),
+        onAdLoaded: (_) {
+          if (mounted) {
+            setState(() {
+              _isBannerAdReady = true;
+            });
+          }
+        },
+        onAdFailedToLoad: (ad, error) {
+          if (mounted) {
+            setState(() {
+              _isBannerAdReady = false;
+            });
+          }
+          ad.dispose();
+        },
       ),
     )..load();
 
@@ -143,6 +202,17 @@ class _HomeScreenState extends State<HomeScreen> {
         onAdLoaded: (ad) {
           _interstitialAd = ad;
           _isInterstitialReady = true;
+
+          ad.fullScreenContentCallback = FullScreenContentCallback(
+            onAdDismissedFullScreenContent: (ad) {
+              ad.dispose();
+              _loadInterstitial();
+            },
+            onAdFailedToShowFullScreenContent: (ad, error) {
+              ad.dispose();
+              _loadInterstitial();
+            },
+          );
         },
         onAdFailedToLoad: (error) {
           _interstitialAd = null;
@@ -152,100 +222,130 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showInterstitial(VoidCallback onAdComplete) {
-    if (_isInterstitialReady && _interstitialAd != null) {
-      _interstitialAd!.fullScreenContentCallback =
-          FullScreenContentCallback(onAdDismissedFullScreenContent: (_) {
-        onAdComplete();
-        _interstitialAd!.dispose();
-        _loadInterstitial(); // reload
-      }, onAdFailedToShowFullScreenContent: (_, __) {
-        onAdComplete();
-        _loadInterstitial();
+  Future<void> _loadInitialData() async {
+    final connectivityResult = await Connectivity().checkConnectivity();
+    _isConnected = connectivityResult != ConnectivityResult.none;
+
+    if (!_isConnected) {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        isLoading = true;
+        _allLoadedMovies.clear();
+        _usedMovieIds.clear();
+        _cache.clear();
+        for (var category in _movieCategories.keys) {
+          _movieCategories[category]?.clear();
+          _currentPage[category] = 1;
+          _isLoadingMore[category] = false;
+        }
       });
-      _interstitialAd!.show();
-      _interstitialAd = null;
-      _isInterstitialReady = false;
-    } else {
-      onAdComplete();
+    }
+
+    final essentialCategories = [
+      'Trending Today',
+      'Now Playing',
+      'Popular Movies',
+      'Top Rated',
+    ];
+
+    await Future.wait(essentialCategories
+        .map((category) => _loadMore(category, reset: true)));
+
+    if (mounted) {
+      setState(() {
+        isLoading = false;
+      });
+    }
+
+    _loadRemainingCategoriesInBackground();
+  }
+
+  Future<void> _loadRemainingCategoriesInBackground() async {
+    final remainingCategories = _movieCategories.keys
+        .where((category) => ![
+              'Trending Today',
+              'Now Playing',
+              'Popular Movies',
+              'Top Rated'
+            ].contains(category))
+        .toList();
+
+    for (var category in remainingCategories) {
+      await _loadMore(category, reset: true);
     }
   }
 
   @override
   void dispose() {
-    _bannerAd.dispose();
+    _connectivitySubscription.cancel();
+    _bannerAd?.dispose();
     _interstitialAd?.dispose();
     super.dispose();
   }
 
-  Future<void> _fetchAllCategoriesBatched() async {
-    final categories = _movieCategories.keys.toList();
-    const batchSize = 5;
-    try {
-      for (int i = 0; i < categories.length; i += batchSize) {
-        final batch = categories.sublist(
-            i,
-            (i + batchSize) > categories.length
-                ? categories.length
-                : i + batchSize);
-        await Future.wait(batch.map((c) => _loadMore(c, reset: true)));
-        await Future.delayed(const Duration(milliseconds: 300));
-      }
-    } finally {
-      setState(() => isLoading = false);
-    }
-  }
-
   Future<void> _loadMore(String category, {bool reset = false}) async {
+    if (!_isConnected) return;
     if (_isLoadingMore[category] == true) return;
     _isLoadingMore[category] = true;
-
     int page = reset ? 1 : (_currentPage[category] ?? 1) + 1;
     final cacheKey = '$category-$page';
+
     if (!reset && _cache.containsKey(cacheKey)) {
       _movieCategories[category]?.addAll(_cache[cacheKey]!);
       _isLoadingMore[category] = false;
-      setState(() {});
+      if (mounted) setState(() {});
       return;
     }
 
     final urlBase = _categoryUrls[category];
     if (urlBase == null) {
       _isLoadingMore[category] = false;
-      setState(() {});
+      if (mounted) setState(() {});
       return;
     }
 
     final url = '$urlBase&page=$page';
     try {
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode == 200) {
-        final results =
-            (json.decode(response.body)['results'] as List<dynamic>? ?? [])
-                .cast<Map<String, dynamic>>()
-                .where((m) => !_usedMovieIds.contains(m['id']))
-                .toList();
+      final response = await http.get(Uri.parse(url)).timeout(
+            const Duration(seconds: 30),
+            onTimeout: () => throw TimeoutException('API request timed out'),
+          );
 
-        setState(() {
-          if (reset) _movieCategories[category]?.clear();
-          _movieCategories[category]?.addAll(results);
-          _cache[cacheKey] = results;
-          for (var m in results) _usedMovieIds.add(m['id']);
-          _currentPage[category] = page;
-        });
+      if (!mounted) {
+        _isLoadingMore[category] = false;
+        return;
+      }
+
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+        final results = (jsonData['results'] as List<dynamic>? ?? [])
+            .cast<Map<String, dynamic>>()
+            .where((m) => !_usedMovieIds.contains(m['id']))
+            .toList();
+        if (mounted) {
+          setState(() {
+            if (reset) _movieCategories[category]?.clear();
+            _movieCategories[category]?.addAll(results);
+            _cache[cacheKey] = results;
+            for (var m in results) {
+              _usedMovieIds.add(m['id']);
+              if (!_allLoadedMovies.any((movie) => movie['id'] == m['id'])) {
+                _allLoadedMovies.add(m);
+              }
+            }
+            _currentPage[category] = page;
+          });
+        }
       }
     } finally {
       _isLoadingMore[category] = false;
     }
-  }
-
-  void _navigateToDetails(Map<String, dynamic> item) {
-    _showInterstitial(() {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => MovieDetailsScreen(movie: item)),
-      );
-    });
   }
 
   String _getYear(Map<String, dynamic> item) {
@@ -258,173 +358,498 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  double _getCarouselHeight(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isLandscape = screenWidth > screenHeight;
+
+    if (isLandscape) return 150; // Landscape mode
+    if (screenWidth < 376) return 200; // Small phones (iPhone SE)
+    if (screenWidth < 430) return 220; // Standard phones (iPhone 13-15)
+    if (screenWidth < 768) return 240; // Large phones (iPhone Plus)
+    return 300; // Tablets and large screens
+  }
+
+  double _getCardHeight(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isLandscape = screenWidth > screenHeight;
+
+    if (isLandscape) return 140; // Landscape mode
+    if (screenWidth < 376) return 180; // Small phones
+    if (screenWidth < 430) return 190; // Standard phones
+    if (screenWidth < 768) return 210; // Large phones
+    return 280; // Tablets
+  }
+
+  double _getCardWidth(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    if (screenWidth < 376) return 110; // Small phones
+    if (screenWidth < 430) return 120; // Standard phones
+    if (screenWidth < 768) return 130; // Large phones
+    return 160; // Tablets
+  }
+
   List<String> get _filterTabs => ['All Movies', 'TV Shows', 'My List'];
 
-  List<Map<String, dynamic>> _filteredItems(String category) {
-    final items = _movieCategories[category] ?? [];
-    if (_currentFilter == 'My List') {
-      return items.where((m) => widget.myListIds.contains(m['id'])).toList();
+  List<Map<String, dynamic>> get _myListMovies {
+    if (MyList().all.isEmpty) return [];
+    return _allLoadedMovies
+        .where((movie) => MyList().contains(movie['id']))
+        .toList();
+  }
+
+  Widget _buildMyListSection() {
+    final myListMovies = _myListMovies;
+
+    if (myListMovies.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.bookmark_border, size: 80, color: Colors.white38),
+            const SizedBox(height: 20),
+            const Text(
+              'Your My List is Empty',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Add movies and TV shows to your list to watch later',
+              style: TextStyle(color: Colors.white70, fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _currentFilter = 'All Movies';
+                });
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _netflixRed,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+              ),
+              child: const Text('Browse Movies'),
+            ),
+          ],
+        ),
+      );
     }
-    if (_currentFilter == 'TV Shows') {
-      // Only TV categories
-      return category.toLowerCase().contains('tv') ? items : [];
-    }
-    return items;
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'My List (${myListMovies.length})',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              TextButton(
+                onPressed: _showClearMyListDialog,
+                child: const Text(
+                  'Clear All',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.all(12),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.65,
+            ),
+            itemCount: myListMovies.length,
+            itemBuilder: (context, index) {
+              return _buildGridItem(myListMovies[index]);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGridItem(Map<String, dynamic> item) {
+    final poster =
+        item['poster_path'] != null ? '$imageBase${item['poster_path']}' : '';
+    final isInMyList = MyList().contains(item['id']);
+
+    return GestureDetector(
+      onTap: () {
+        _showInterstitialAd(() {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => MovieDetailsScreen(movie: item),
+            ),
+          );
+        });
+      },
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: AspectRatio(
+              aspectRatio: 0.75,
+              child: CachedNetworkImage(
+                imageUrl: poster,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(color: _netflixBlack),
+                errorWidget: (context, url, error) =>
+                    Container(color: _netflixBlack),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  MyList().toggle(item['id']);
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      MyList().contains(item['id'])
+                          ? 'Added to My List'
+                          : 'Removed from My List',
+                    ),
+                    backgroundColor: _netflixRed,
+                    duration: const Duration(seconds: 1),
+                  ),
+                );
+              },
+              child: CircleAvatar(
+                radius: 14,
+                backgroundColor: Colors.black.withOpacity(0.7),
+                child: Icon(
+                  isInMyList ? Icons.bookmark : Icons.bookmark_border,
+                  size: 16,
+                  color: isInMyList ? _netflixRed : Colors.white,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.8),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item['title'] ?? item['name'] ?? 'Unknown',
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _getYear(item),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showClearMyListDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: _netflixBlack,
+        title: const Text(
+          'Clear My List?',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Are you sure you want to remove all items from your list?',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child:
+                const Text('Cancel', style: TextStyle(color: Colors.white70)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              MyList().clear();
+              setState(() {});
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('My List cleared'),
+                  backgroundColor: Color(0xFFE50914),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: _netflixRed),
+            child: const Text('Clear All'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _netflixBlack,
-      body: isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFFE50914)))
-          : SafeArea(
-              child: Column(
-                children: [
-                  // Filter Tabs
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    color: Colors.black,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: _filterTabs.map((tab) {
-                        final isSelected = _currentFilter == tab;
-                        return GestureDetector(
-                          onTap: () => setState(() => _currentFilter = tab),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: isSelected ? _netflixRed : Colors.white12,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(tab,
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold)),
-                          ),
-                        );
-                      }).toList(),
-                    ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: _netflixRed.withOpacity(0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
-
-                  // Movies / TV Shows List
-                  Expanded(
-                    child: RefreshIndicator(
-                      color: _netflixRed,
-                      onRefresh: () async {
-                        _usedMovieIds.clear();
-                        _cache.clear();
-                        setState(() => isLoading = true);
-                        await _fetchAllCategoriesBatched();
-                        setState(() => isLoading = false);
-                      },
-                      child: ListView.builder(
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: _movieCategories.length + 1,
-                        itemBuilder: (context, index) {
-                          if (index == 0) {
-                            final trending =
-                                _movieCategories['Trending Today'] ?? [];
-                            return _buildCarousel(trending);
-                          } else {
-                            final entry =
-                                _movieCategories.entries.elementAt(index - 1);
-                            final items = _filteredItems(entry.key);
-                            if (items.isEmpty) return const SizedBox();
-                            return _buildCategorySection(entry.key, items);
-                          }
-                        },
-                      ),
-                    ),
-                  ),
-
-                  // Banner Ad
-                  if (_isBannerAdReady)
-                    SizedBox(
-                      height: _bannerAd.size.height.toDouble(),
-                      width: _bannerAd.size.width.toDouble(),
-                      child: AdWidget(ad: _bannerAd),
-                    ),
                 ],
               ),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _filterTabs.map((tab) {
+                    final isSelected = _currentFilter == tab;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: GestureDetector(
+                        onTap: () => setState(() => _currentFilter = tab),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color:
+                                isSelected ? _netflixRed : Colors.white12,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(tab,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
             ),
-    );
-  }
-
-  // Carousel
-  Widget _buildCarousel(List<Map<String, dynamic>> items) {
-    if (items.isEmpty) return const SizedBox(height: 250);
-    return CarouselSlider.builder(
-      itemCount: items.length,
-      itemBuilder: (context, index, _) {
-        final item = items[index];
-        final imageUrl = item['backdrop_path'] != null
-            ? '$backdropBase${item['backdrop_path']}'
-            : '';
-        return GestureDetector(
-          onTap: () => _navigateToDetails(item),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: CachedNetworkImage(
-              imageUrl: imageUrl,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              placeholder: (context, url) => Container(color: _netflixBlack),
-              errorWidget: (context, url, error) =>
-                  Container(color: _netflixBlack),
+            Expanded(
+              child: _currentFilter == 'My List'
+                  ? _buildMyListSection()
+                  : _buildMainContent(),
             ),
-          ),
-        );
-      },
-      options: CarouselOptions(
-        height: 240,
-        autoPlay: true,
-        enlargeCenterPage: true,
-        viewportFraction: 0.92,
+            if (_isConnected && _isBannerAdReady && _bannerAd != null)
+              SizedBox(
+                height: AdSize.banner.height.toDouble(),
+                width: double.infinity,
+                child: AdWidget(ad: _bannerAd!),
+              ),
+          ],
+        ),
       ),
     );
   }
 
-  // Category Section with "Load More"
-  Widget _buildCategorySection(String title, List<Map<String, dynamic>> items) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(title,
-                  style: const TextStyle(
+  Widget _buildMainContent() {
+    if (isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFFE50914)),
+      );
+    }
+
+    if (!_isConnected) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.wifi_off, size: 80, color: Color(0xFFE50914)),
+            const SizedBox(height: 20),
+            const Text('No Internet Connection',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            const Text('Please try again later.',
+                style: TextStyle(color: Colors.white70, fontSize: 16),
+                textAlign: TextAlign.center),
+            const SizedBox(height: 30),
+            ElevatedButton(
+              onPressed: () {
+                if (mounted) {
+                  setState(() => isLoading = true);
+                }
+                _checkAndLoadData();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE50914),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('Retry',
+                  style: TextStyle(
                       color: Colors.white,
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold)),
-              TextButton(
-                onPressed: () {
-                  _showRewardedAd(() {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            FullCategoryScreen(title: title, items: items),
-                      ),
-                    );
-                  });
-                },
-                child: const Text(
-                  'View All',
-                  style: TextStyle(color: Colors.white70),
-                ),
-              )
-            ],
-          ),
+            ),
+          ],
         ),
-        SizedBox(
-          height: 210,
-          child: ListView.builder(
+      );
+    }
+
+    return RefreshIndicator(
+      color: _netflixRed,
+      onRefresh: _loadInitialData,
+      child: ListView.builder(
+        physics: const BouncingScrollPhysics(),
+        itemCount: _movieCategories.length + 1,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            final trending = _movieCategories['Trending Today'] ?? [];
+            return _buildCarousel(trending);
+          } else {
+            final entry = _movieCategories.entries.elementAt(index - 1);
+            final items = _filteredItems(entry.key);
+            if (items.isEmpty) return const SizedBox();
+            return _buildCategorySection(entry.key, items);
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildCarousel(List<Map<String, dynamic>> items) {
+    if (items.isEmpty) return const SizedBox(height: 220);
+    return Builder(
+      builder: (context) => CarouselSlider.builder(
+        itemCount: items.length,
+        itemBuilder: (context, index, _) {
+          final item = items[index];
+          final imageUrl = item['backdrop_path'] != null
+              ? '$backdropBase${item['backdrop_path']}'
+              : '';
+          return GestureDetector(
+            onTap: () {
+              _showInterstitialAd(() {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MovieDetailsScreen(movie: item),
+                  ),
+                );
+              });
+            },
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                placeholder: (context, url) =>
+                    Container(color: _netflixBlack),
+                errorWidget: (context, url, error) =>
+                    Container(color: _netflixBlack),
+              ),
+            ),
+          );
+        },
+        options: CarouselOptions(
+          height: _getCarouselHeight(context),
+          autoPlay: true,
+          enlargeCenterPage: true,
+          viewportFraction: 0.92,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategorySection(String title, List<Map<String, dynamic>> items) {
+    return Builder(
+      builder: (context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 6.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Text(title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold)),
+                ),
+                TextButton(
+                  onPressed: () {
+                    _showInterstitialAd(() {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              FullCategoryScreen(title: title, items: items),
+                        ),
+                      );
+                    });
+                  },
+                  child: const Text('View All',
+                      style: TextStyle(color: Colors.white70, fontSize: 12)),
+                )
+              ],
+            ),
+          ),
+          SizedBox(
+            height: _getCardHeight(context),
+            child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             itemCount: items.length + 1,
@@ -443,14 +868,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           width: 120,
                           margin: const EdgeInsets.only(right: 12),
                           decoration: BoxDecoration(
-                            color: Colors.white12,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                              color: Colors.white12,
+                              borderRadius: BorderRadius.circular(8)),
                           child: const Center(
-                              child: Text(
-                            'Load More',
-                            style: TextStyle(color: Colors.white70),
-                          )),
+                              child: Text('Load More',
+                                  style: TextStyle(color: Colors.white70))),
                         ),
                       );
               }
@@ -458,102 +880,122 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
         ),
-        const SizedBox(height: 8),
-      ],
+        const SizedBox(height: 4),
+        ],
+      ),
     );
   }
 
-  // Movie/TV Card
   Widget _buildItemCard(Map<String, dynamic> item) {
     final poster =
         item['poster_path'] != null ? '$imageBase${item['poster_path']}' : '';
-    final isInMyList = widget.myListIds.contains(item['id']);
+    final isInMyList = MyList().contains(item['id']);
 
-    return GestureDetector(
-      onTap: () => _navigateToDetails(item),
-      child: Container(
-        width: 120,
-        margin: const EdgeInsets.only(right: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: AspectRatio(
-                    aspectRatio: 0.75,
-                    child: CachedNetworkImage(
-                      imageUrl: poster,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) =>
-                          Container(color: _netflixBlack),
-                      errorWidget: (context, url, error) =>
-                          Container(color: _netflixBlack),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 4,
-                  right: 4,
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        if (isInMyList) {
-                          widget.myListIds.remove(item['id']);
-                        } else {
-                          widget.myListIds.add(item['id']);
-                        }
-                      });
-                    },
-                    child: CircleAvatar(
-                      radius: 12,
-                      backgroundColor: Colors.black54,
-                      child: Icon(isInMyList ? Icons.check : Icons.add,
-                          size: 16, color: Colors.white),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Flexible(
-              child: Text(
-                item['title'] ?? item['name'] ?? 'Unknown',
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
+    return Builder(
+      builder: (context) => GestureDetector(
+        onTap: () {
+          _showInterstitialAd(() {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => MovieDetailsScreen(movie: item),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              _getYear(item),
-              style: const TextStyle(color: Colors.white38, fontSize: 12),
-            ),
-          ],
+            );
+          });
+        },
+        child: Container(
+          width: _getCardWidth(context),
+          margin: const EdgeInsets.only(right: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: AspectRatio(
+                      aspectRatio: 0.75,
+                      child: CachedNetworkImage(
+                        imageUrl: poster,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) =>
+                            Container(color: _netflixBlack),
+                        errorWidget: (context, url, error) =>
+                            Container(color: _netflixBlack),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          MyList().toggle(item['id']);
+                        });
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              MyList().contains(item['id'])
+                                  ? 'Added to My List'
+                                  : 'Removed from My List',
+                            ),
+                            backgroundColor: _netflixRed,
+                            duration: const Duration(seconds: 1),
+                          ),
+                        );
+                      },
+                      child: CircleAvatar(
+                        radius: 14,
+                        backgroundColor: Colors.black.withOpacity(0.7),
+                        child: Icon(
+                          isInMyList ? Icons.bookmark : Icons.bookmark_border,
+                          size: 16,
+                          color: isInMyList ? _netflixRed : Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Flexible(
+                child: Text(item['title'] ?? item['name'] ?? 'Unknown',
+                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2),
+              ),
+              const SizedBox(height: 2),
+              Text(_getYear(item),
+                  style: const TextStyle(color: Colors.white38, fontSize: 12)),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // Rewarded Ad
-  void _showRewardedAd(VoidCallback onComplete) {
-    RewardedAd.load(
-      adUnitId: 'ca-app-pub-3940256099942544/5224354917',
-      request: const AdRequest(),
-      rewardedAdLoadCallback: RewardedAdLoadCallback(
-        onAdLoaded: (ad) {
-          ad.fullScreenContentCallback =
-              FullScreenContentCallback(onAdDismissedFullScreenContent: (_) {
-            onComplete();
-            ad.dispose();
-          });
-          ad.show(onUserEarnedReward: (_, __) {});
-        },
-        onAdFailedToLoad: (_) {
-          onComplete();
-        },
-      ),
-    );
+  List<Map<String, dynamic>> _filteredItems(String category) {
+    final items = _movieCategories[category] ?? [];
+
+    if (_currentFilter == 'TV Shows') {
+      return category.toLowerCase().contains('tv') ? items : [];
+    }
+
+    return items;
+  }
+
+  void _showInterstitialAd(Function rewardedAction) {
+    if (!_isConnected) {
+      rewardedAction();
+      return;
+    }
+
+    if (_isInterstitialReady && _interstitialAd != null) {
+      _interstitialAd!.show();
+      rewardedAction();
+    } else {
+      rewardedAction();
+    }
   }
 }

@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'movie_details_screen.dart';
+import '../utils/my_list.dart'; // ADD THIS IMPORT
 
-const String apiKey = '9c12c3b471405cfbfeca767fa3ea8907';
+final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '9c12c3b471405cfbfeca767fa3ea8907';
 const String baseUrl = 'https://api.themoviedb.org/3';
 const String imageBase = 'https://image.tmdb.org/t/p/w500';
 
@@ -74,9 +76,8 @@ class SafeNetworkImage extends StatelessWidget {
 
 // Explore Screen
 class ExploreScreen extends StatefulWidget {
-  final Set<int> myListIds; // shared from MainScreen
-
-  const ExploreScreen({super.key, required this.myListIds});
+  const ExploreScreen(
+      {super.key, required Set<int> myListIds}); // REMOVED: myListIds parameter
 
   @override
   State<ExploreScreen> createState() => _ExploreScreenState();
@@ -127,7 +128,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         fetchMoviesByGenre(genres.first['id']);
       }
     } catch (e) {
-      print('Error fetching genres: $e');
+      debugPrint('Error fetching genres: $e');
       setState(() => isLoading = false);
     }
   }
@@ -138,7 +139,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
       movies = [];
       isLoading = true;
     });
-
     try {
       final response = await http.get(
         Uri.parse(
@@ -151,7 +151,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         isLoading = false;
       });
     } catch (e) {
-      print('Error fetching movies: $e');
+      debugPrint('Error fetching movies: $e');
       setState(() => isLoading = false);
     }
   }
@@ -175,7 +175,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         isLoading = false;
       });
     } catch (e) {
-      print('Error searching movies: $e');
+      debugPrint('Error searching movies: $e');
       setState(() => isLoading = false);
     }
   }
@@ -233,7 +233,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
         ),
       );
     }
-
     return GridView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       shrinkWrap: true,
@@ -251,7 +250,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ? '$imageBase${movie['poster_path']}'
             : null;
         final movieId = movie['id'] ?? 0;
-        final isInMyList = widget.myListIds.contains(movieId);
+        final isInMyList = MyList().contains(movieId); // UPDATED
 
         return GestureDetector(
           onTap: () {
@@ -278,7 +277,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
                         colors: [
-                          Colors.black.withOpacity(0.7),
+                          Colors.black.withValues(alpha: 0.7),
                           Colors.transparent
                         ],
                       ),
@@ -306,19 +305,33 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     child: GestureDetector(
                       onTap: () {
                         setState(() {
-                          if (isInMyList) {
-                            widget.myListIds.remove(movieId);
-                          } else {
-                            widget.myListIds.add(movieId);
-                          }
+                          MyList().toggle(movieId); // UPDATED
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                MyList().contains(movieId)
+                                    ? 'Added to My List'
+                                    : 'Removed from My List',
+                              ),
+                              backgroundColor: const Color(0xFFE50914),
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
                         });
                       },
-                      child: Icon(
-                        isInMyList
-                            ? Icons.check_circle
-                            : Icons.add_circle_outline,
-                        color: Colors.blueAccent,
-                        size: 28,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isInMyList ? Icons.bookmark : Icons.bookmark_border,
+                          color: isInMyList
+                              ? const Color(0xFFE50914)
+                              : Colors.white,
+                          size: 22,
+                        ),
                       ),
                     ),
                   ),
@@ -329,7 +342,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
+                        color: Colors.black.withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
@@ -397,6 +410,36 @@ class _ExploreScreenState extends State<ExploreScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.grey[800],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.bookmark,
+                    color: Color(0xFFE50914),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${MyList().all.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
       body: isLoading
           ? const Center(

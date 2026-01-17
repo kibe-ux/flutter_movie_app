@@ -1,11 +1,16 @@
+// -------------------- MovieDetailsScreen.dart --------------------
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../utils/my_list.dart';
+import '../services/download_service.dart';
+import 'video_player_screen.dart';
 
-const String apiKey = '30e125ca82f6e71828b3a30c47ea67c2';
+final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '9c12c3b471405cfbfeca767fa3ea8907';
 const String baseUrl = 'https://api.themoviedb.org/3';
 const String imageBase = 'https://image.tmdb.org/t/p/w500';
 const String backdropBase = 'https://image.tmdb.org/t/p/w780';
@@ -24,64 +29,65 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
   List<Map<String, dynamic>> similarMovies = [];
   bool isLoadingCast = true;
   bool isLoadingSimilar = true;
-  bool isFavorite = false;
-
   BannerAd? _bannerAd;
-
-  // Rewarded Ad
-  RewardedAd? _rewardedAd;
-  bool _isRewardedLoaded = false;
+  InterstitialAd? _interstitialAd;
+  bool _isInterstitialLoaded = false;
+  late DownloadService _downloadService;
 
   @override
   void initState() {
     super.initState();
+    _downloadService = DownloadService();
     fetchCast();
     fetchSimilarMovies();
-    _loadRewardedAd();
+    _loadInterstitialAd();
     _loadBannerAd();
   }
 
-  // LOAD REWARDED AD
-  void _loadRewardedAd() {
-    RewardedAd.load(
-      adUnitId: 'ca-app-pub-3940256099942544/5224354917', // Rewarded Test Ad
+  @override
+  void dispose() {
+    _bannerAd?.dispose();
+    _interstitialAd?.dispose();
+    super.dispose();
+  }
+
+  // -------------------- Ads --------------------
+  void _loadInterstitialAd() {
+    InterstitialAd.load(
+      adUnitId: 'ca-app-pub-3940256099942544/1033173712',
       request: const AdRequest(),
-      rewardedAdLoadCallback: RewardedAdLoadCallback(
+      adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
-          _rewardedAd = ad;
-          _isRewardedLoaded = true;
+          _interstitialAd = ad;
+          _isInterstitialLoaded = true;
+          ad.fullScreenContentCallback = FullScreenContentCallback(
+            onAdDismissedFullScreenContent: (ad) {
+              ad.dispose();
+              _loadInterstitialAd();
+            },
+            onAdFailedToShowFullScreenContent: (ad, error) {
+              ad.dispose();
+              _loadInterstitialAd();
+            },
+          );
         },
         onAdFailedToLoad: (error) {
-          _rewardedAd = null;
-          _isRewardedLoaded = false;
+          _interstitialAd = null;
+          _isInterstitialLoaded = false;
         },
       ),
     );
   }
 
-  void _showRewardedAd(Function rewardedAction) {
-    if (_isRewardedLoaded && _rewardedAd != null) {
-      _rewardedAd!.show(onUserEarnedReward: (_, reward) {
-        rewardedAction();
-      });
-
-      _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
-        onAdDismissedFullScreenContent: (ad) {
-          ad.dispose();
-          _loadRewardedAd();
-        },
-        onAdFailedToShowFullScreenContent: (ad, error) {
-          ad.dispose();
-          _loadRewardedAd();
-        },
-      );
-
-      _rewardedAd = null;
-      _isRewardedLoaded = false;
+  void _showInterstitialAd(Function actionAfterAd) {
+    if (_isInterstitialLoaded && _interstitialAd != null) {
+      _interstitialAd!.show();
+      actionAfterAd();
+    } else {
+      actionAfterAd();
     }
   }
 
-  // BANNER AD
   void _loadBannerAd() {
     _bannerAd = BannerAd(
       adUnitId: 'ca-app-pub-3940256099942544/6300978111',
@@ -96,12 +102,12 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
     )..load();
   }
 
-  // Fetch Cast
+  // -------------------- API Fetch --------------------
   Future<void> fetchCast() async {
     try {
       final movieId = widget.movie['id'];
-      final response = await http.get(
-          Uri.parse('$baseUrl/movie/$movieId/credits?api_key=$apiKey'));
+      final response = await http
+          .get(Uri.parse('$baseUrl/movie/$movieId/credits?api_key=$apiKey'));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         setState(() {
@@ -118,7 +124,6 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
     }
   }
 
-  // Fetch Similar Movies
   Future<void> fetchSimilarMovies() async {
     try {
       final movieId = widget.movie['id'];
@@ -140,6 +145,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
     }
   }
 
+  // -------------------- Helpers --------------------
   Widget buildImage(String? url, {double? width, double? height, BoxFit? fit}) {
     if (url == null || url.isEmpty) {
       return Container(
@@ -166,6 +172,36 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
     );
   }
 
+  String _getYearFromDate(String? date) {
+    if (date == null || date.isEmpty) return 'Unknown';
+    try {
+      return DateTime.parse(date).year.toString();
+    } catch (_) {
+      return 'Unknown';
+    }
+  }
+
+  Future<String?> fetchTrailerUrl(int movieId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/movie/$movieId/videos?api_key=$apiKey'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final results = data['results'] as List<dynamic>?;
+        if (results != null && results.isNotEmpty) {
+          final trailer = results.firstWhere(
+              (v) => v['site'] == 'YouTube' && v['type'] == 'Trailer',
+              orElse: () => null);
+          if (trailer != null) {
+            return 'https://www.youtube.com/watch?v=${trailer['key']}';
+          }
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  // -------------------- Build --------------------
   @override
   Widget build(BuildContext context) {
     final movie = widget.movie;
@@ -181,8 +217,9 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
-      bottomNavigationBar:
-          _bannerAd != null ? SizedBox(height: 50, child: AdWidget(ad: _bannerAd!)) : null,
+      bottomNavigationBar: _bannerAd != null
+          ? SizedBox(height: 50, child: AdWidget(ad: _bannerAd!))
+          : null,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
@@ -203,6 +240,30 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
               ),
               onPressed: () => Navigator.pop(context),
             ),
+            actions: [
+              IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    MyList().contains(movie['id'])
+                        ? Icons.bookmark
+                        : Icons.bookmark_border,
+                    color: MyList().contains(movie['id'])
+                        ? const Color(0xFFE50914)
+                        : Colors.white,
+                    size: 22,
+                  ),
+                ),
+                onPressed: () {
+                  MyList().toggle(movie['id']);
+                  setState(() {});
+                },
+              ),
+            ],
           ),
           SliverToBoxAdapter(
             child: Padding(
@@ -212,7 +273,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
                 children: [
                   _buildHeaderSection(posterUrl, movie, rating, year, duration),
                   const SizedBox(height: 24),
-                  _buildTrailersSection(),
+                  _buildTrailersSection(movie),
                   const SizedBox(height: 24),
                   _buildOverview(movie),
                   const SizedBox(height: 24),
@@ -228,14 +289,16 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
     );
   }
 
-  Widget _buildHeaderSection(
-      String? posterUrl, Map<String, dynamic> movie, double rating, String year, String duration) {
+  // -------------------- Sections --------------------
+  Widget _buildHeaderSection(String? posterUrl, Map<String, dynamic> movie,
+      double rating, String year, String duration) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(20),
-          child: buildImage(posterUrl, width: 120, height: 180, fit: BoxFit.cover),
+          child:
+              buildImage(posterUrl, width: 120, height: 180, fit: BoxFit.cover),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -284,6 +347,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
                   ],
                 ),
               ],
+              const SizedBox(height: 12),
             ],
           ),
         ),
@@ -291,7 +355,8 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
     );
   }
 
-  Widget _buildTrailersSection() {
+  // -------------------- Trailers & Downloads --------------------
+  Widget _buildTrailersSection(Map<String, dynamic> movie) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -305,7 +370,8 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Color(0xFF00D4FF).withOpacity(0.3), width: 1),
+        border: Border.all(
+            color: Color(0xFF00D4FF).withOpacity(0.3), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -318,14 +384,19 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
           const SizedBox(height: 15),
           Row(
             children: [
+              // Watch Trailer Button
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    _showRewardedAd(() {
-                      // Play Trailer Action
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text("Reward Granted: Trailer Unlocked")),
+                  onPressed: () async {
+                    _showInterstitialAd(() async {
+                      final trailerUrl =
+                          await fetchTrailerUrl(movie['id']) ??
+                              'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) =>
+                                VideoPlayerScreen(videoUrl: trailerUrl)),
                       );
                     });
                   },
@@ -345,28 +416,18 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
                 ),
               ),
               const SizedBox(width: 12),
+              // Download Button with Status
               Expanded(
-                child: ElevatedButton(
-                  onPressed: () {
-                    _showRewardedAd(() {
-                      // Download Action
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text("Reward Granted: Download Started")),
-                      );
-                    });
+                child: StreamBuilder<Map<int, DownloadItem>>(
+                  stream: _downloadService.downloadsStream,
+                  builder: (context, snapshot) {
+                    final downloads = snapshot.data ?? {};
+                    final download = downloads[movie['id']];
+                    final status = download?.status ?? DownloadStatus.idle;
+                    final progress = download?.progress ?? 0.0;
+
+                    return _buildDownloadButton(movie, status, progress);
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A1A1A),
-                    side: const BorderSide(color: Color(0xFF00D4FF), width: 2),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: const Text('Download Now',
-                      style: TextStyle(
-                          color: Color(0xFF00D4FF),
-                          fontWeight: FontWeight.w700)),
                 ),
               ),
             ],
@@ -376,9 +437,95 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
     );
   }
 
+  /// Build download button with different states
+  Widget _buildDownloadButton(Map<String, dynamic> movie, DownloadStatus status, double progress) {
+    IconData icon = Icons.download_rounded;
+    String label = 'Download Now';
+    VoidCallback? onPressed;
+    Color buttonColor = const Color(0xFF00D4FF);
+
+    switch (status) {
+      case DownloadStatus.idle:
+        icon = Icons.download_rounded;
+        label = 'Download Now';
+        onPressed = () => _startDownload(movie);
+        break;
+      case DownloadStatus.downloading:
+        icon = Icons.pause_rounded;
+        label = '${(progress * 100).toStringAsFixed(0)}%';
+        onPressed = () => _pauseDownload(movie['id']);
+        buttonColor = Colors.orange;
+        break;
+      case DownloadStatus.paused:
+        icon = Icons.play_arrow_rounded;
+        label = 'Resume';
+        onPressed = () => _resumeDownload(movie['id']);
+        buttonColor = Colors.orange;
+        break;
+      case DownloadStatus.completed:
+        icon = Icons.check_rounded;
+        label = 'Downloaded';
+        onPressed = null; // Disable for downloaded items
+        buttonColor = Colors.green;
+        break;
+      case DownloadStatus.failed:
+        icon = Icons.error_rounded;
+        label = 'Retry';
+        onPressed = () => _startDownload(movie);
+        buttonColor = Colors.red;
+        break;
+    }
+
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, color: buttonColor),
+      label: Text(label,
+          style: TextStyle(
+              color: buttonColor,
+              fontWeight: FontWeight.w700)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF1A1A1A),
+        side: BorderSide(color: buttonColor, width: 2),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15)),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+      ),
+    );
+  }
+
+  /// Start download with API integration
+  void _startDownload(Map<String, dynamic> movie) {
+    _showInterstitialAd(() {
+      _downloadService.downloadMovie(
+        movieId: movie['id'],
+        movieTitle: movie['title'] ?? 'Unknown',
+        posterPath: movie['poster_path'],
+        // TODO: Your friend's API will provide the download URL
+        // downloadUrl: 'https://your-api.com/download?movieId=${movie['id']}',
+      );
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Downloading: ${movie['title']}'),
+          backgroundColor: const Color(0xFF00D4FF),
+        ),
+      );
+    });
+  }
+
+  /// Pause download
+  void _pauseDownload(int movieId) {
+    _downloadService.pauseDownload(movieId);
+  }
+
+  /// Resume download
+  void _resumeDownload(int movieId) {
+    _downloadService.resumeDownload(movieId);
+  }
+
+  // -------------------- Overview --------------------
   Widget _buildOverview(Map<String, dynamic> movie) {
-    if (movie['overview'] == null ||
-        (movie['overview'] as String).isEmpty) {
+    if (movie['overview'] == null || (movie['overview'] as String).isEmpty) {
       return const SizedBox();
     }
     return Column(
@@ -386,7 +533,9 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
       children: [
         const Text('Overview',
             style: TextStyle(
-                color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         Text(movie['overview'],
             style: const TextStyle(color: Colors.white70, fontSize: 14)),
@@ -394,7 +543,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
     );
   }
 
-  // CAST Section with Title
+  // -------------------- Cast --------------------
   Widget _buildCastSection() {
     if (isLoadingCast) {
       return const SizedBox(
@@ -403,12 +552,14 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
               child: CircularProgressIndicator(color: Color(0xFF00D4FF))));
     }
     if (cast.isEmpty) return const SizedBox();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text("Cast",
-            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+            style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         SizedBox(
           height: 160,
@@ -420,7 +571,6 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
               final profileUrl = person['profile_path'] != null
                   ? '$profileBase${person['profile_path']}'
                   : null;
-
               return Container(
                 width: 100,
                 margin: const EdgeInsets.symmetric(horizontal: 5),
@@ -452,8 +602,8 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
                         maxLines: 2,
                         textAlign: TextAlign.center,
                         overflow: TextOverflow.ellipsis,
-                        style:
-                            const TextStyle(color: Colors.white54, fontSize: 10),
+                        style: const TextStyle(
+                            color: Colors.white54, fontSize: 10),
                       ),
                     ),
                   ],
@@ -466,7 +616,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
     );
   }
 
-  // SIMILAR MOVIES Section
+  // -------------------- Similar Movies --------------------
   Widget _buildSimilarMoviesSection() {
     if (isLoadingSimilar) {
       return const SizedBox(
@@ -475,15 +625,17 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
               child: CircularProgressIndicator(color: Color(0xFF00D4FF))));
     }
     if (similarMovies.isEmpty) return const SizedBox();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text("Similar Movies",
-            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+            style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         SizedBox(
-          height: 220,
+          height: 205,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: similarMovies.length,
@@ -492,40 +644,39 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
               final posterUrl = movie['poster_path'] != null
                   ? '$imageBase${movie['poster_path']}'
                   : null;
-
               return GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => MovieDetailsScreen(movie: movie)),
-                ),
+                onTap: () {
+                  _showInterstitialAd(() {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            MovieDetailsScreen(movie: movie),
+                      ),
+                    );
+                  });
+                },
                 child: Container(
-                  width: 130,
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF121212),
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: Column(
-                    children: [
-                      ClipRRect(
-                        borderRadius:
-                            const BorderRadius.vertical(top: Radius.circular(15)),
-                        child: buildImage(posterUrl,
-                            height: 170, width: 130, fit: BoxFit.cover),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: Text(
-                          movie['title'] ?? 'Unknown',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style:
-                              const TextStyle(color: Colors.white, fontSize: 12),
-                        ),
-                      ),
-                    ],
+                  margin: const EdgeInsets.only(right: 10),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: posterUrl != null
+                        ? CachedNetworkImage(
+                            imageUrl: posterUrl,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => const Center(
+                              child: CircularProgressIndicator(
+                                  color: Color(0xFF00D4FF)),
+                            ),
+                            errorWidget: (context, url, error) =>
+                                const Icon(Icons.error),
+                          )
+                        : Container(
+                            color: Colors.grey[800],
+                            child: const Center(
+                              child: Icon(Icons.image_not_supported),
+                            ),
+                          ),
                   ),
                 ),
               );
@@ -536,19 +687,4 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
     );
   }
 
-  String _getYearFromDate(String? date) {
-    if (date == null || date.isEmpty) return 'Unknown';
-    try {
-      return DateTime.parse(date).year.toString();
-    } catch (_) {
-      return 'Unknown';
-    }
-  }
-
-  @override
-  void dispose() {
-    _rewardedAd?.dispose();
-    _bannerAd?.dispose();
-    super.dispose();
-  }
 }
