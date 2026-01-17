@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'movie_details_screen.dart';
 
-const String apiKey = '30e125ca82f6e71828b3a30c47ea67c2';
+const String apiKey = '9c12c3b471405cfbfeca767fa3ea8907';
 const String baseUrl = 'https://api.themoviedb.org/3';
 const String imageBase = 'https://image.tmdb.org/t/p/w300';
 
