@@ -23,56 +23,36 @@ class _RevealSplashScreenState extends State<RevealSplashScreen>
   late Animation<double> _gradientAnimation;
   late Animation<double> _opacityAnimation;
 
-  // Responsive values
-  late double _screenWidth;
-  late double _screenHeight;
-  bool _isSmallScreen = false;
-  bool _isVerySmallScreen = false;
-
   @override
   void initState() {
     super.initState();
     _setupAnimations();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Get screen size
-    _screenWidth = MediaQuery.of(context).size.width;
-    _screenHeight = MediaQuery.of(context).size.height;
-    _isSmallScreen = _screenWidth < 360; // Phones like iPhone SE
-    _isVerySmallScreen = _screenWidth < 320; // Very small devices
-
-    // Start animations after we know screen size
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _startAnimationSequence();
-    });
+    _startAnimationSequence();
   }
 
   void _setupAnimations() {
     _slideController = AnimationController(
-      duration: Duration(milliseconds: _isSmallScreen ? 1500 : 1800),
+      duration: const Duration(milliseconds: 1800),
       vsync: this,
     );
 
     _revealController = AnimationController(
-      duration: Duration(milliseconds: _isSmallScreen ? 1500 : 2000),
+      duration: const Duration(milliseconds: 2000),
       vsync: this,
     );
 
     _glowController = AnimationController(
-      duration: Duration(milliseconds: _isSmallScreen ? 1200 : 1500),
+      duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
 
     _particleController = AnimationController(
-      duration: Duration(milliseconds: _isSmallScreen ? 2000 : 2500),
+      duration: const Duration(milliseconds: 2500),
       vsync: this,
     );
 
     _gradientController = AnimationController(
-      duration: Duration(milliseconds: _isSmallScreen ? 2500 : 3000),
+      duration: const Duration(milliseconds: 3000),
       vsync: this,
     );
 
@@ -125,21 +105,20 @@ class _RevealSplashScreenState extends State<RevealSplashScreen>
   void _startAnimationSequence() {
     try {
       _slideController.forward().whenComplete(() {
-        Future.delayed(Duration(milliseconds: _isSmallScreen ? 150 : 200), () {
+        Future.delayed(const Duration(milliseconds: 200), () {
           _revealController.forward();
         });
 
-        Future.delayed(Duration(milliseconds: _isSmallScreen ? 300 : 400), () {
+        Future.delayed(const Duration(milliseconds: 400), () {
           _glowController.forward();
         });
 
-        Future.delayed(Duration(milliseconds: _isSmallScreen ? 450 : 600), () {
+        Future.delayed(const Duration(milliseconds: 600), () {
           _particleController.forward();
           _gradientController.forward();
         });
 
-        Future.delayed(Duration(milliseconds: _isSmallScreen ? 3000 : 3500),
-            () {
+        Future.delayed(const Duration(milliseconds: 3500), () {
           if (mounted) {
             _navigateToMainScreen();
           }
@@ -172,7 +151,7 @@ class _RevealSplashScreenState extends State<RevealSplashScreen>
             child: child,
           );
         },
-        transitionDuration: Duration(milliseconds: _isSmallScreen ? 600 : 800),
+        transitionDuration: const Duration(milliseconds: 800),
       ),
     );
   }
@@ -210,7 +189,6 @@ class _RevealSplashScreenState extends State<RevealSplashScreen>
       backgroundColor: const Color(0xFF0D0D0D),
       body: Stack(
         children: [
-          // Responsive gradient background
           AnimatedBuilder(
             animation: _gradientController,
             builder: (context, child) {
@@ -218,13 +196,11 @@ class _RevealSplashScreenState extends State<RevealSplashScreen>
                 decoration: BoxDecoration(
                   gradient: RadialGradient(
                     center: Alignment.center,
-                    radius: 1.2 +
-                        (_gradientAnimation.value *
-                            0.5), // Smaller radius for small screens
+                    radius: 1.5 + (_gradientAnimation.value * 0.5),
                     colors: [
-                      const Color(0xFFFF005C).withOpacity(0.3),
-                      const Color(0xFF9C27B0).withOpacity(0.2),
-                      const Color(0xFF00D4FF).withOpacity(0.1),
+                      const Color(0xFFFF005C).withOpacity(0.3).withValues(), // FIXED: Added .withValues()
+                      const Color(0xFF9C27B0).withOpacity(0.2).withValues(), // FIXED: Added .withValues()
+                      const Color(0xFF00D4FF).withOpacity(0.1).withValues(), // FIXED: Added .withValues()
                       const Color(0xFF0D0D0D),
                     ],
                     stops: const [0.0, 0.3, 0.6, 1.0],
@@ -238,18 +214,15 @@ class _RevealSplashScreenState extends State<RevealSplashScreen>
             child: SlideTransition(
               position: _slideAnimation,
               child: Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: _isVerySmallScreen ? 16 : 32,
-                  vertical: _isVerySmallScreen ? 12 : 24,
-                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
                 child: _buildMainContent(),
               ),
             ),
           ),
-          // Responsive skip button
           Positioned(
-            top: _isSmallScreen ? 40 : 60,
-            right: _isSmallScreen ? 20 : 30,
+            top: 60,
+            right: 30,
             child: AnimatedBuilder(
               animation: _revealController,
               builder: (context, child) {
@@ -258,21 +231,80 @@ class _RevealSplashScreenState extends State<RevealSplashScreen>
                   child: TextButton(
                     onPressed: _skipToMainScreen,
                     style: TextButton.styleFrom(
-                      foregroundColor: Colors.white.withOpacity(0.7),
-                      padding: EdgeInsets.symmetric(
-                        horizontal: _isSmallScreen ? 12 : 16,
-                        vertical: _isSmallScreen ? 6 : 8,
-                      ),
+                      foregroundColor: Colors.white.withOpacity(0.7).withValues(), // FIXED: Added .withValues()
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                     ),
                     child: Text(
                       'SKIP',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
-                        fontSize: _isSmallScreen ? 10 : 12,
-                        letterSpacing: 1.2,
+                        color: Colors.white.withOpacity(0.7).withValues(), // FIXED: Added .withValues()
+                        fontSize: 12,
+                        letterSpacing: 1.5,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
+                  ),
+                );
+              },
+            ),
+          ),
+          Positioned(
+            bottom: 80,
+            left: 0,
+            right: 0,
+            child: AnimatedBuilder(
+              animation: _revealController,
+              builder: (context, child) {
+                double progress =
+                    (_revealController.value * 100).clamp(0.0, 100.0);
+
+                return Opacity(
+                  opacity: _revealController.value > 0.5 ? 1.0 : 0.0,
+                  child: Column(
+                    children: [
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          SizedBox(
+                            width: 40,
+                            height: 40,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 3,
+                              value: _revealController.value,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                const Color(0xFF00D4FF).withOpacity(0.8).withValues(), // FIXED: Added .withValues()
+                              ),
+                              backgroundColor: Colors.white.withOpacity(0.1).withValues(), // FIXED: Added .withValues()
+                            ),
+                          ),
+                          Text(
+                            '${progress.toInt()}%',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.8).withValues(), // FIXED: Added .withValues()
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      AnimatedBuilder(
+                        animation: _glowController,
+                        builder: (context, child) {
+                          return Text(
+                            'Crafting Your Cinematic Experience...',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(
+                                  0.7 + (_glowAnimation.value * 0.3)).withValues(), // FIXED: Added .withValues()
+                              fontSize: 14,
+                              fontWeight: FontWeight.w300,
+                              letterSpacing: 1.2,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 );
               },
@@ -287,39 +319,27 @@ class _RevealSplashScreenState extends State<RevealSplashScreen>
     return Stack(
       alignment: Alignment.center,
       children: [
-        // Responsive glow effect
         AnimatedBuilder(
           animation: _glowController,
           builder: (context, child) {
-            final baseWidth =
-                _isVerySmallScreen ? 240 : (_isSmallScreen ? 280 : 300);
-            final baseHeight =
-                _isVerySmallScreen ? 160 : (_isSmallScreen ? 180 : 200);
-
             return Container(
-              width: baseWidth +
-                  (_glowAnimation.value * (_isSmallScreen ? 80 : 100)),
-              height: baseHeight +
-                  (_glowAnimation.value * (_isSmallScreen ? 40 : 50)),
+              width: 300 + (_glowAnimation.value * 100),
+              height: 200 + (_glowAnimation.value * 50),
               decoration: BoxDecoration(
                 shape: BoxShape.rectangle,
-                borderRadius: BorderRadius.circular(_isSmallScreen ? 30 : 40),
+                borderRadius: BorderRadius.circular(40),
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFFFF005C)
-                        .withOpacity(_glowAnimation.value * 0.3),
-                    blurRadius: (_isSmallScreen ? 40 : 60) +
-                        (_glowAnimation.value * (_isSmallScreen ? 30 : 40)),
-                    spreadRadius: (_isSmallScreen ? 8 : 10) +
-                        (_glowAnimation.value * (_isSmallScreen ? 15 : 20)),
+                        .withOpacity(_glowAnimation.value * 0.3).withValues(), // FIXED: Added .withValues()
+                    blurRadius: 60 + (_glowAnimation.value * 40),
+                    spreadRadius: 10 + (_glowAnimation.value * 20),
                   ),
                   BoxShadow(
                     color: const Color(0xFF00D4FF)
-                        .withOpacity(_glowAnimation.value * 0.2),
-                    blurRadius: (_isSmallScreen ? 30 : 40) +
-                        (_glowAnimation.value * (_isSmallScreen ? 25 : 30)),
-                    spreadRadius: (_isSmallScreen ? 4 : 5) +
-                        (_glowAnimation.value * (_isSmallScreen ? 12 : 15)),
+                        .withOpacity(_glowAnimation.value * 0.2).withValues(), // FIXED: Added .withValues()
+                    blurRadius: 40 + (_glowAnimation.value * 30),
+                    spreadRadius: 5 + (_glowAnimation.value * 15),
                   ),
                 ],
               ),
@@ -327,39 +347,57 @@ class _RevealSplashScreenState extends State<RevealSplashScreen>
           },
         ),
         _buildTextWithReveal(),
+        Positioned(
+          top: 20,
+          right: 20,
+          child: AnimatedBuilder(
+            animation: _revealController,
+            builder: (context, child) {
+              return Transform.translate(
+                offset: Offset(0, 20 * (1 - _revealAnimation.value)),
+                child: Opacity(
+                  opacity: _revealAnimation.value,
+                  child: Transform.rotate(
+                    angle: _revealAnimation.value * 0.3,
+                    child: Icon(
+                      Icons.play_circle_fill_rounded,
+                      color: const Color(0xFF00D4FF),
+                      size: 36,
+                      shadows: [
+                        Shadow(
+                          blurRadius: 15,
+                          color: const Color(0xFF00D4FF).withOpacity(0.6).withValues(), // FIXED: Added .withValues()
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
       ],
     );
   }
-
   Widget _buildTextWithReveal() {
     const String mainText = "FLIXORA X\nCINEMA";
     const String subtitle = "Ultimate Cinematic Experience";
-
-    // Responsive font sizes
-    final mainFontSize = _isVerySmallScreen ? 32 : (_isSmallScreen ? 36 : 42);
-    final subtitleFontSize =
-        _isVerySmallScreen ? 12 : (_isSmallScreen ? 14 : 16);
-    final mainLetterSpacing = _isSmallScreen ? 2.0 : 3.0;
-    final subtitleLetterSpacing = _isSmallScreen ? 1.5 : 2.0;
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Stack(
           children: [
-            // Background text
             Text(
               mainText,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.05),
-                fontSize: mainFontSize.toDouble(),
+                color: Colors.white.withOpacity(0.05).withValues(), // FIXED: Added .withValues()
+                fontSize: 42,
                 fontWeight: FontWeight.w900,
-                letterSpacing: mainLetterSpacing,
+                letterSpacing: 3,
                 height: 1.2,
               ),
             ),
-            // Animated reveal text
             AnimatedBuilder(
               animation: _revealController,
               builder: (context, child) {
@@ -381,10 +419,10 @@ class _RevealSplashScreenState extends State<RevealSplashScreen>
                     child: Text(
                       mainText,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: mainFontSize.toDouble(),
+                      style: const TextStyle(
+                        fontSize: 42,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: mainLetterSpacing,
+                        letterSpacing: 3,
                         height: 1.2,
                         color: Colors.white,
                       ),
@@ -395,7 +433,7 @@ class _RevealSplashScreenState extends State<RevealSplashScreen>
             ),
           ],
         ),
-        SizedBox(height: _isSmallScreen ? 12 : 16),
+        const SizedBox(height: 16),
         AnimatedBuilder(
           animation: _opacityAnimation,
           builder: (context, child) {
@@ -405,10 +443,10 @@ class _RevealSplashScreenState extends State<RevealSplashScreen>
                 subtitle,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
-                  fontSize: subtitleFontSize.toDouble(),
+                  color: Colors.white.withOpacity(0.8).withValues(), // FIXED: Added .withValues()
+                  fontSize: 16,
                   fontWeight: FontWeight.w300,
-                  letterSpacing: subtitleLetterSpacing,
+                  letterSpacing: 2,
                 ),
               ),
             );
@@ -423,66 +461,63 @@ class _RevealSplashScreenState extends State<RevealSplashScreen>
       animation: _particleController,
       builder: (context, child) {
         return Stack(
-          children: List.generate(_isSmallScreen ? 8 : 12, (index) {
-            double delay = (index / (_isSmallScreen ? 8 : 12)) * 0.8;
-            double animationValue =
-                (_particleAnimation.value - delay).clamp(0.0, 1.0);
-
-            // Responsive particle positioning
-            double left =
-                (_screenWidth * 0.1) + (index * (_isSmallScreen ? 25 : 30));
-            double top = (_screenHeight * 0.2) +
-                (index % (_isSmallScreen ? 3 : 4) * (_isSmallScreen ? 50 : 60));
-
-            List<Color> particleColors = [
-              const Color(0xFFFF005C),
-              const Color(0xFF00D4FF),
-              const Color(0xFF9C27B0),
-              const Color(0xFF00FF88),
-            ];
-
-            Color color = particleColors[index % particleColors.length];
-
-            return Positioned(
-              left: left,
-              top: top,
-              child: Opacity(
-                opacity: animationValue * 0.8,
-                child: Transform.translate(
-                  offset: Offset(
-                      0, (_isSmallScreen ? 30 : 40) * (1 - animationValue)),
-                  child: Transform.scale(
-                    scale: 0.3 + (animationValue * 0.7),
-                    child: Container(
-                      width: (_isSmallScreen ? 3 : 4) +
-                          (animationValue * (_isSmallScreen ? 6 : 8)),
-                      height: (_isSmallScreen ? 3 : 4) +
-                          (animationValue * (_isSmallScreen ? 6 : 8)),
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: color.withOpacity(0.6),
-                            blurRadius: (_isSmallScreen ? 8 : 10) +
-                                (animationValue * (_isSmallScreen ? 15 : 20)),
-                            spreadRadius:
-                                1 + (animationValue * (_isSmallScreen ? 3 : 4)),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
+          children: List.generate(12, (index) {
+            return _buildAdvancedParticle(index: index, totalParticles: 12);
           }),
         );
       },
     );
   }
-}
 
+  Widget _buildAdvancedParticle(
+      {required int index, required int totalParticles}) {
+    double delay = (index / totalParticles) * 0.8;
+    double animationValue = (_particleAnimation.value - delay).clamp(0.0, 1.0);
+
+    double left = (MediaQuery.of(context).size.width * 0.1) +
+        (index * MediaQuery.of(context).size.width * 0.08);
+    double top = (MediaQuery.of(context).size.height * 0.2) +
+        (index % 4 * MediaQuery.of(context).size.height * 0.2);
+
+    List<Color> particleColors = [
+      const Color(0xFFFF005C),
+      const Color(0xFF00D4FF),
+      const Color(0xFF9C27B0),
+      const Color(0xFF00FF88),
+    ];
+
+    Color color = particleColors[index % particleColors.length];
+
+    return Positioned(
+      left: left,
+      top: top,
+      child: Opacity(
+        opacity: animationValue * 0.8,
+        child: Transform.translate(
+          offset: Offset(0, 40 * (1 - animationValue)),
+          child: Transform.scale(
+            scale: 0.3 + (animationValue * 0.7),
+            child: Container(
+              width: 4 + (animationValue * 8),
+              height: 4 + (animationValue * 8),
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withOpacity(0.6).withValues(), // FIXED: Added .withValues()
+                    blurRadius: 10 + (animationValue * 20),
+                    spreadRadius: 1 + (animationValue * 4),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 class _RevealClipper extends CustomClipper<Path> {
   final double revealPercent;
 

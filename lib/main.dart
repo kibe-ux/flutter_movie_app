@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'screens/reveal_splash_screen.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'utils/my_list.dart'; // Import the MyList class
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,7 +24,10 @@ void main() async {
   }
 
   // Initialize Google Mobile Ads
-  MobileAds.instance.initialize();
+  await MobileAds.instance.initialize();
+
+  // Initialize MyList (add this line)
+  await MyList().init();
 
   runApp(const FlixoraApp());
 }
