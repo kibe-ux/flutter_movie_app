@@ -1,44 +1,100 @@
-// utils/my_list.dart
+// TODO Implement this library.
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// Singleton class to manage "My List" movies/TV shows across the app.
 class MyList {
-  // Private constructor
   MyList._internal();
-
-  // Single instance
   static final MyList _instance = MyList._internal();
-
-  // Factory constructor
   factory MyList() => _instance;
-
-  // Set to store IDs of movies/TV shows in My List
+  static const String _storageKey = 'my_list_ids';
   final Set<int> _ids = {};
+  bool _initialized = false;
+  Timer? _saveTimer;
+  Completer<void>? _currentSave;
 
-  /// Adds an item to My List
+  /// Call ONCE at app start (in main.dart)
+  Future<void> init() async {
+    if (_initialized) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getStringList(_storageKey) ?? [];
+      _ids
+        ..clear()
+        ..addAll(
+          stored.map((e) => int.tryParse(e)).whereType<int>(),
+        );
+    } catch (e) {
+      debugPrint('Failed to load MyList: $e');
+      _ids.clear();
+    }
+    _initialized = true;
+  }
+
+  Future<void> _persist() async {
+    _saveTimer?.cancel();
+    _currentSave?.complete();
+    _currentSave = Completer<void>();
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (_currentSave != null && !_currentSave!.isCompleted) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setStringList(
+          _storageKey,
+          _ids.map((e) => e.toString()).toList(),
+        );
+        _currentSave?.complete();
+      } catch (e) {
+        debugPrint('Failed to save MyList: $e');
+        _currentSave?.completeError(e);
+      } finally {
+        _currentSave = null;
+      }
+    }
+  }
+
   void add(int id) {
-    _ids.add(id);
+    if (!_initialized) return;
+    if (_ids.add(id)) _persist();
   }
 
-  /// Removes an item from My List
   void remove(int id) {
-    _ids.remove(id);
+    if (!_initialized) return;
+    if (_ids.remove(id)) _persist();
   }
 
-  /// Toggles an item: adds if not exists, removes if exists
   void toggle(int id) {
+    if (!_initialized) return;
     if (_ids.contains(id)) {
       _ids.remove(id);
     } else {
       _ids.add(id);
     }
+    _persist();
   }
 
-  /// Checks if an item is in My List
+  Future<void> toggleAndWait(int id) async {
+    if (!_initialized) return;
+    final wasInList = _ids.contains(id);
+    if (wasInList) {
+      _ids.remove(id);
+    } else {
+      _ids.add(id);
+    }
+    await _persist();
+  }
+
   bool contains(int id) => _ids.contains(id);
+  Set<int> get all => Set<int>.from(_ids);
+  Future<void> clear() async {
+    if (!_initialized) return;
+    _ids.clear();
+    await _persist();
+  }
 
-  /// Returns all IDs in My List
-  Set<int> get all => _ids;
+  bool get isInitialized => _initialized;
+  @override
+  String toString() => 'MyList(${_ids.length} items)';
 
-  /// Clears the entire My List
-  void clear() => _ids.clear();
+  Future<void> ensureInitialized() async {}
 }

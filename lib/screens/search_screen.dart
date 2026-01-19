@@ -5,7 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'movie_details_screen.dart';
 import '../utils/my_list.dart';
-const String apiKey = '9c12c3b471405cfbfeca767fa3ea8907';
+
+final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '9c12c3b471405cfbfeca767fa3ea8907';
 const String baseUrl = 'https://api.themoviedb.org/3';
 const String imageBase = 'https://image.tmdb.org/t/p/w500';
 
