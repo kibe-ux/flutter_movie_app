@@ -3,10 +3,12 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'screens/reveal_splash_screen.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'utils/my_list.dart'; // Import the MyList class
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   
   // Load environment variables from .env file
   try {

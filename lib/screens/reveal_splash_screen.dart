@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'main_screen.dart';
 
 class RevealSplashScreen extends StatefulWidget {
@@ -28,6 +29,7 @@ class _RevealSplashScreenState extends State<RevealSplashScreen>
     super.initState();
     _setupAnimations();
     _startAnimationSequence();
+    FlutterNativeSplash.remove();
   }
 
   void _setupAnimations() {
