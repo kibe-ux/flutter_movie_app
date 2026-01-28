@@ -7,10 +7,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../utils/my_list.dart';
+import '../services/ad_service.dart';
 import '../services/download_service.dart';
 import 'video_player_screen.dart';
+import '../widgets/safe_network_image.dart';
 
-final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '9c12c3b471405cfbfeca767fa3ea8907';
+final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '';
 const String baseUrl = 'https://api.themoviedb.org/3';
 const String imageBase = 'https://image.tmdb.org/t/p/w500';
 const String backdropBase = 'https://image.tmdb.org/t/p/w780';
@@ -54,7 +56,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
   // -------------------- Ads --------------------
   void _loadInterstitialAd() {
     InterstitialAd.load(
-      adUnitId: 'ca-app-pub-3940256099942544/1033173712',
+      adUnitId: AdService().interstitialAdUnitId,
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
@@ -81,8 +83,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
 
   void _showInterstitialAd(Function actionAfterAd) {
     if (_isInterstitialLoaded && _interstitialAd != null) {
-      _interstitialAd!.show();
-      actionAfterAd();
+      AdService().showInterstitial(_interstitialAd, actionAfterAd);
     } else {
       actionAfterAd();
     }
@@ -90,7 +91,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
 
   void _loadBannerAd() {
     _bannerAd = BannerAd(
-      adUnitId: 'ca-app-pub-3940256099942544/6300978111',
+      adUnitId: AdService().bannerAdUnitId,
       size: AdSize.banner,
       request: const AdRequest(),
       listener: BannerAdListener(
@@ -146,29 +147,13 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
   }
 
   // -------------------- Helpers --------------------
-  Widget buildImage(String? url, {double? width, double? height, BoxFit? fit}) {
-    if (url == null || url.isEmpty) {
-      return Container(
-        width: width,
-        height: height,
-        color: const Color(0xFF1A1A1A),
-        child: const Icon(Icons.image_not_supported, color: Colors.white38),
-      );
-    }
-    return CachedNetworkImage(
+  Widget buildImage(String? url, {double? width, double? height, BoxFit? fit, BorderRadius? borderRadius}) {
+    return SafeNetworkImage(
       imageUrl: url,
       width: width,
       height: height,
       fit: fit ?? BoxFit.cover,
-      placeholder: (context, url) => Container(
-        color: const Color(0xFF1A1A1A),
-        child: const Center(
-            child: CircularProgressIndicator(color: Color(0xFF00D4FF))),
-      ),
-      errorWidget: (context, url, error) => Container(
-        color: const Color(0xFF1A1A1A),
-        child: const Icon(Icons.broken_image, color: Colors.white38),
-      ),
+      borderRadius: borderRadius,
     );
   }
 

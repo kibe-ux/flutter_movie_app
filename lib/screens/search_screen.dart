@@ -3,16 +3,17 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'movie_details_screen.dart';
 import '../utils/my_list.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../widgets/safe_network_image.dart';
 
-final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '9c12c3b471405cfbfeca767fa3ea8907';
+final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '';
 const String baseUrl = 'https://api.themoviedb.org/3';
 const String imageBase = 'https://image.tmdb.org/t/p/w500';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key, required Set<int> myListIds});
+  const SearchScreen({super.key});
   @override
   State<SearchScreen> createState() => _SearchScreenState();
 }
@@ -131,24 +132,12 @@ class _SearchScreenState extends State<SearchScreen> {
           children: [
             Stack(
               children: [
-                Container(
-                  width: 70,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    image: imageUrl != null
-                        ? DecorationImage(
-                            image: CachedNetworkImageProvider(imageUrl),
-                            fit: BoxFit.cover,
-                          )
-                        : null,
-                    color: const Color(0xFF2A2A2A),
-                  ),
-                  child: imageUrl == null
-                      ? const Icon(Icons.movie_rounded,
-                          color: Colors.white38, size: 30)
-                      : null,
-                ),
+            SafeNetworkImage(
+              imageUrl: imageUrl,
+              width: 70,
+              height: 100,
+              borderRadius: BorderRadius.circular(12),
+            ),
                 Positioned(
                   top: 4,
                   right: 4,

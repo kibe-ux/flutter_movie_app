@@ -4,75 +4,14 @@ import 'package:http/http.dart' as http;
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'movie_details_screen.dart';
-import '../utils/my_list.dart'; // ADD THIS IMPORT
+import '../utils/my_list.dart';
+import '../services/ad_service.dart';
 
-final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '9c12c3b471405cfbfeca767fa3ea8907';
+final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '';
 const String baseUrl = 'https://api.themoviedb.org/3';
 const String imageBase = 'https://image.tmdb.org/t/p/w500';
 
-// Safe Network Image
-class SafeNetworkImage extends StatelessWidget {
-  final String? imageUrl;
-  final double? width;
-  final double? height;
-  final BoxFit fit;
-
-  const SafeNetworkImage({
-    super.key,
-    required this.imageUrl,
-    this.width,
-    this.height,
-    this.fit = BoxFit.cover,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (imageUrl == null || imageUrl!.isEmpty) {
-      return Container(
-        width: width,
-        height: height,
-        color: Colors.grey[850],
-        child: const Center(
-          child: Icon(Icons.movie_rounded, color: Colors.white54, size: 40),
-        ),
-      );
-    }
-
-    return Image.network(
-      imageUrl!,
-      width: width,
-      height: height,
-      fit: fit,
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) return child;
-        return Container(
-          width: width,
-          height: height,
-          color: Colors.grey[850],
-          child: Center(
-            child: CircularProgressIndicator(
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded /
-                      loadingProgress.expectedTotalBytes!
-                  : null,
-              color: const Color(0xFF00D4FF),
-            ),
-          ),
-        );
-      },
-      errorBuilder: (context, error, stackTrace) {
-        return Container(
-          width: width,
-          height: height,
-          color: Colors.grey[850],
-          child: const Center(
-            child: Icon(Icons.error, color: Colors.white54, size: 40),
-          ),
-        );
-      },
-    );
-  }
-}
+import '../widgets/safe_network_image.dart';
 
 // Explore Screen
 class ExploreScreen extends StatefulWidget {
@@ -101,9 +40,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   void _initAds() {
-    MobileAds.instance.initialize();
     bannerAd = BannerAd(
-      adUnitId: 'ca-app-pub-3940256099942544/6300978111', // Test Ad
+      adUnitId: AdService().bannerAdUnitId,
       size: AdSize.banner,
       request: const AdRequest(),
       listener: BannerAdListener(
@@ -221,153 +159,159 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
-  Widget _buildMoviesGrid() {
+  Widget _buildMoviesSliverGrid() {
     if (movies.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(30),
-          child: Text(
-            'No movies found.',
-            style: TextStyle(color: Colors.white54),
+      return const SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.all(30),
+            child: Text(
+              'No movies found.',
+              style: TextStyle(color: Colors.white54),
+            ),
           ),
         ),
       );
     }
-    return GridView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: movies.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.65,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 12,
-      ),
-      itemBuilder: (context, index) {
-        final movie = movies[index];
-        final imageUrl = movie['poster_path'] != null
-            ? '$imageBase${movie['poster_path']}'
-            : null;
-        final movieId = movie['id'] ?? 0;
-        final isInMyList = MyList().contains(movieId); // UPDATED
 
-        return GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) => MovieDetailsScreen(movie: movie)),
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      sliver: SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.65,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 12,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final movie = movies[index];
+            final imageUrl = movie['poster_path'] != null
+                ? '$imageBase${movie['poster_path']}'
+                : null;
+            final movieId = movie['id'] ?? 0;
+            final isInMyList = MyList().contains(movieId);
+
+            return GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => MovieDetailsScreen(movie: movie)),
+                );
+              },
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade900,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    SafeNetworkImage(
+                      imageUrl: imageUrl,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [
+                            Colors.black.withOpacity(0.7),
+                            Colors.transparent
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 28,
+                      left: 8,
+                      right: 8,
+                      child: Text(
+                        movie['title'] ?? 'Unknown',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 4,
+                      right: 8,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            MyList().toggle(movieId);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  MyList().contains(movieId)
+                                      ? 'Added to My List'
+                                      : 'Removed from My List',
+                                ),
+                                backgroundColor: const Color(0xFFE50914),
+                                duration: const Duration(seconds: 1),
+                              ),
+                            );
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.5),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            isInMyList ? Icons.bookmark : Icons.bookmark_border,
+                            color: isInMyList
+                                ? const Color(0xFFE50914)
+                                : Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.6),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.star, color: Colors.amber, size: 12),
+                            const SizedBox(width: 2),
+                            Text(
+                              '${movie['vote_average']?.toStringAsFixed(1) ?? 'N/A'}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             );
           },
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.grey.shade900,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  SafeNetworkImage(imageUrl: imageUrl),
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                        colors: [
-                          Colors.black.withValues(alpha: 0.7),
-                          Colors.transparent
-                        ],
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 28,
-                    left: 8,
-                    right: 8,
-                    child: Text(
-                      movie['title'] ?? 'Unknown',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 4,
-                    right: 8,
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          MyList().toggle(movieId); // UPDATED
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                MyList().contains(movieId)
-                                    ? 'Added to My List'
-                                    : 'Removed from My List',
-                              ),
-                              backgroundColor: const Color(0xFFE50914),
-                              duration: const Duration(seconds: 1),
-                            ),
-                          );
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.5),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          isInMyList ? Icons.bookmark : Icons.bookmark_border,
-                          color: isInMyList
-                              ? const Color(0xFFE50914)
-                              : Colors.white,
-                          size: 22,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.star, color: Colors.amber, size: 12),
-                          const SizedBox(width: 2),
-                          Text(
-                            '${movie['vote_average']?.toStringAsFixed(1) ?? 'N/A'}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+          childCount: movies.length,
+        ),
+      ),
     );
   }
 
@@ -444,35 +388,47 @@ class _ExploreScreenState extends State<ExploreScreen> {
       body: isLoading
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF00D4FF)))
-          : SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSearchBar(),
-                  const SizedBox(height: 10),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      'Genres',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+          : RefreshIndicator(
+              onRefresh: () async {
+                await fetchGenres();
+              },
+              color: const Color(0xFF00D4FF),
+              child: CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSearchBar(),
+                        const SizedBox(height: 10),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            'Genres',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        _buildGenresSection(),
+                        const SizedBox(height: 12),
+                      ],
                     ),
                   ),
-                  _buildGenresSection(),
-                  const SizedBox(height: 12),
-                  _buildMoviesGrid(),
+                  _buildMoviesSliverGrid(),
                   if (isAdLoaded)
-                    Container(
-                      alignment: Alignment.center,
-                      margin: const EdgeInsets.symmetric(vertical: 12),
-                      width: bannerAd.size.width.toDouble(),
-                      height: bannerAd.size.height.toDouble(),
-                      child: AdWidget(ad: bannerAd),
+                    SliverToBoxAdapter(
+                      child: Container(
+                        alignment: Alignment.center,
+                        margin: const EdgeInsets.symmetric(vertical: 12),
+                        width: bannerAd.size.width.toDouble(),
+                        height: bannerAd.size.height.toDouble(),
+                        child: AdWidget(ad: bannerAd),
+                      ),
                     ),
-                  const SizedBox(height: 20),
+                  const SliverToBoxAdapter(child: SizedBox(height: 20)),
                 ],
               ),
             ),

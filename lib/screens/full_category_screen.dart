@@ -7,8 +7,10 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'movie_details_screen.dart';
 import '../utils/my_list.dart';
+import '../services/ad_service.dart';
+import '../widgets/safe_network_image.dart';
 
-final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '9c12c3b471405cfbfeca767fa3ea8907';
+final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '';
 const String baseUrl = 'https://api.themoviedb.org/3';
 const String imageBase = 'https://image.tmdb.org/t/p/w300';
 
@@ -46,7 +48,7 @@ class _FullCategoryScreenState extends State<FullCategoryScreen> {
 
   void _loadInterstitial() {
     InterstitialAd.load(
-      adUnitId: 'ca-app-pub-3940256099942544/1033173712',
+      adUnitId: AdService().interstitialAdUnitId,
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
@@ -63,15 +65,10 @@ class _FullCategoryScreenState extends State<FullCategoryScreen> {
 
   void _showInterstitial(VoidCallback onComplete) {
     if (_isInterstitialReady && _interstitialAd != null) {
-      _interstitialAd!.fullScreenContentCallback =
-          FullScreenContentCallback(onAdDismissedFullScreenContent: (_) {
-        onComplete();
-        _interstitialAd!.dispose();
-        _loadInterstitial(); // reload
-      });
-      _interstitialAd!.show();
+      AdService().showInterstitial(_interstitialAd, onComplete);
       _interstitialAd = null;
       _isInterstitialReady = false;
+      _loadInterstitial(); // reload for next time
     } else {
       onComplete();
     }
@@ -244,21 +241,9 @@ class _FullCategoryScreenState extends State<FullCategoryScreen> {
                   children: [
                     AspectRatio(
                       aspectRatio: 0.7,
-                      child: CachedNetworkImage(
+                      child: SafeNetworkImage(
                         imageUrl: poster,
                         fit: BoxFit.cover,
-                        placeholder: (context, url) =>
-                            Container(color: Colors.grey[900]),
-                        errorWidget: (context, url, error) => Container(
-                          color: Colors.grey[900],
-                          child: const Center(
-                            child: Icon(
-                              Icons.movie,
-                              color: Colors.white30,
-                              size: 30,
-                            ),
-                          ),
-                        ),
                       ),
                     ),
                     const SizedBox(height: 4),

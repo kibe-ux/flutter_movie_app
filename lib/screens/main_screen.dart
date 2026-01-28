@@ -17,8 +17,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
-  // Shared set to track "My List" items
-  final Set<int> _myListIds = {};
+  // Shared set to track "My List" items (REDUNDANT: now using MyList singleton)
 
   // Colors
   final Color _primaryColor = const Color(0xFF0D0D0D);
@@ -34,9 +33,9 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _screens = [
-      HomeScreen(myListIds: _myListIds),
-      ExploreScreen(myListIds: _myListIds),
-      SearchScreen(myListIds: _myListIds),
+      const HomeScreen(myListIds: {}), // Parameter remains but is ignored in favor of singleton
+      const ExploreScreen(myListIds: {}),
+      const SearchScreen(),
     ];
   }
 

@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'screens/reveal_splash_screen.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'services/ad_service.dart';
 import 'utils/my_list.dart'; // Import the MyList class
 
 void main() async {
@@ -25,8 +24,8 @@ void main() async {
     // Continue without Firebase if initialization fails
   }
 
-  // Initialize Google Mobile Ads
-  await MobileAds.instance.initialize();
+  // Initialize Ads with Consent Flow
+  await AdService().init();
 
   // Initialize MyList (add this line)
   await MyList().init();

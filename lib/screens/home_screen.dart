@@ -10,8 +10,10 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'movie_details_screen.dart';
 import 'full_category_screen.dart';
 import '../utils/my_list.dart';
+import '../services/ad_service.dart';
+import '../widgets/safe_network_image.dart';
 
-final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '9c12c3b471405cfbfeca767fa3ea8907';
+final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '';
 const String baseUrl = 'https://api.themoviedb.org/3';
 const String imageBase = 'https://image.tmdb.org/t/p/w300';
 const String backdropBase = 'https://image.tmdb.org/t/p/w780';
@@ -297,7 +299,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _initializeAds() {
     _bannerAd = BannerAd(
-      adUnitId: 'ca-app-pub-3940256099942544/6300978111',
+      adUnitId: AdService().bannerAdUnitId,
       size: AdSize.banner,
       request: const AdRequest(),
       listener: BannerAdListener(
@@ -324,7 +326,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _loadInterstitial() {
     InterstitialAd.load(
-      adUnitId: 'ca-app-pub-3940256099942544/1033173712',
+      adUnitId: AdService().interstitialAdUnitId,
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
@@ -510,12 +512,9 @@ class _HomeScreenState extends State<HomeScreen> {
             borderRadius: BorderRadius.circular(8),
             child: AspectRatio(
               aspectRatio: 0.75,
-              child: CachedNetworkImage(
+              child: SafeNetworkImage(
                 imageUrl: poster,
                 fit: BoxFit.cover,
-                placeholder: (context, url) => Container(color: _netflixBlack),
-                errorWidget: (context, url, error) =>
-                    Container(color: _netflixBlack),
               ),
             ),
           ),
@@ -1044,8 +1043,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (_isInterstitialReady && _interstitialAd != null) {
-      _interstitialAd!.show();
-      rewardedAction();
+      AdService().showInterstitial(_interstitialAd, rewardedAction);
     } else {
       rewardedAction();
     }
