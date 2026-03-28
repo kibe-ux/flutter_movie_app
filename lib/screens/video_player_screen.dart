@@ -1,18 +1,34 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 import 'package:video_player/video_player.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
-  final String videoUrl;
-  const VideoPlayerScreen({super.key, required this.videoUrl});
+  const VideoPlayerScreen({
+    super.key,
+    this.videoUrl,
+    this.localFilePath,
+  }) : assert(videoUrl != null || localFilePath != null);
+
+  final String? videoUrl;
+  final String? localFilePath;
 
   @override
   State<VideoPlayerScreen> createState() => _VideoPlayerScreenState();
 }
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
-  late VideoPlayerController _controller;
-  bool _isPlaying = false;
+  VideoPlayerController? _controller;
   String? _errorMessage;
+  bool _isBuffering = false;
+  double _playbackSpeed = 1.0;
+  bool _showControls = true;
+  bool _isFullscreen = false;
+
+  bool get _isPlaying => _controller?.value.isPlaying ?? false;
+  Duration get _position => _controller?.value.position ?? Duration.zero;
+  Duration get _duration => _controller?.value.duration ?? Duration.zero;
 
   @override
   void initState() {
@@ -20,74 +36,137 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _initializeVideo();
   }
 
-  void _initializeVideo() {
+  Future<void> _initializeVideo() async {
     try {
-      _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
-        ..initialize().then((_) {
-          if (mounted) {
-            setState(() {});
-            _controller.play();
-            _isPlaying = true;
-          }
-        }).catchError((error) {
-          if (mounted) {
-            setState(() {
-              _errorMessage = 'Failed to load video: ${error.toString()}';
-            });
-          }
-          debugPrint('Video initialization error: $error');
-        });
+      final controller = widget.localFilePath != null
+          ? VideoPlayerController.file(File(widget.localFilePath!))
+          : VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl!));
 
-      _controller.addListener(() {
-        if (mounted) {
-          setState(() {});
+      await controller.initialize();
+      controller.setLooping(false);
+      controller.setPlaybackSpeed(_playbackSpeed);
+
+      controller.addListener(_onControllerUpdate);
+
+      if (!mounted) return;
+      setState(() {
+        _controller = controller;
+        _errorMessage = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Failed to load video: $error';
+      });
+    }
+  }
+
+  void _onControllerUpdate() {
+    if (!mounted) return;
+
+    final controller = _controller;
+    if (controller == null) return;
+
+    final isBuffering = controller.value.isBuffering;
+    if (_isBuffering != isBuffering) {
+      setState(() => _isBuffering = isBuffering);
+    }
+
+    // Auto-hide controls after 3 seconds
+    if (_showControls && _isPlaying && !isBuffering) {
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted && _isPlaying) {
+          setState(() => _showControls = false);
         }
       });
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Invalid video URL or network error';
-        });
-      }
-      debugPrint('Video controller error: $e');
     }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
   void _togglePlay() {
-    if (_controller.value.isPlaying) {
-      _controller.pause();
-      setState(() => _isPlaying = false);
+    final controller = _controller;
+    if (controller == null) return;
+    if (controller.value.isPlaying) {
+      controller.pause();
     } else {
-      _controller.play();
-      setState(() => _isPlaying = true);
+      controller.play();
     }
+    setState(() {});
+  }
+
+  void _setPlaybackSpeed(double speed) {
+    _playbackSpeed = speed;
+    _controller?.setPlaybackSpeed(speed);
+    setState(() {});
+  }
+
+  void _seekTo(Duration position) {
+    _controller?.seekTo(position);
+  }
+
+  void _skipForward() {
+    final newPosition = _position + const Duration(seconds: 10);
+    _seekTo(newPosition);
+  }
+
+  void _skipBackward() {
+    final newPosition = _position - const Duration(seconds: 10);
+    _seekTo(newPosition);
+  }
+
+  void _toggleFullscreen() {
+    setState(() => _isFullscreen = !_isFullscreen);
+    // In a real app, you'd handle orientation changes here
+  }
+
+  void _onTapScreen() {
+    setState(() => _showControls = !_showControls);
+  }
+
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+
+    if (hours > 0) {
+      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    }
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
+      appBar: _isFullscreen
+          ? null
+          : AppBar(
+              backgroundColor: Colors.black,
+              title: Text(_title),
+            ),
+      body: GestureDetector(
+        onTap: _onTapScreen,
+        child: Center(
+          child: _errorMessage != null
+              ? _buildErrorWidget()
+              : _controller != null && _controller!.value.isInitialized
+                  ? _buildVideoPlayer()
+                  : const CircularProgressIndicator(color: Color(0xFF00D4FF)),
         ),
       ),
-      body: Center(
-        child: _errorMessage != null
-            ? _buildErrorWidget()
-            : _controller.value.isInitialized
-                ? _buildVideoPlayer()
-                : const CircularProgressIndicator(color: Color(0xFF00D4FF)),
-      ),
     );
+  }
+
+  String get _title {
+    if (widget.localFilePath != null) {
+      return p.basenameWithoutExtension(widget.localFilePath!);
+    }
+    return 'Video Player';
   }
 
   Widget _buildErrorWidget() {
@@ -104,9 +183,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         const SizedBox(height: 24),
         ElevatedButton.icon(
           onPressed: () {
-            setState(() {
-              _errorMessage = null;
-            });
+            _controller?.dispose();
+            _controller = null;
+            setState(() => _errorMessage = null);
             _initializeVideo();
           },
           icon: const Icon(Icons.refresh),
@@ -124,36 +203,135 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       alignment: Alignment.center,
       children: [
         AspectRatio(
-          aspectRatio: _controller.value.aspectRatio,
-          child: VideoPlayer(_controller),
+          aspectRatio: _controller!.value.aspectRatio,
+          child: VideoPlayer(_controller!),
         ),
-        // Play/Pause overlay
-        Positioned(
-          bottom: 30,
-          child: IconButton(
-            icon: Icon(
-              _isPlaying ? Icons.pause_circle : Icons.play_circle,
-              size: 50,
-              color: Colors.white70,
+
+        // Buffering indicator
+        if (_isBuffering)
+          const CircularProgressIndicator(color: Color(0xFF00D4FF)),
+
+        // Controls overlay
+        if (_showControls) ...[
+          // Top controls
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.black54, Colors.transparent],
+                ),
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: Icon(_isFullscreen
+                        ? Icons.fullscreen_exit
+                        : Icons.fullscreen),
+                    color: Colors.white,
+                    onPressed: _toggleFullscreen,
+                  ),
+                  const Spacer(),
+                  PopupMenuButton<double>(
+                    icon: const Icon(Icons.speed, color: Colors.white),
+                    tooltip: 'Playback Speed',
+                    onSelected: _setPlaybackSpeed,
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(value: 0.5, child: Text('0.5x')),
+                      const PopupMenuItem(value: 0.75, child: Text('0.75x')),
+                      const PopupMenuItem(
+                          value: 1.0, child: Text('1x (Normal)')),
+                      const PopupMenuItem(value: 1.25, child: Text('1.25x')),
+                      const PopupMenuItem(value: 1.5, child: Text('1.5x')),
+                      const PopupMenuItem(value: 2.0, child: Text('2x')),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            onPressed: _togglePlay,
           ),
-        ),
-        // Progress bar
-        Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
-          child: VideoProgressIndicator(
-            _controller,
-            allowScrubbing: true,
-            colors: const VideoProgressColors(
-              playedColor: Color(0xFF00D4FF),
-              bufferedColor: Colors.white30,
-              backgroundColor: Colors.white12,
+
+          // Center play/pause button
+          Positioned(
+            child: IconButton(
+              icon: Icon(
+                _isPlaying ? Icons.pause_circle : Icons.play_circle,
+                size: 72,
+                color: Colors.white70,
+              ),
+              onPressed: _togglePlay,
             ),
           ),
-        ),
+
+          // Bottom controls
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Colors.black54, Colors.transparent],
+                ),
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Progress bar
+                  VideoProgressIndicator(
+                    _controller!,
+                    allowScrubbing: true,
+                    colors: const VideoProgressColors(
+                      playedColor: Color(0xFF00D4FF),
+                      bufferedColor: Colors.white30,
+                      backgroundColor: Colors.white12,
+                    ),
+                  ),
+
+                  // Time and controls row
+                  Row(
+                    children: [
+                      Text(
+                        _formatDuration(_position),
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      const Text(' / ',
+                          style: TextStyle(color: Colors.white70)),
+                      Text(
+                        _formatDuration(_duration),
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.replay_10, color: Colors.white),
+                        onPressed: _skipBackward,
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          _isPlaying ? Icons.pause : Icons.play_arrow,
+                          color: Colors.white,
+                        ),
+                        onPressed: _togglePlay,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.forward_10, color: Colors.white),
+                        onPressed: _skipForward,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

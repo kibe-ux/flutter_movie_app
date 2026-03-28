@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import '../services/auth_service.dart';
 
 class ForumScreen extends StatefulWidget {
   const ForumScreen({super.key});
@@ -268,11 +270,16 @@ class _ForumScreenState extends State<ForumScreen> {
   }
 
   void _createPost(String title, String content) {
+    final authService = context.read<AuthService>();
+    final authorName = authService.displayName ??
+        authService.email?.split('@').first ??
+        'User';
+
     final newPost = ForumPost(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: title,
       content: content,
-      author: 'You',
+      author: authorName,
       timestamp: DateTime.now(),
       comments: [],
     );
@@ -471,9 +478,14 @@ class _ForumScreenState extends State<ForumScreen> {
   }
 
   void _addComment(ForumPost post, String content, StateSetter setState) {
+    final authService = context.read<AuthService>();
+    final authorName = authService.displayName ??
+        authService.email?.split('@').first ??
+        'User';
+
     final newComment = ForumComment(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      author: 'You',
+      author: authorName,
       content: content,
       timestamp: DateTime.now(),
     );
@@ -605,6 +617,12 @@ class _ForumScreenState extends State<ForumScreen> {
                     itemCount: posts.length,
                     itemBuilder: (context, index) {
                       final post = posts[index];
+                      final authService = context.read<AuthService>();
+                      final currentUser = authService.displayName ??
+                          authService.email?.split('@').first ??
+                          'User';
+                      final isMyPost = post.author == currentUser;
+
                       return GestureDetector(
                         onTap: () => _showCommentsDialog(post),
                         child: Container(
@@ -653,7 +671,7 @@ class _ForumScreenState extends State<ForumScreen> {
                                         ],
                                       ),
                                     ),
-                                    if (post.author == 'You')
+                                    if (isMyPost)
                                       Container(
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 8, vertical: 4),

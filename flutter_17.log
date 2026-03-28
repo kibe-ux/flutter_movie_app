@@ -1,0 +1,68 @@
+Flutter crash report.
+Please report a bug at https://github.com/flutter/flutter/issues.
+
+## command
+
+flutter debug_adapter
+
+## exception
+
+FileSystemException: FileSystemException: writeFrom failed, path = '' (OS Error: The pipe is being closed, errno = 232)
+
+```
+#0      _checkForErrorResponse (dart:io/common.dart:58:9)
+#1      _RandomAccessFile.writeFrom.<anonymous closure> (dart:io/file_impl.dart:1001:7)
+#2      _rootRunUnary (dart:async/zone_root.dart:48:47)
+#3      _CustomZone.runUnary (dart:async/zone.dart:733:19)
+<asynchronous suspension>
+#4      _FileStreamConsumer.addStream.<anonymous closure>.<anonymous closure>.<anonymous closure> (dart:io/file_impl.dart:237:27)
+<asynchronous suspension>
+```
+
+## flutter doctor
+
+```
+[!] Flutter (Channel beta, 3.40.0-0.1.pre, on Microsoft Windows [Version 10.0.26200.7462], locale en-GB) [684ms]
+    • Flutter version 3.40.0-0.1.pre on channel beta at C:\Users\Hezra\.android\flutter
+    ! The flutter binary is not on your path. Consider adding C:\Users\Hezra\.android\flutter\bin to your path.
+    ! The dart binary is not on your path. Consider adding C:\Users\Hezra\.android\flutter\bin to your path.
+    • Upstream repository https://github.com/flutter/flutter.git
+    • Framework revision d96afb5b4f (13 days ago), 2025-12-04 11:34:22 -0800
+    • Engine revision b5cdf57426
+    • Dart version 3.11.0 (build 3.11.0-200.1.beta)
+    • DevTools version 2.53.0
+    • Feature flags: enable-web, enable-linux-desktop, enable-macos-desktop, enable-windows-desktop, enable-android, enable-ios, cli-animations, enable-native-assets, omit-legacy-version-file, enable-lldb-debugging, enable-uiscene-migration
+    • If those were intentional, you can disregard the above warnings; however it is recommended to use "git" directly to perform update checks and upgrades.
+
+[✓] Windows Version (11 Pro 64-bit, 25H2, 2009) [4.4s]
+
+[✓] Android toolchain - develop for Android devices (Android SDK version 36.1.0) [7.8s]
+    • Android SDK at C:\Users\Hezra\AppData\Local\Android\Sdk
+    • Emulator version unknown
+    • Platform android-36, build-tools 36.1.0
+    • ANDROID_HOME = C:\Users\Hezra\AppData\Local\Android\Sdk
+    • ANDROID_SDK_ROOT = C:\Users\Hezra\AppData\Local\Android\Sdk
+    • Java binary at: C:\Program Files\Eclipse Adoptium\jdk-17.0.17.10-hotspot\bin\java
+      This JDK is specified in your Flutter configuration.
+      To change the current JDK, run: `flutter config --jdk-dir="path/to/jdk"`.
+    • Java version OpenJDK Runtime Environment Temurin-17.0.17+10 (build 17.0.17+10)
+    • All Android licenses accepted.
+
+[✓] Chrome - develop for the web [24ms]
+    • Chrome at C:\Program Files\Google\Chrome\Application\chrome.exe
+
+[✗] Visual Studio - develop Windows apps [21ms]
+    ✗ Visual Studio not installed; this is necessary to develop Windows apps.
+      Download at https://visualstudio.microsoft.com/downloads/.
+      Please install the "Desktop development with C++" workload, including all of its default components
+
+[✓] Connected device (3 available) [579ms]
+    • Windows (desktop) • windows • windows-x64    • Microsoft Windows [Version 10.0.26200.7462]
+    • Chrome (web)      • chrome  • web-javascript • Google Chrome 143.0.7499.42
+    • Edge (web)        • edge    • web-javascript • Microsoft Edge 143.0.3650.80
+
+[✓] Network resources [1,417ms]
+    • All expected network resources are available.
+
+! Doctor found issues in 2 categories.
+```

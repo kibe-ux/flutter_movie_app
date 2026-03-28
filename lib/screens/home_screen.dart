@@ -540,7 +540,7 @@ class _HomeScreenState extends State<HomeScreen> {
               },
               child: CircleAvatar(
                 radius: 14,
-                backgroundColor: Colors.black.withOpacity(0.7),
+                backgroundColor: Colors.black.withValues(alpha: 0.7),
                 child: Icon(
                   isInMyList ? Icons.bookmark : Icons.bookmark_border,
                   size: 16,
@@ -560,7 +560,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
                   colors: [
-                    Colors.black.withOpacity(0.8),
+                    Colors.black.withValues(alpha: 0.8),
                     Colors.transparent,
                   ],
                 ),
@@ -643,7 +643,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: _netflixRed.withOpacity(0.3),
+                    color: _netflixRed.withValues(alpha: 0.3),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -998,7 +998,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       },
                       child: CircleAvatar(
                         radius: 14,
-                        backgroundColor: Colors.black.withOpacity(0.7),
+                        backgroundColor: Colors.black.withValues(alpha: 0.7),
                         child: Icon(
                           isInMyList ? Icons.bookmark : Icons.bookmark_border,
                           size: 16,

@@ -6,12 +6,11 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'movie_details_screen.dart';
 import '../utils/my_list.dart';
 import '../services/ad_service.dart';
+import '../widgets/safe_network_image.dart';
 
 final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '';
 const String baseUrl = 'https://api.themoviedb.org/3';
 const String imageBase = 'https://image.tmdb.org/t/p/w500';
-
-import '../widgets/safe_network_image.dart';
 
 // Explore Screen
 class ExploreScreen extends StatefulWidget {
@@ -219,7 +218,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           begin: Alignment.bottomCenter,
                           end: Alignment.topCenter,
                           colors: [
-                            Colors.black.withOpacity(0.7),
+                            Colors.black.withValues(alpha: 0.7),
                             Colors.transparent
                           ],
                         ),
@@ -264,7 +263,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.5),
+                            color: Colors.black.withValues(alpha: 0.5),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -284,7 +283,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.6),
+                          color: Colors.black.withValues(alpha: 0.6),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -322,7 +321,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
           hintText: 'Search movies...',
-          hintStyle: TextStyle(color: Colors.white54),
+          hintStyle: const TextStyle(color: Colors.white54),
           filled: true,
           fillColor: Colors.grey.shade900,
           prefixIcon: const Icon(Icons.search, color: Colors.white54),

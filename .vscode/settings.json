@@ -1,3 +1,4 @@
-﻿{
-    "window.title": "${activeEditorShort} - Movie Hub${separator}${rootName}"
+{
+    "window.title": "${activeEditorShort} - Movie Hub${separator}${rootName}",
+    "java.configuration.updateBuildConfiguration": "interactive"
 }

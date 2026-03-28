@@ -72,6 +72,26 @@ AppTheme.adBannerHeight
 
 ## 🔧 FILES THAT WERE IMPROVED
 
+## 📁 Environment configuration
+
+An `.env` file at the project root holds sensitive keys (TMDB API key,
+AdMob IDs).  A template has been added as `.env.example` – copy it to
+`.env` and fill in your own values before running the app.  The
+variable used by the code is `MOVIE_API_KEY`; the app reads it via
+`flutter_dotenv` during startup, so trailers and other TMDB calls work
+without recompiling.
+
+```bash
+cp .env.example .env      # then edit the file
+flutter run
+```
+
+The real `.env` is git‑ignored (see `.gitignore`) so you can safely
+commit without leaking secrets.
+
+
+## 🔧 FILES THAT WERE IMPROVED
+
 | File | What Fixed | Impact |
 |------|-----------|--------|
 | **download_service.dart** | Memory leak, null checks | Safer downloads |

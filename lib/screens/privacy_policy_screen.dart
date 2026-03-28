@@ -32,17 +32,17 @@ class PrivacyPolicyScreen extends StatelessWidget {
               ], begin: Alignment.topLeft, end: Alignment.bottomRight),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Column(
+            child: const Column(
               children: [
-                const Icon(Icons.security_rounded, size: 60, color: Colors.white),
-                const SizedBox(height: 16),
-                const Text("Privacy & Data Protection",
+                Icon(Icons.security_rounded, size: 60, color: Colors.white),
+                SizedBox(height: 16),
+                Text("Privacy & Data Protection",
                     style: TextStyle(
                         color: Colors.white,
                         fontSize: 28,
                         fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
-                const Text("Your privacy is important to us",
+                SizedBox(height: 12),
+                Text("Your privacy is important to us",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         color: Colors.white, fontSize: 16)),
@@ -55,22 +55,22 @@ class PrivacyPolicyScreen extends StatelessWidget {
             decoration: BoxDecoration(
               color: const Color(0xFF1A1A1A),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF00D4FF).withOpacity(0.3)),
+              border: Border.all(color: const Color(0xFF00D4FF).withValues(alpha: 0.3)),
             ),
-            child: Row(
+            child: const Row(
               children: [
-                Icon(Icons.update_rounded, color: const Color(0xFF00D4FF), size: 28),
-                const SizedBox(width: 16),
+                Icon(Icons.update_rounded, color: Color(0xFF00D4FF), size: 28),
+                SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text("Last Updated",
+                      Text("Last Updated",
                           style: TextStyle(
                               color: Colors.white,
                               fontSize: 16,
                               fontWeight: FontWeight.bold)),
-                      const Text("June 2025",
+                      Text("June 2025",
                           style:
                               TextStyle(color: Colors.white70, fontSize: 14)),
                     ],
@@ -145,22 +145,22 @@ class PrivacyPolicyScreen extends StatelessWidget {
             decoration: BoxDecoration(
               color: const Color(0xFF1A1A1A),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFFF005C).withOpacity(0.3)),
+              border: Border.all(color: const Color(0xFFFF005C).withValues(alpha: 0.3)),
             ),
-            child: Row(
+            child: const Row(
               children: [
-                Icon(Icons.info_rounded, color: const Color(0xFFFF005C), size: 28),
-                const SizedBox(width: 16),
+                Icon(Icons.info_rounded, color: Color(0xFFFF005C), size: 28),
+                SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text("Important Note",
+                      Text("Important Note",
                           style: TextStyle(
                               color: Colors.white,
                               fontSize: 16,
                               fontWeight: FontWeight.bold)),
-                      const Text(
+                      Text(
                           "By using FLIXORA X, you agree to our Terms of Service and Privacy Policy. We may update this policy periodically.",
                           style:
                               TextStyle(color: Colors.white70, fontSize: 14)),
@@ -183,7 +183,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A1A),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -191,7 +191,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-                colors: [color.withOpacity(0.3), color.withOpacity(0.1)],
+                colors: [color.withValues(alpha: 0.3), color.withValues(alpha: 0.1)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight),
             borderRadius: BorderRadius.circular(12),

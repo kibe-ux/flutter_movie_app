@@ -1,4 +1,10 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
+
+import '../services/movie_download_service.dart';
 
 /// Download status enum
 enum DownloadStatus { idle, downloading, paused, completed, failed }
@@ -65,12 +71,11 @@ class DownloadService {
   Map<int, DownloadItem> get activeDownloads => Map.from(_activeDownloads);
 
   /// Start downloading a movie
-  /// TODO: Replace with your friend's API endpoint
   Future<void> downloadMovie({
     required int movieId,
     required String movieTitle,
     required String? posterPath,
-    String? downloadUrl, // Your friend's API will provide this
+    String? downloadUrl,
   }) async {
     if (_disposed) return;
 
@@ -80,6 +85,10 @@ class DownloadService {
           _activeDownloads[movieId]!.status == DownloadStatus.downloading) {
         return; // Already downloading
       }
+
+      // For demo purposes, use a sample video URL if no downloadUrl provided
+      final url = downloadUrl ??
+          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
 
       // Initialize download item
       _activeDownloads[movieId] = DownloadItem(
@@ -91,50 +100,75 @@ class DownloadService {
       );
       _notifyListeners();
 
-      // TODO: Call your friend's API to get download link
-      // Example: final downloadUrl = await fetchDownloadUrlFromAPI(movieId);
-
-      // TODO: Implement actual download logic with progress tracking
-      // Example implementation pattern:
-      // final request = http.Request('GET', Uri.parse(downloadUrl));
-      // final response = await request.send().timeout(Duration(seconds: 300));
-      // final contentLength = response.contentLength ?? 0;
-      //
-      // if (contentLength == 0) throw Exception('Invalid content length');
-      //
-      // List<int> bytes = [];
-      // response.stream.listen((chunk) {
-      //   if (!_disposed) {
-      //     bytes.addAll(chunk);
-      //     final progress = bytes.length / contentLength;
-      //     _updateProgress(movieId, progress);
-      //   }
-      // }).onDone(() async {
-      //   if (!_disposed) {
-      //     await saveDownloadedFile(movieId, movieTitle, bytes);
-      //     _completeDownload(movieId);
-      //   }
-      // }).onError((e) {
-      //   if (!_disposed) {
-      //     _failDownload(movieId, e.toString());
-      //   }
-      // });
-
-      // Simulate download for now
-      await _simulateDownload(movieId);
-
-      if (!_disposed) {
-        _activeDownloads[movieId] = _activeDownloads[movieId]!.copyWith(
-          status: DownloadStatus.completed,
-          progress: 1.0,
-        );
-        _notifyListeners();
+      // Get app documents directory for storing downloads
+      final appDir = await getApplicationDocumentsDirectory();
+      final moviesDir = Directory(p.join(appDir.path, 'movies'));
+      if (!await moviesDir.exists()) {
+        await moviesDir.create(recursive: true);
       }
-    } catch (e) {
-      if (!_disposed) {
+
+      // Create safe filename
+      final safeTitle =
+          movieTitle.replaceAll(RegExp(r'[^\w\s-]'), '').replaceAll(' ', '_');
+      final fileName = '${movieId}_$safeTitle.mp4';
+      final filePath = p.join(moviesDir.path, fileName);
+
+      // Start download
+      final request = http.Request('GET', Uri.parse(url));
+      final response =
+          await request.send().timeout(const Duration(seconds: 30));
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to download: HTTP ${response.statusCode}');
+      }
+
+      final contentLength = response.contentLength ?? 0;
+      if (contentLength == 0) {
+        throw Exception('Invalid content length');
+      }
+
+      final file = File(filePath);
+      final sink = file.openWrite();
+      int downloadedBytes = 0;
+
+      await response.stream.listen(
+        (chunk) {
+          if (_disposed || !_activeDownloads.containsKey(movieId)) {
+            sink.close();
+            return;
+          }
+          sink.add(chunk);
+          downloadedBytes += chunk.length;
+          final progress = downloadedBytes / contentLength;
+          _updateProgress(movieId, progress.clamp(0.0, 1.0));
+        },
+        onDone: () async {
+          await sink.close();
+          if (!_disposed && _activeDownloads.containsKey(movieId)) {
+            _activeDownloads[movieId] = _activeDownloads[movieId]!.copyWith(
+              status: DownloadStatus.completed,
+              progress: 1.0,
+            );
+            _notifyListeners();
+          }
+        },
+        onError: (error) async {
+          await sink.close();
+          if (!_disposed && _activeDownloads.containsKey(movieId)) {
+            _activeDownloads[movieId] = _activeDownloads[movieId]!.copyWith(
+              status: DownloadStatus.failed,
+              errorMessage: error.toString(),
+            );
+            _notifyListeners();
+          }
+        },
+        cancelOnError: true,
+      ).asFuture();
+    } catch (error) {
+      if (_activeDownloads.containsKey(movieId)) {
         _activeDownloads[movieId] = _activeDownloads[movieId]!.copyWith(
           status: DownloadStatus.failed,
-          errorMessage: e.toString(),
+          errorMessage: error.toString(),
         );
         _notifyListeners();
       }
@@ -145,7 +179,6 @@ class DownloadService {
   Future<void> pauseDownload(int movieId) async {
     if (_disposed || !_activeDownloads.containsKey(movieId)) return;
 
-    // TODO: Implement pause logic with your friend's API
     _activeDownloads[movieId] = _activeDownloads[movieId]!.copyWith(
       status: DownloadStatus.paused,
     );
@@ -156,7 +189,6 @@ class DownloadService {
   Future<void> resumeDownload(int movieId) async {
     if (_disposed || !_activeDownloads.containsKey(movieId)) return;
 
-    // TODO: Implement resume logic with your friend's API
     _activeDownloads[movieId] = _activeDownloads[movieId]!.copyWith(
       status: DownloadStatus.downloading,
     );
@@ -167,18 +199,8 @@ class DownloadService {
   Future<void> cancelDownload(int movieId) async {
     if (_disposed) return;
 
-    // TODO: Implement cancel logic with your friend's API
     _activeDownloads.remove(movieId);
     _notifyListeners();
-  }
-
-  /// Simulate download progress (for testing, remove when API is ready)
-  Future<void> _simulateDownload(int movieId) async {
-    for (int i = 0; i <= 100; i += 10) {
-      if (_disposed) return;
-      await Future.delayed(const Duration(milliseconds: 500));
-      _updateProgress(movieId, i / 100);
-    }
   }
 
   /// Update download progress
@@ -187,17 +209,6 @@ class DownloadService {
 
     _activeDownloads[movieId] = _activeDownloads[movieId]!.copyWith(
       progress: progress,
-    );
-    _notifyListeners();
-  }
-
-  /// Mark download as failed
-  void _failDownload(int movieId, String error) {
-    if (_disposed || !_activeDownloads.containsKey(movieId)) return;
-
-    _activeDownloads[movieId] = _activeDownloads[movieId]!.copyWith(
-      status: DownloadStatus.failed,
-      errorMessage: error,
     );
     _notifyListeners();
   }
@@ -214,9 +225,84 @@ class DownloadService {
     return _activeDownloads[movieId]?.status;
   }
 
-  /// Check if movie is downloaded
-  bool isDownloaded(int movieId) {
-    return _activeDownloads[movieId]?.status == DownloadStatus.completed;
+  /// Get list of downloaded movies
+  Future<List<DownloadedMovie>> getDownloadedMovies() async {
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final moviesDir = Directory(p.join(appDir.path, 'movies'));
+
+      if (!await moviesDir.exists()) {
+        return [];
+      }
+
+      final files =
+          await moviesDir.list().where((entity) => entity is File).toList();
+      final movies = <DownloadedMovie>[];
+
+      for (final file in files) {
+        if (file is File &&
+            ['.mp4', '.mkv', '.mov', '.webm', '.avi']
+                .contains(p.extension(file.path).toLowerCase())) {
+          final stat = await file.stat();
+          final title = _titleFromFilePath(file.path);
+          movies.add(DownloadedMovie(
+            title: title,
+            path: file.path,
+            size: stat.size,
+            formattedSize: _formatBytes(stat.size),
+            modifiedAt: stat.modified,
+          ));
+        }
+      }
+
+      movies.sort((a, b) => b.modifiedAt.compareTo(a.modifiedAt));
+      return movies;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Delete downloaded movie
+  Future<bool> deleteDownloadedMovie(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (await file.exists()) {
+        await file.delete();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Helper method to extract title from file path
+  String _titleFromFilePath(String filePath) {
+    final base = p.basenameWithoutExtension(filePath);
+    final match = RegExp(r'^(.*)\.(\d{4})\.(\d{3,4}p?)$', caseSensitive: false)
+        .firstMatch(base);
+    if (match == null) {
+      return base.replaceAll('.', ' ');
+    }
+    final title = (match.group(1) ?? '').replaceAll('.', ' ').trim();
+    final year = match.group(2) ?? '';
+    return '$title ($year)';
+  }
+
+  /// Helper method to format bytes
+  String _formatBytes(int bytes) {
+    if (bytes <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    double value = bytes.toDouble();
+    int index = 0;
+    while (value >= 1024 && index < units.length - 1) {
+      value /= 1024;
+      index += 1;
+    }
+    final amount = value < 10 && index > 0
+        ? value.toStringAsFixed(1)
+        : value.toStringAsFixed(0);
+    return '$amount ${units[index]}';
   }
 
   /// Proper cleanup - must be called on app exit

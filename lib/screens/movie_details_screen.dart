@@ -9,6 +9,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../utils/my_list.dart';
 import '../services/ad_service.dart';
 import '../services/download_service.dart';
+import '../services/media_api_service.dart';
+import '../services/favorites_service.dart';
 import 'video_player_screen.dart';
 import '../widgets/safe_network_image.dart';
 
@@ -35,6 +37,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
   InterstitialAd? _interstitialAd;
   bool _isInterstitialLoaded = false;
   late DownloadService _downloadService;
+  bool _isFavorite = false;
 
   @override
   void initState() {
@@ -44,6 +47,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
     fetchSimilarMovies();
     _loadInterstitialAd();
     _loadBannerAd();
+    _checkIfFavorite();
   }
 
   @override
@@ -103,6 +107,37 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
     )..load();
   }
 
+  void _checkIfFavorite() async {
+    final movieId = widget.movie['id'] as int?;
+    if (movieId != null) {
+      final isFav = await FavoritesService.isFavorite(movieId);
+      if (mounted) {
+        setState(() => _isFavorite = isFav);
+      }
+    }
+  }
+
+  void _toggleFavorite() async {
+    final movieId = widget.movie['id'] as int?;
+    if (movieId == null) return;
+
+    if (_isFavorite) {
+      await FavoritesService.removeFromFavorites(movieId);
+      if (!mounted) return;
+      setState(() => _isFavorite = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Removed from favorites')),
+      );
+    } else {
+      await FavoritesService.addToFavorites(movieId);
+      if (!mounted) return;
+      setState(() => _isFavorite = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Added to favorites')),
+      );
+    }
+  }
+
   // -------------------- API Fetch --------------------
   Future<void> fetchCast() async {
     try {
@@ -147,7 +182,11 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
   }
 
   // -------------------- Helpers --------------------
-  Widget buildImage(String? url, {double? width, double? height, BoxFit? fit, BorderRadius? borderRadius}) {
+  Widget buildImage(String? url,
+      {double? width,
+      double? height,
+      BoxFit? fit,
+      BorderRadius? borderRadius}) {
     return SafeNetworkImage(
       imageUrl: url,
       width: width,
@@ -164,26 +203,6 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
     } catch (_) {
       return 'Unknown';
     }
-  }
-
-  Future<String?> fetchTrailerUrl(int movieId) async {
-    try {
-      final response = await http
-          .get(Uri.parse('$baseUrl/movie/$movieId/videos?api_key=$apiKey'));
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final results = data['results'] as List<dynamic>?;
-        if (results != null && results.isNotEmpty) {
-          final trailer = results.firstWhere(
-              (v) => v['site'] == 'YouTube' && v['type'] == 'Trailer',
-              orElse: () => null);
-          if (trailer != null) {
-            return 'https://www.youtube.com/watch?v=${trailer['key']}';
-          }
-        }
-      }
-    } catch (_) {}
-    return null;
   }
 
   // -------------------- Build --------------------
@@ -218,7 +237,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
               icon: Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
+                    color: Colors.black.withValues(alpha: 0.5),
                     shape: BoxShape.circle),
                 child: const Icon(Icons.arrow_back_rounded,
                     color: Colors.white, size: 20),
@@ -230,7 +249,24 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
                 icon: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
+                    color: Colors.black.withValues(alpha: 0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _isFavorite ? Icons.favorite : Icons.favorite_border,
+                    color: _isFavorite ? Colors.red : Colors.white,
+                    size: 22,
+                  ),
+                ),
+                onPressed: _toggleFavorite,
+                tooltip:
+                    _isFavorite ? 'Remove from favorites' : 'Add to favorites',
+              ),
+              IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.5),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -348,15 +384,15 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Color(0xFF00D4FF).withOpacity(0.1),
-            Color(0xFF0099CC).withOpacity(0.05)
+            const Color(0xFF00D4FF).withValues(alpha: 0.1),
+            const Color(0xFF0099CC).withValues(alpha: 0.05)
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-            color: Color(0xFF00D4FF).withOpacity(0.3), width: 1),
+            color: const Color(0xFF00D4FF).withValues(alpha: 0.3), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -374,9 +410,10 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
                 child: ElevatedButton.icon(
                   onPressed: () async {
                     _showInterstitialAd(() async {
-                      final trailerUrl =
-                          await fetchTrailerUrl(movie['id']) ??
-                              'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+                      final trailerUrl = await MediaApiService.fetchTrailerUrl(
+                              movie['id']) ??
+                          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+                      if (!mounted) return;
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -423,7 +460,8 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
   }
 
   /// Build download button with different states
-  Widget _buildDownloadButton(Map<String, dynamic> movie, DownloadStatus status, double progress) {
+  Widget _buildDownloadButton(
+      Map<String, dynamic> movie, DownloadStatus status, double progress) {
     IconData icon = Icons.download_rounded;
     String label = 'Download Now';
     VoidCallback? onPressed;
@@ -465,14 +503,11 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
       onPressed: onPressed,
       icon: Icon(icon, color: buttonColor),
       label: Text(label,
-          style: TextStyle(
-              color: buttonColor,
-              fontWeight: FontWeight.w700)),
+          style: TextStyle(color: buttonColor, fontWeight: FontWeight.w700)),
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFF1A1A1A),
         side: BorderSide(color: buttonColor, width: 2),
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         padding: const EdgeInsets.symmetric(vertical: 14),
       ),
     );
@@ -485,10 +520,11 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
         movieId: movie['id'],
         movieTitle: movie['title'] ?? 'Unknown',
         posterPath: movie['poster_path'],
+        // ignore: todo
         // TODO: Your friend's API will provide the download URL
         // downloadUrl: 'https://your-api.com/download?movieId=${movie['id']}',
       );
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Downloading: ${movie['title']}'),
@@ -635,8 +671,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) =>
-                            MovieDetailsScreen(movie: movie),
+                        builder: (context) => MovieDetailsScreen(movie: movie),
                       ),
                     );
                   });
@@ -671,5 +706,4 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
       ],
     );
   }
-
 }

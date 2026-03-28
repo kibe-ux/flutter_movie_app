@@ -1,0 +1,56 @@
+Flutter crash report.
+Please report a bug at https://github.com/flutter/flutter/issues.
+
+## command
+
+flutter debug_adapter
+
+## exception
+
+FileSystemException: FileSystemException: writeFrom failed, path = '' (OS Error: The pipe is being closed.
+, errno = 232)
+
+```
+#0      _checkForErrorResponse (dart:io/common.dart:58:9)
+#1      _RandomAccessFile.writeFrom.<anonymous closure> (dart:io/file_impl.dart:1001:7)
+#2      _rootRunUnary (dart:async/zone.dart:1538:47)
+#3      _CustomZone.runUnary (dart:async/zone.dart:1429:19)
+<asynchronous suspension>
+#4      _FileStreamConsumer.addStream.<anonymous closure>.<anonymous closure>.<anonymous closure> (dart:io/file_impl.dart:237:27)
+<asynchronous suspension>
+```
+
+## flutter doctor
+
+```
+encountered exception: PathAccessException: Cannot open file, path = 'C:\Users\Hezra\AppData\Local\Programs\Microsoft VS Code\Resources\app\package.json' (OS Error: The process cannot access the file because it is being used by another process.
+, errno = 32)
+
+#0      _File.throwIfError (dart:io/file_impl.dart:783:7)
+#1      _File.openSync (dart:io/file_impl.dart:576:5)
+#2      _File.readAsBytesSync (dart:io/file_impl.dart:664:18)
+#3      _File.readAsStringSync (dart:io/file_impl.dart:719:18)
+#4      ForwardingFile.readAsStringSync (package:file/src/forwarding/forwarding_file.dart:99:16)
+#5      ErrorHandlingFile.readAsStringSync.<anonymous closure> (package:flutter_tools/src/base/error_handling_io.dart:212:22)
+#6      _runSync (package:flutter_tools/src/base/error_handling_io.dart:552:14)
+#7      ErrorHandlingFile.readAsStringSync (package:flutter_tools/src/base/error_handling_io.dart:211:12)
+#8      VsCode._getVersionFromPackageJson (package:flutter_tools/src/vscode/vscode.dart:336:64)
+#9      new VsCode.fromDirectory (package:flutter_tools/src/vscode/vscode.dart:79:35)
+#10     VsCode._findInstalled (package:flutter_tools/src/vscode/vscode.dart:314:18)
+#11     VsCode._installedWindows (package:flutter_tools/src/vscode/vscode.dart:251:12)
+#12     VsCode.allInstalled (package:flutter_tools/src/vscode/vscode.dart:114:14)
+#13     VsCodeValidator.installedValidators (package:flutter_tools/src/vscode/vscode_validator.dart:22:19)
+#14     _DefaultDoctorValidatorsProvider.validators (package:flutter_tools/src/doctor.dart:120:26)
+#15     Doctor.validators (package:flutter_tools/src/doctor.dart:213:47)
+#16     Doctor.startValidatorTasks (package:flutter_tools/src/doctor.dart:219:45)
+#17     DoctorText._validatorTasks (package:flutter_tools/src/doctor.dart:836:60)
+#18     DoctorText._validatorTasks (package:flutter_tools/src/doctor.dart)
+#19     DoctorText._runDiagnosis (package:flutter_tools/src/doctor.dart:841:32)
+#20     DoctorText.text (package:flutter_tools/src/doctor.dart:832:36)
+#21     DoctorText.text (package:flutter_tools/src/doctor.dart)
+#22     _createLocalCrashReport (package:flutter_tools/runner.dart:283:51)
+#23     _handleToolError (package:flutter_tools/runner.dart:244:31)
+<asynchronous suspension>
+#24     run.<anonymous closure>.<anonymous closure> (package:flutter_tools/runner.dart:132:9)
+<asynchronous suspension>
+```

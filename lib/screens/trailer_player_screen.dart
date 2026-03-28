@@ -19,7 +19,7 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
     _controller = YoutubePlayerController(
       initialVideoId: widget.youtubeKey,
       flags: const YoutubePlayerFlags(
-        autoPlay: true,
+        autoPlay: false,
         mute: false,
       ),
     );

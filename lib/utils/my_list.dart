@@ -1,4 +1,3 @@
-// TODO Implement this library.
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,7 +10,6 @@ class MyList {
   final Set<int> _ids = {};
   bool _initialized = false;
   Timer? _saveTimer;
-  Completer<void>? _currentSave;
 
   /// Call ONCE at app start (in main.dart)
   Future<void> init() async {
@@ -31,25 +29,39 @@ class MyList {
     _initialized = true;
   }
 
-  Future<void> _persist() async {
+  /// Ensures init() has been called before use.
+  Future<void> ensureInitialized() async {
+    if (!_initialized) await init();
+  }
+
+  /// Debounced persist: only the last call within 300 ms actually writes.
+  void _persist() {
     _saveTimer?.cancel();
-    _currentSave?.complete();
-    _currentSave = Completer<void>();
-    await Future.delayed(const Duration(milliseconds: 300));
-    if (_currentSave != null && !_currentSave!.isCompleted) {
+    _saveTimer = Timer(const Duration(milliseconds: 300), () async {
       try {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setStringList(
           _storageKey,
           _ids.map((e) => e.toString()).toList(),
         );
-        _currentSave?.complete();
       } catch (e) {
         debugPrint('Failed to save MyList: $e');
-        _currentSave?.completeError(e);
-      } finally {
-        _currentSave = null;
       }
+    });
+  }
+
+  /// Persist immediately (no debounce), awaitable.
+  Future<void> _persistNow() async {
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(
+        _storageKey,
+        _ids.map((e) => e.toString()).toList(),
+      );
+    } catch (e) {
+      debugPrint('Failed to save MyList: $e');
     }
   }
 
@@ -75,26 +87,25 @@ class MyList {
 
   Future<void> toggleAndWait(int id) async {
     if (!_initialized) return;
-    final wasInList = _ids.contains(id);
-    if (wasInList) {
+    if (_ids.contains(id)) {
       _ids.remove(id);
     } else {
       _ids.add(id);
     }
-    await _persist();
+    await _persistNow();
   }
 
   bool contains(int id) => _ids.contains(id);
   Set<int> get all => Set<int>.from(_ids);
+
   Future<void> clear() async {
     if (!_initialized) return;
     _ids.clear();
-    await _persist();
+    await _persistNow();
   }
 
   bool get isInitialized => _initialized;
+
   @override
   String toString() => 'MyList(${_ids.length} items)';
-
-  Future<void> ensureInitialized() async {}
 }

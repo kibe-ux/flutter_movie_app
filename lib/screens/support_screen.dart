@@ -50,7 +50,7 @@ class SupportScreen extends StatelessWidget {
     } else {
       ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
         SnackBar(
-          content: Text('Cannot open website. Visit: $url'),
+          content: const Text('Cannot open website. Visit: $url'),
           backgroundColor: _tertiaryAccent,
         ),
       );
@@ -347,13 +347,13 @@ class SupportScreen extends StatelessWidget {
               ),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Column(
+            child: const Column(
               children: [
-                const Icon(Icons.help_center_rounded, size: 60, color: Colors.white),
-                const SizedBox(height: 16),
-                const Text("We're Here to Help!", style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
-                const Text("Get instant support for any issues or questions about FLIXORA X", textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 16)),
+                Icon(Icons.help_center_rounded, size: 60, color: Colors.white),
+                SizedBox(height: 16),
+                Text("We're Here to Help!", style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                SizedBox(height: 12),
+                Text("Get instant support for any issues or questions about FLIXORA X", textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 16)),
               ],
             ),
           ),
@@ -381,12 +381,12 @@ class SupportScreen extends StatelessWidget {
               children: [
                 Icon(Icons.access_time_filled_rounded, color: _secondaryAccent, size: 28),
                 const SizedBox(width: 16),
-                Expanded(
+                const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text("Average Response Time", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                      const Text("We typically respond within 2-4 hours during business hours", style: TextStyle(color: Colors.white70, fontSize: 14)),
+                      Text("Average Response Time", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text("We typically respond within 2-4 hours during business hours", style: TextStyle(color: Colors.white70, fontSize: 14)),
                     ],
                   ),
                 ),

@@ -1,0 +1,94 @@
+Flutter crash report.
+Please report a bug at https://github.com/flutter/flutter/issues.
+
+## command
+
+flutter create .
+
+## exception
+
+FileSystemException: FileSystemException: Failed to decode data using encoding 'utf-8', path = '.\android\app\build.gradle'
+
+```
+#0      _File._tryDecode (dart:io/file_impl.dart:708:7)
+#1      _File.readAsStringSync (dart:io/file_impl.dart:719:7)
+#2      _File.readAsLinesSync (dart:io/file_impl.dart:725:36)
+#3      ForwardingFile.readAsLinesSync (package:file/src/forwarding/forwarding_file.dart:107:16)
+#4      ForwardingFile.readAsLinesSync (package:file/src/forwarding/forwarding_file.dart:107:16)
+#5      firstMatchInFile (package:flutter_tools/src/base/utils.dart:518:34)
+#6      AndroidProject.applicationId (package:flutter_tools/src/project.dart:818:12)
+#7      FlutterProject.organizationNames (package:flutter_tools/src/project.dart:164:45)
+<asynchronous suspension>
+#8      CreateBase.getOrganization (package:flutter_tools/src/commands/create_base.dart:181:49)
+<asynchronous suspension>
+#9      CreateCommand.runCommand (package:flutter_tools/src/commands/create.dart:344:33)
+<asynchronous suspension>
+#10     FlutterCommand.run.<anonymous closure> (package:flutter_tools/src/runner/flutter_command.dart:1559:27)
+<asynchronous suspension>
+#11     AppContext.run.<anonymous closure> (package:flutter_tools/src/base/context.dart:154:19)
+<asynchronous suspension>
+#12     CommandRunner.runCommand (package:args/command_runner.dart:212:13)
+<asynchronous suspension>
+#13     FlutterCommandRunner.runCommand.<anonymous closure> (package:flutter_tools/src/runner/flutter_command_runner.dart:487:9)
+<asynchronous suspension>
+#14     AppContext.run.<anonymous closure> (package:flutter_tools/src/base/context.dart:154:19)
+<asynchronous suspension>
+#15     FlutterCommandRunner.runCommand (package:flutter_tools/src/runner/flutter_command_runner.dart:422:5)
+<asynchronous suspension>
+#16     run.<anonymous closure>.<anonymous closure> (package:flutter_tools/runner.dart:104:11)
+<asynchronous suspension>
+#17     AppContext.run.<anonymous closure> (package:flutter_tools/src/base/context.dart:154:19)
+<asynchronous suspension>
+#18     main (package:flutter_tools/executable.dart:103:3)
+<asynchronous suspension>
+```
+
+## flutter doctor
+
+```
+[32m[✓][39m Flutter (Channel beta, 3.39.0-0.2.pre, on Microsoft Windows [Version 10.0.26200.7309], locale
+    en-GB) [561ms]
+    [32m•[39m Flutter version 3.39.0-0.2.pre on channel beta at C:\Users\Hezra\.android\flutter
+    [32m•[39m Upstream repository https://github.com/flutter/flutter.git
+    [32m•[39m Framework revision aec5680b77 (9 days ago), 2025-11-25 13:16:56 -0500
+    [32m•[39m Engine revision 67f6b4a755
+    [32m•[39m Dart version 3.11.0 (build 3.11.0-93.2.beta)
+    [32m•[39m DevTools version 2.52.0
+    [32m•[39m Feature flags: enable-web, enable-linux-desktop, enable-macos-desktop, enable-windows-desktop,
+      enable-android, enable-ios, cli-animations, enable-native-assets, omit-legacy-version-file,
+      enable-lldb-debugging
+
+[32m[✓][39m Windows Version (11 Pro 64-bit, 25H2, 2009) [2.3s]
+
+[32m[✓][39m Android toolchain - develop for Android devices (Android SDK version 36.1.0) [4.1s]
+    [32m•[39m Android SDK at C:\Users\Hezra\AppData\Local\Android\Sdk
+    [32m•[39m Emulator version unknown
+    [32m•[39m Platform android-36, build-tools 36.1.0
+    [32m•[39m ANDROID_HOME = C:\Users\Hezra\AppData\Local\Android\Sdk
+    [32m•[39m ANDROID_SDK_ROOT = C:\Users\Hezra\AppData\Local\Android\Sdk
+    [32m•[39m Java binary at: C:\Program Files\Eclipse Adoptium\jdk-17.0.17.10-hotspot\bin\java
+      This JDK is specified in your Flutter configuration.
+      To change the current JDK, run: `flutter config --jdk-dir="path/to/jdk"`.
+    [32m•[39m Java version OpenJDK Runtime Environment Temurin-17.0.17+10 (build 17.0.17+10)
+    [32m•[39m All Android licenses accepted.
+
+[32m[✓][39m Chrome - develop for the web [34ms]
+    [32m•[39m Chrome at C:\Program Files\Google\Chrome\Application\chrome.exe
+
+[31m[✗][39m Visual Studio - develop Windows apps [30ms]
+    [31m✗[39m Visual Studio not installed; this is necessary to develop Windows apps.
+      Download at https://visualstudio.microsoft.com/downloads/.
+      Please install the "Desktop development with C++" workload, including all of its default
+      components
+
+[32m[✓][39m Connected device (4 available) [814ms]
+    [32m•[39m SM A315F (mobile) • RF8N83JLG8K • android-arm64  • Android 12 (API 31)
+    [32m•[39m Windows (desktop) • windows     • windows-x64    • Microsoft Windows [Version 10.0.26200.7309]
+    [32m•[39m Chrome (web)      • chrome      • web-javascript • Google Chrome 142.0.7444.176
+    [32m•[39m Edge (web)        • edge        • web-javascript • Microsoft Edge 142.0.3595.94
+
+[32m[✓][39m Network resources [1,276ms]
+    [32m•[39m All expected network resources are available.
+
+[33m![39m Doctor found issues in 1 category.
+```

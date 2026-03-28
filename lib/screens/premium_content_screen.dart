@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/premium_service.dart';
 
 class PremiumContentScreen extends StatelessWidget {
   const PremiumContentScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final isPremium = context.watch<PremiumService>().isPremium;
+
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),
       appBar: AppBar(
@@ -22,7 +26,7 @@ class PremiumContentScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
-          _buildPremiumHeader(),
+          _buildPremiumHeader(isPremium),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.all(20),
@@ -33,7 +37,7 @@ class PremiumContentScreen extends StatelessWidget {
                 const SizedBox(height: 24),
                 _buildPremiumBenefits(),
                 const SizedBox(height: 24),
-                _buildUpgradeButton(context),
+                _buildUpgradeButton(context, isPremium),
               ],
             ),
           ),
@@ -42,7 +46,7 @@ class PremiumContentScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPremiumHeader() {
+  Widget _buildPremiumHeader(bool isPremium) {
     return Container(
       padding: const EdgeInsets.all(30),
       decoration: const BoxDecoration(
@@ -61,7 +65,7 @@ class PremiumContentScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFF0D0D0D).withOpacity(0.3),
+              color: const Color(0xFF0D0D0D).withValues(alpha: 0.3),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.workspace_premium_rounded,
@@ -78,10 +82,10 @@ class PremiumContentScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            "Unlock Everything • Ad-Free • 4K HDR",
+            isPremium ? "You are a Premium Member!" : "Unlock Everything • Ad-Free • 4K HDR",
             textAlign: TextAlign.center,
             style: TextStyle(
-                color: Colors.white.withOpacity(0.9), fontSize: 16),
+                color: Colors.white.withValues(alpha: 0.9), fontSize: 16),
           ),
         ],
       ),
@@ -94,23 +98,23 @@ class PremiumContentScreen extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            const Color(0xFFFF005C).withOpacity(0.1),
-            const Color(0xFF00D4FF).withOpacity(0.1)
+            const Color(0xFFFF005C).withValues(alpha: 0.1),
+            const Color(0xFF00D4FF).withValues(alpha: 0.1)
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFFF005C).withOpacity(0.3)),
+        border: Border.all(color: const Color(0xFFFF005C).withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
-              const Icon(Icons.star_rounded, color: Color(0xFFFF005C), size: 28),
-              const SizedBox(width: 12),
-              const Text(
+              Icon(Icons.star_rounded, color: Color(0xFFFF005C), size: 28),
+              SizedBox(width: 12),
+              Text(
                 "Premium Features",
                 style: TextStyle(
                     color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
@@ -153,8 +157,8 @@ class PremiumContentScreen extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  const Color(0xFF00D4FF).withOpacity(0.3),
-                  const Color(0xFFFF005C).withOpacity(0.3)
+                  const Color(0xFF00D4FF).withValues(alpha: 0.3),
+                  const Color(0xFFFF005C).withValues(alpha: 0.3)
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -226,7 +230,7 @@ class PremiumContentScreen extends StatelessWidget {
               ),
               boxShadow: [
                 BoxShadow(
-                    color: const Color(0xFFFF005C).withOpacity(0.4),
+                    color: const Color(0xFFFF005C).withValues(alpha: 0.4),
                     blurRadius: 15,
                     offset: const Offset(0, 6))
               ],
@@ -240,7 +244,7 @@ class PremiumContentScreen extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0D0D0D).withOpacity(0.7),
+                      color: const Color(0xFF0D0D0D).withValues(alpha: 0.7),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -291,23 +295,23 @@ class PremiumContentScreen extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            const Color(0xFF00D4FF).withOpacity(0.1),
-            const Color(0xFF9C27B0).withOpacity(0.1)
+            const Color(0xFF00D4FF).withValues(alpha: 0.1),
+            const Color(0xFF9C27B0).withValues(alpha: 0.1)
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF00D4FF).withOpacity(0.3)),
+        border: Border.all(color: const Color(0xFF00D4FF).withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            const Icon(Icons.workspace_premium_rounded,
+          const Row(children: [
+            Icon(Icons.workspace_premium_rounded,
                 color: Color(0xFF00D4FF), size: 28),
-            const SizedBox(width: 12),
-            const Text("Why Go Premium?",
+            SizedBox(width: 12),
+            Text("Why Go Premium?",
                 style: TextStyle(
                     color: Colors.white,
                     fontSize: 22,
@@ -359,7 +363,25 @@ class PremiumContentScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildUpgradeButton(BuildContext context) {
+  Widget _buildUpgradeButton(BuildContext context, bool isPremium) {
+    if (isPremium) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0D0D0D),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFF00D4FF).withValues(alpha: 0.5)),
+        ),
+        child: const Center(
+          child: Text(
+            "You are already a Premium Member \u{1F389}",
+            style: TextStyle(
+                color: Color(0xFF00D4FF), fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -403,7 +425,7 @@ class PremiumContentScreen extends StatelessWidget {
                           Text(
                             "/month",
                             style: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
+                                color: Colors.white.withValues(alpha: 0.7),
                                 fontSize: 16),
                           ),
                         ],
@@ -411,7 +433,7 @@ class PremiumContentScreen extends StatelessWidget {
                       Text(
                         "7-day free trial • Cancel anytime",
                         style: TextStyle(
-                            color: Colors.white.withOpacity(0.8), fontSize: 14),
+                            color: Colors.white.withValues(alpha: 0.8), fontSize: 14),
                       ),
                     ]),
               ),
@@ -422,7 +444,7 @@ class PremiumContentScreen extends StatelessWidget {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: const Text(
-                          "🎉 Premium upgrade coming soon!",
+                          "Welcome to Premium! \u{1F389}",
                           style: TextStyle(color: Colors.white),
                         ),
                         backgroundColor: const Color(0xFF00D4FF),
@@ -432,6 +454,7 @@ class PremiumContentScreen extends StatelessWidget {
                         ),
                       ),
                     );
+                    context.read<PremiumService>().upgradeToPremium();
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,

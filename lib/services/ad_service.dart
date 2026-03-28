@@ -1,6 +1,7 @@
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AdService {
   static final AdService _instance = AdService._internal();
@@ -16,6 +17,9 @@ class AdService {
 
   Future<void> init() async {
     if (_isInitialized) return;
+
+    final isPremium = await _isPremiumUser();
+    if (isPremium) return;
 
     final params = ConsentRequestParameters();
     ConsentInformation.instance.requestConsentInfoUpdate(
@@ -61,8 +65,19 @@ class AdService {
     _isInitialized = true;
   }
 
+  Future<bool> _isPremiumUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('is_premium_user') ?? false;
+  }
+
   /// Show interstitial with frequency control
-  void showInterstitial(InterstitialAd? ad, Function onAdDismissed) {
+  Future<void> showInterstitial(InterstitialAd? ad, Function onAdDismissed) async {
+    final isPremium = await _isPremiumUser();
+    if (isPremium) {
+      onAdDismissed();
+      return;
+    }
+
     _interstitialClickCount++;
     if (ad != null && _interstitialClickCount % _interstitialFrequency == 0) {
       ad.show();

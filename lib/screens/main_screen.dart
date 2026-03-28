@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'home_screen.dart';
 import 'explore_screen.dart';
 import 'search_screen.dart';
@@ -6,6 +7,9 @@ import 'premium_content_screen.dart';
 import 'faqs_screen.dart';
 import 'support_screen.dart';
 import 'privacy_policy_screen.dart';
+import 'profile_screen.dart';
+import 'login_screen.dart';
+import '../services/auth_service.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -33,7 +37,8 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _screens = [
-      const HomeScreen(myListIds: {}), // Parameter remains but is ignored in favor of singleton
+      const HomeScreen(
+          myListIds: {}), // Parameter remains but is ignored in favor of singleton
       const ExploreScreen(myListIds: {}),
       const SearchScreen(),
     ];
@@ -90,7 +95,8 @@ class _MainScreenState extends State<MainScreen> {
             children: [
               Text("How would you rate your experience?",
                   style: TextStyle(
-                      color: _onSurfaceColor.withOpacity(0.8), fontSize: 16)),
+                      color: _onSurfaceColor.withValues(alpha: 0.8),
+                      fontSize: 16)),
               const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -112,7 +118,8 @@ class _MainScreenState extends State<MainScreen> {
               Text("Tap a star to rate",
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      color: _onSurfaceColor.withOpacity(0.6), fontSize: 14)),
+                      color: _onSurfaceColor.withValues(alpha: 0.6),
+                      fontSize: 14)),
             ],
           ),
           actions: [
@@ -155,7 +162,7 @@ class _MainScreenState extends State<MainScreen> {
       flexibleSpace: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [_primaryColor, _primaryColor.withOpacity(0.9)],
+            colors: [_primaryColor, _primaryColor.withValues(alpha: 0.9)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -189,6 +196,49 @@ class _MainScreenState extends State<MainScreen> {
         ),
       ),
       centerTitle: true,
+      actions: [
+        Consumer<AuthService>(
+          builder: (context, authService, child) {
+            return IconButton(
+              icon: CircleAvatar(
+                radius: 16,
+                backgroundImage: authService.photoURL != null
+                    ? NetworkImage(authService.photoURL!)
+                    : null,
+                backgroundColor: Colors.grey[800],
+                child: authService.photoURL == null
+                    ? Text(
+                        authService.displayName?.isNotEmpty == true
+                            ? authService.displayName![0].toUpperCase()
+                            : authService.email?.isNotEmpty == true
+                                ? authService.email![0].toUpperCase()
+                                : '?',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
+              ),
+              onPressed: () {
+                if (authService.isAuthenticated) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                  );
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  );
+                }
+              },
+              tooltip: authService.isAuthenticated ? 'Profile' : 'Sign In',
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -213,7 +263,7 @@ class _MainScreenState extends State<MainScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: _primaryColor.withOpacity(0.3),
+                    color: _primaryColor.withValues(alpha: 0.3),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(Icons.movie_filter_rounded,
@@ -238,7 +288,8 @@ class _MainScreenState extends State<MainScreen> {
                 const SizedBox(height: 8),
                 Text("Unlimited Movies & Shows",
                     style: TextStyle(
-                        color: _onSurfaceColor.withOpacity(0.9), fontSize: 16)),
+                        color: _onSurfaceColor.withValues(alpha: 0.9),
+                        fontSize: 16)),
               ],
             ),
           ),
@@ -278,7 +329,10 @@ class _MainScreenState extends State<MainScreen> {
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [color.withOpacity(0.3), color.withOpacity(0.1)],
+            colors: [
+              color.withValues(alpha: 0.3),
+              color.withValues(alpha: 0.1)
+            ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -290,7 +344,7 @@ class _MainScreenState extends State<MainScreen> {
           style: const TextStyle(
               color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
       trailing:
-          Icon(Icons.chevron_right_rounded, color: Colors.white54, size: 20),
+          const Icon(Icons.chevron_right_rounded, color: Colors.white54, size: 20),
       onTap: () {
         Navigator.pop(context);
         _showSnackBar("$title • Coming Soon!");
@@ -313,7 +367,7 @@ class _MainScreenState extends State<MainScreen> {
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: _onSurfaceColor.withOpacity(0.2),
+            color: _onSurfaceColor.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(Icons.workspace_premium_rounded,
@@ -329,7 +383,7 @@ class _MainScreenState extends State<MainScreen> {
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: _onSurfaceColor.withOpacity(0.2),
+            color: _onSurfaceColor.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(20),
           ),
           child: const Text("PRO",
@@ -353,8 +407,8 @@ class _MainScreenState extends State<MainScreen> {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              _secondaryAccent.withOpacity(0.3),
-              _secondaryAccent.withOpacity(0.1)
+              _secondaryAccent.withValues(alpha: 0.3),
+              _secondaryAccent.withValues(alpha: 0.1)
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -368,7 +422,7 @@ class _MainScreenState extends State<MainScreen> {
           style: TextStyle(
               color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
       trailing:
-          Icon(Icons.chevron_right_rounded, color: Colors.white54, size: 20),
+          const Icon(Icons.chevron_right_rounded, color: Colors.white54, size: 20),
       onTap: () {
         Navigator.pop(context);
         _showFAQsScreen();
@@ -383,8 +437,8 @@ class _MainScreenState extends State<MainScreen> {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              _secondaryAccent.withOpacity(0.3),
-              _secondaryAccent.withOpacity(0.1)
+              _secondaryAccent.withValues(alpha: 0.3),
+              _secondaryAccent.withValues(alpha: 0.1)
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -398,7 +452,7 @@ class _MainScreenState extends State<MainScreen> {
           style: TextStyle(
               color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
       trailing:
-          Icon(Icons.chevron_right_rounded, color: Colors.white54, size: 20),
+          const Icon(Icons.chevron_right_rounded, color: Colors.white54, size: 20),
       onTap: () {
         Navigator.pop(context);
         _showSupportScreen();
@@ -413,8 +467,8 @@ class _MainScreenState extends State<MainScreen> {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              _accentColor.withOpacity(0.3),
-              _accentColor.withOpacity(0.1)
+              _accentColor.withValues(alpha: 0.3),
+              _accentColor.withValues(alpha: 0.1)
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -442,8 +496,8 @@ class _MainScreenState extends State<MainScreen> {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              _tertiaryAccent.withOpacity(0.3),
-              _tertiaryAccent.withOpacity(0.1)
+              _tertiaryAccent.withValues(alpha: 0.3),
+              _tertiaryAccent.withValues(alpha: 0.1)
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -456,7 +510,7 @@ class _MainScreenState extends State<MainScreen> {
           style: TextStyle(
               color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
       trailing:
-          Icon(Icons.chevron_right_rounded, color: Colors.white54, size: 20),
+          const Icon(Icons.chevron_right_rounded, color: Colors.white54, size: 20),
       onTap: () {
         Navigator.pop(context);
         _showPrivacyPolicyScreen();
@@ -468,13 +522,13 @@ class _MainScreenState extends State<MainScreen> {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [_primaryColor, _primaryColor.withOpacity(0.95)],
+          colors: [_primaryColor, _primaryColor.withValues(alpha: 0.95)],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.8),
+              color: Colors.black.withValues(alpha: 0.8),
               blurRadius: 20,
               offset: const Offset(0, -5))
         ],
@@ -519,7 +573,7 @@ class _MainScreenState extends State<MainScreen> {
               icon,
               color: isSelected
                   ? _onSurfaceColor
-                  : _onSurfaceColor.withOpacity(0.6),
+                  : _onSurfaceColor.withValues(alpha: 0.6),
               size: 24,
             ),
           ),
@@ -527,8 +581,9 @@ class _MainScreenState extends State<MainScreen> {
           Text(
             label,
             style: TextStyle(
-              color:
-                  isSelected ? _accentColor : _onSurfaceColor.withOpacity(0.6),
+              color: isSelected
+                  ? _accentColor
+                  : _onSurfaceColor.withValues(alpha: 0.6),
               fontSize: 12,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             ),
