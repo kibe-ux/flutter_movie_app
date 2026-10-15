@@ -1,17 +1,137 @@
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
+
 const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const mime = require("mime");
 const fs = require("fs");
-const path = require("path");
+const { applicationDefault, getApps, initializeApp } = require("firebase-admin/app");
+const { getAuth } = require("firebase-admin/auth");
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const API_KEY = process.env.API_KEY || "dev-api-key";
 const JWT_SECRET = process.env.JWT_SECRET || "replace-with-a-secure-secret";
 const MOVIES_DIR = path.join(__dirname, "movies");
+const FILMS365_BASE_URL = "https://www.films365.org";
+const FILMS365_ENDPOINTS = new Map([
+  ["trending", "GET"],
+  ["popular", "GET"],
+  ["latest", "GET"],
+  ["details", "GET"],
+  ["search", "POST"],
+  ["person", "GET"],
+]);
 
 app.use(cors());
+
+function getFirebaseAdminAuth() {
+  const projectId =
+    process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
+  if (!projectId) {
+    throw new Error("FIREBASE_PROJECT_ID is not configured.");
+  }
+
+  const appName = "films365-proxy";
+  const firebaseApp =
+    getApps().find((candidate) => candidate.name === appName) ||
+    initializeApp(
+      {
+        credential: applicationDefault(),
+        projectId,
+      },
+      appName
+    );
+  return getAuth(firebaseApp);
+}
+
+async function requireFirebaseUser(req, res, next) {
+  const authorization = req.header("authorization") || "";
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  if (!match) {
+    return res.status(401).json({ error: "A Firebase ID token is required." });
+  }
+
+  try {
+    req.firebaseUser = await getFirebaseAdminAuth().verifyIdToken(match[1]);
+    return next();
+  } catch (error) {
+    const code = error && error.code;
+    const invalidToken =
+      typeof code === "string" &&
+      (code.startsWith("auth/id-token-") ||
+        [
+          "auth/argument-error",
+          "auth/invalid-id-token",
+          "auth/user-disabled",
+          "auth/user-not-found",
+          "auth/tenant-id-mismatch",
+        ].includes(code));
+    if (invalidToken) {
+      return res.status(401).json({ error: "The Firebase ID token is invalid." });
+    }
+
+    console.error("Firebase ID-token verification is unavailable:", error.message);
+    return res.status(503).json({ error: "Authentication service is unavailable." });
+  }
+}
+
+async function proxyFilms365Request(req, res) {
+  const expectedMethod = FILMS365_ENDPOINTS.get(req.params.endpoint);
+  if (!expectedMethod) {
+    return res.status(404).json({ error: "Unknown FILMS365 endpoint." });
+  }
+  if (req.method !== expectedMethod) {
+    res.set("Allow", expectedMethod);
+    return res.status(405).json({ error: "Method not allowed for this endpoint." });
+  }
+
+  const apiKey = process.env.FILMS365_API_KEY;
+  if (!apiKey) {
+    return res.status(503).json({ error: "FILMS365 is not configured on the server." });
+  }
+
+  const upstreamUrl = new URL(
+    `/api/mobile/${req.params.endpoint}`,
+    FILMS365_BASE_URL
+  );
+  upstreamUrl.search = new URL(req.originalUrl, "http://localhost").search;
+
+  const headers = {
+    Authorization: `ApiKey ${apiKey}`,
+  };
+  const contentType = req.header("content-type");
+  if (contentType) headers["Content-Type"] = contentType;
+
+  try {
+    const upstreamResponse = await fetch(upstreamUrl, {
+      method: expectedMethod,
+      headers,
+      body: expectedMethod === "POST" ? req.body : undefined,
+      redirect: "error",
+      signal: AbortSignal.timeout(30000),
+    });
+    const responseBody = Buffer.from(await upstreamResponse.arrayBuffer());
+    const upstreamContentType = upstreamResponse.headers.get("content-type");
+    if (upstreamContentType) res.set("Content-Type", upstreamContentType);
+    return res.status(upstreamResponse.status).send(responseBody);
+  } catch (error) {
+    if (error && error.name === "TimeoutError") {
+      return res.status(504).json({ error: "FILMS365 request timed out." });
+    }
+    console.error("FILMS365 upstream request failed:", error.message);
+    return res.status(502).json({ error: "FILMS365 is unavailable." });
+  }
+}
+
+app.all(
+  "/api/films365/:endpoint",
+  express.raw({ type: "*/*", limit: "1mb" }),
+  requireFirebaseUser,
+  proxyFilms365Request
+);
+
 app.use(express.json());
 
 function authMiddleware(req, res, next) {
@@ -238,7 +358,11 @@ app.get("/api/download/stream", (req, res) => {
   return fs.createReadStream(resolvedPath).pipe(res);
 });
 
-app.listen(PORT, () => {
-  // eslint-disable-next-line no-console
-  console.log(`Movie download backend running on http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    // eslint-disable-next-line no-console
+    console.log(`Movie download backend running on http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
