@@ -8,7 +8,8 @@ class MovieDownloadShellScreen extends StatefulWidget {
   const MovieDownloadShellScreen({super.key});
 
   @override
-  State<MovieDownloadShellScreen> createState() => _MovieDownloadShellScreenState();
+  State<MovieDownloadShellScreen> createState() =>
+      _MovieDownloadShellScreenState();
 }
 
 class _MovieDownloadShellScreenState extends State<MovieDownloadShellScreen> {
@@ -32,7 +33,8 @@ class _MovieDownloadShellScreenState extends State<MovieDownloadShellScreen> {
         onDestinationSelected: (index) => setState(() => _index = index),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.movie), label: 'Movies'),
-          NavigationDestination(icon: Icon(Icons.download), label: 'Downloaded'),
+          NavigationDestination(
+              icon: Icon(Icons.download), label: 'Downloaded'),
           NavigationDestination(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),

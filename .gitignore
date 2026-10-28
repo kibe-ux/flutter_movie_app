@@ -1,6 +1,10 @@
 ﻿# ========== FIREBASE SECURITY ==========
 # Service Account Keys
 *.json
+!backend/package.json
+!backend/package-lock.json
+!/firestore.indexes.json
+backend/node_modules/
 *.key
 *.p12
 *.p8
@@ -14,8 +18,36 @@ lib/firebase_options.dart
 # Environment
 .env
 .env.*
+!.env.example
 secrets/
 
 # Secure folders (just in case)
 SecureKeys/
 SecureFirebaseKeys/
+
+# Generated Flutter and Android output
+/.dart_tool/
+/.flutter-plugins
+/.flutter-plugins-dependencies
+/build/
+/release-apks/
+/.gradle/
+/android/.gradle/
+/android/.kotlin/
+/android/build/
+/android/app/build/
+
+# Generated crash logs and local verification reports
+hs_err_pid*.log
+replay_pid*.log
+/analysis*.txt
+/results.txt
+/reports/*.log
+/reports/progress_*.txt
+/reports/progress_*.json
+/reports/LATEST.txt
+/reports/permission-handler-build-backup-*/
+
+# Generated Neon Function bundles
+/backend/.neon-build/
+!ios/Runner/Assets.xcassets/LaunchLogo.imageset/Contents.json

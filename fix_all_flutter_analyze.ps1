@@ -1,14 +1,14 @@
-﻿$root = "lib"
+$root = "lib"
 
 Get-ChildItem -Path $root -Recurse -Filter "*.dart" | ForEach-Object {
     $path = $_.FullName
     $content = Get-Content $path -Raw
     $updated = $content
 
-    # Fix withOpacity deprecation
+    # Restore withOpacity from withValues
     $updated = $updated -replace `
-        '\.withOpacity\(\s*([0-9]*\.?[0-9]+)\s*\)', `
-        '.withValues(alpha: $1)'
+        '\.withValues\(\s*alpha:\s*([0-9]*\.?[0-9]+)\s*\)', `
+        '.withOpacity($1)'
 
     # Fix ConnectivityResult list comparison
     $updated = $updated -replace `
@@ -17,6 +17,6 @@ Get-ChildItem -Path $root -Recurse -Filter "*.dart" | ForEach-Object {
 
     if ($content -ne $updated) {
         Set-Content -Path $path -Value $updated -Encoding UTF8
-        Write-Host "✔ Fixed:" $path
+        Write-Host "Fixed: $path"
     }
 }

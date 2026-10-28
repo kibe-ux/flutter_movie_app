@@ -13,13 +13,34 @@ class MediaApiService {
 
   static String get _apiKey => dotenv.env['MOVIE_API_KEY'] ?? '';
 
+  static Future<Map<String, dynamic>> fetchWatchProviders(int movieId,
+      {String mediaType = 'movie'}) async {
+    if (_apiKey.isEmpty) {
+      throw StateError('Movie availability is not configured.');
+    }
+    final uri = Uri.parse('$_tmdbBase/$mediaType/$movieId/watch/providers')
+        .replace(queryParameters: {'api_key': _apiKey});
+    final response = await http.get(uri).timeout(const Duration(seconds: 20));
+    if (response.statusCode != 200) {
+      throw StateError(
+          'Movie availability request failed (${response.statusCode}).');
+    }
+    final data = jsonDecode(response.body);
+    if (data is! Map || data['results'] is! Map) {
+      throw const FormatException('Invalid movie availability response.');
+    }
+    return (data['results'] as Map).cast<String, dynamic>();
+  }
+
   /// Returns a playable trailer URL (usually a YouTube link) for the
   /// given movie ID.  If the request fails or no trailer is found
   /// the future completes with null.
-  static Future<String?> fetchTrailerUrl(int movieId) async {
+  static Future<String?> fetchTrailerUrl(int movieId,
+      {String mediaType = 'movie'}) async {
     if (_apiKey.isEmpty) return null;
 
-    final url = Uri.parse('$_tmdbBase/movie/$movieId/videos?api_key=$_apiKey');
+    final url =
+        Uri.parse('$_tmdbBase/$mediaType/$movieId/videos?api_key=$_apiKey');
 
     final response = await http.get(url).timeout(const Duration(seconds: 30));
     if (response.statusCode != 200) {

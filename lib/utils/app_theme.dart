@@ -1,5 +1,6 @@
 // ignore_for_file: todo
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Central location for all theme constants and colors
 class AppTheme {
@@ -85,8 +86,12 @@ class AppTheme {
   // API Constants
   /// TMDB API Key - Use environment variable for production
   /// Run: flutter run --dart-define=TMDB_API_KEY=your_production_key
-  static String get apiKey => const String.fromEnvironment('TMDB_API_KEY',
-      defaultValue: '9c12c3b471405cfbfeca767fa3ea8907'); // Dev fallback
+  static String get apiKey {
+    const definedKey = String.fromEnvironment('TMDB_API_KEY');
+    return definedKey.isNotEmpty
+        ? definedKey
+        : dotenv.env['MOVIE_API_KEY'] ?? '';
+  }
 
   static const String baseUrl = 'https://api.themoviedb.org/3';
   static const String imageBase = 'https://image.tmdb.org/t/p/w300';

@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
+import '../utils/cinema_palette.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.reason});
+
+  final String? reason;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -54,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.of(context).pop(); // Return to previous screen
+        Navigator.of(context).pop(true); // Resume the requested action.
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) {
@@ -78,8 +81,32 @@ class _LoginScreenState extends State<LoginScreen> {
           case 'weak-password':
             errorMessage = 'The password provided is too weak.';
             break;
+          case 'network-request-failed':
+            errorMessage = 'Network error. Please check your connection.';
+            break;
+          case 'too-many-requests':
+            errorMessage = 'Too many requests. Please try again later.';
+            break;
+          case 'operation-not-allowed':
+            errorMessage =
+                'Email/password authentication is not enabled in Firebase console.';
+            break;
+          case 'invalid-api-key':
+            errorMessage =
+                'Firebase API key invalid: run flutterfire configure and update firebase_options.dart.';
+            break;
+          case 'app-not-authorized':
+            errorMessage =
+                'App is not authorized for this Firebase project; check firebase_options.dart and project settings.';
+            break;
+          case 'internal-error':
+          case 'configuration-not-found':
+            errorMessage =
+                'Firebase config not found for this platform. Run flutterfire configure and include google-services.json / GoogleService-Info.plist.';
+            break;
           default:
-            errorMessage = e.message ?? errorMessage;
+            errorMessage = e.message ?? 'An unexpected error occurred.';
+            debugPrint('Firebase Auth Error: ${e.code} - ${e.message}');
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -198,7 +225,7 @@ class _LoginScreenState extends State<LoginScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _isLoading ? null : () => Navigator.of(context).pop(false),
         ),
       ),
       body: SafeArea(
@@ -228,16 +255,36 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  _isSignUp
-                      ? 'Join MovieHub for personalized recommendations'
-                      : 'Sign in to access your personalized movie experience',
+                  widget.reason ??
+                      (_isSignUp
+                          ? 'Join MovieHub for personalized recommendations'
+                          : 'Sign in when you want to join the conversation.'),
                   style: TextStyle(
                     color: Colors.grey[400],
                     fontSize: 16,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 20),
+                OutlinedButton.icon(
+                  onPressed: _isLoading
+                      ? null
+                      : () => Navigator.of(context).pop(false),
+                  icon: const Icon(Icons.explore_outlined),
+                  label: const Text('Continue as guest'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: CinemaPalette.gold,
+                    side: const BorderSide(color: CinemaPalette.gold),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Browse and search without an account. You can sign in later from Profile.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: CinemaPalette.muted, height: 1.4),
+                ),
+                const SizedBox(height: 28),
 
                 // Email Field
                 TextFormField(
@@ -260,11 +307,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   keyboardType: TextInputType.emailAddress,
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
+                    final email = value?.trim() ?? '';
+                    if (email.isEmpty) {
                       return 'Please enter your email';
                     }
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                        .hasMatch(value)) {
+                    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+                        .hasMatch(email)) {
                       return 'Please enter a valid email';
                     }
                     return null;
@@ -398,8 +446,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 24),
 
                 // Toggle Sign In/Sign Up
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
                       _isSignUp

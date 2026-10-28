@@ -3,16 +3,25 @@ import 'package:provider/provider.dart';
 import 'home_screen.dart';
 import 'explore_screen.dart';
 import 'search_screen.dart';
-import 'premium_content_screen.dart';
+import 'forum_screen.dart';
 import 'faqs_screen.dart';
 import 'support_screen.dart';
 import 'privacy_policy_screen.dart';
+import 'legal_info_screen.dart';
+import 'legal_screen.dart';
 import 'profile_screen.dart';
-import 'login_screen.dart';
+import 'share_screen.dart';
+import 'rewards_screen.dart';
 import '../services/auth_service.dart';
+import '../services/home_startup_service.dart';
+import '../utils/cinema_palette.dart';
+import '../widgets/movie_hub_app_bar.dart';
+import '../widgets/rate_app_dialog.dart';
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  const MainScreen({super.key, this.initialHomeData});
+
+  final HomeStartupData? initialHomeData;
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -21,13 +30,15 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
+  static const Color _drawerAccent = CinemaPalette.gold;
+  static const Color _drawerBackground = CinemaPalette.background;
+  static const Color _drawerText = CinemaPalette.ivory;
+  static const Color _drawerMuted = CinemaPalette.muted;
+
   // Shared set to track "My List" items (REDUNDANT: now using MyList singleton)
 
   // Colors
   final Color _primaryColor = const Color(0xFF0D0D0D);
-  final Color _accentColor = const Color(0xFFFF005C);
-  final Color _secondaryAccent = const Color(0xFF00D4FF);
-  final Color _tertiaryAccent = const Color(0xFF9C27B0);
   final Color _surfaceColor = const Color(0xFF1A1A1A);
   final Color _onSurfaceColor = Colors.white;
 
@@ -37,10 +48,10 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _screens = [
-      const HomeScreen(
-          myListIds: {}), // Parameter remains but is ignored in favor of singleton
+      HomeScreen(myListIds: const {}, initialData: widget.initialHomeData),
       const ExploreScreen(myListIds: {}),
       const SearchScreen(),
+      const ForumScreen(),
     ];
   }
 
@@ -65,80 +76,20 @@ class _MainScreenState extends State<MainScreen> {
         MaterialPageRoute(builder: (context) => const PrivacyPolicyScreen()));
   }
 
-  void _showPremiumContentScreen() {
-    Navigator.push(context,
-        MaterialPageRoute(builder: (context) => const PremiumContentScreen()));
-  }
-
-  void _showRateUsDialog() {
-    showDialog(
+  Future<void> _showRateUsDialog() async {
+    final rating = await showDialog<int>(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: _surfaceColor,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Row(
-            children: [
-              Icon(Icons.star, color: _secondaryAccent, size: 32),
-              const SizedBox(width: 12),
-              Text("Rate FLIXORA X",
-                  style: TextStyle(
-                      color: _onSurfaceColor,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("How would you rate your experience?",
-                  style: TextStyle(
-                      color: _onSurfaceColor.withValues(alpha: 0.8),
-                      fontSize: 16)),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(5, (index) {
-                  return GestureDetector(
-                    onTap: () {
-                      _handleRating(index + 1);
-                      Navigator.pop(context);
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      child:
-                          Icon(Icons.star, color: _secondaryAccent, size: 36),
-                    ),
-                  );
-                }),
-              ),
-              const SizedBox(height: 12),
-              Text("Tap a star to rate",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      color: _onSurfaceColor.withValues(alpha: 0.6),
-                      fontSize: 14)),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text("Maybe Later",
-                  style: TextStyle(color: _secondaryAccent, fontSize: 16)),
-            ),
-          ],
-        );
-      },
+      builder: (_) => const RateAppDialog(),
     );
+    if (!mounted || rating == null) return;
+    _handleRating(rating);
   }
 
   void _handleRating(int rating) {
     if (rating >= 4) {
-      _showSnackBar("Thanks for your $rating-star rating! 🎉");
+      _showSnackBar("Thanks for your $rating-star rating! \u{1F389}");
     } else {
-      _showSnackBar("Thanks for your feedback! We'll improve. ⭐");
+      _showSnackBar("Thanks for your feedback! We'll improve. \u2B50");
       _showSupportScreen();
     }
   }
@@ -149,400 +100,437 @@ class _MainScreenState extends State<MainScreen> {
       backgroundColor: _primaryColor,
       appBar: _selectedIndex == 0 ? _buildAppBar() : null,
       drawer: _buildNavigationDrawer(),
-      body: _screens[_selectedIndex],
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 280),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          final slideAnimation = Tween<Offset>(
+            begin: const Offset(0.025, 0),
+            end: Offset.zero,
+          ).animate(animation);
+
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: slideAnimation,
+              child: child,
+            ),
+          );
+        },
+        child: KeyedSubtree(
+          key: ValueKey(_selectedIndex),
+          child: _screens[_selectedIndex],
+        ),
+      ),
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
-  AppBar _buildAppBar() {
-    return AppBar(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      toolbarHeight: 90,
-      flexibleSpace: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [_primaryColor, _primaryColor.withValues(alpha: 0.9)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-      ),
-      title: ShaderMask(
-        shaderCallback: (bounds) {
-          return LinearGradient(
-            colors: [_accentColor, _secondaryAccent, _tertiaryAccent],
-            stops: const [0.3, 0.6, 1.0],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ).createShader(bounds);
+  PreferredSizeWidget _buildAppBar() {
+    return MovieHubAppBar(
+      accountAction: Consumer<AuthService>(
+        builder: (context, authService, child) {
+          return IconButton(
+            icon: CircleAvatar(
+              radius: 16,
+              backgroundImage: authService.photoURL != null
+                  ? NetworkImage(authService.photoURL!)
+                  : null,
+              backgroundColor: Colors.grey[800],
+              child: authService.photoURL == null
+                  ? Text(
+                      authService.displayName?.isNotEmpty == true
+                          ? authService.displayName![0].toUpperCase()
+                          : authService.email?.isNotEmpty == true
+                              ? authService.email![0].toUpperCase()
+                              : '?',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : null,
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              );
+            },
+            tooltip: 'Profile',
+          );
         },
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text("FLIXORA ",
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.5)),
-            Text("X",
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.5)),
-          ],
-        ),
       ),
-      centerTitle: true,
-      actions: [
-        Consumer<AuthService>(
-          builder: (context, authService, child) {
-            return IconButton(
-              icon: CircleAvatar(
-                radius: 16,
-                backgroundImage: authService.photoURL != null
-                    ? NetworkImage(authService.photoURL!)
-                    : null,
-                backgroundColor: Colors.grey[800],
-                child: authService.photoURL == null
-                    ? Text(
-                        authService.displayName?.isNotEmpty == true
-                            ? authService.displayName![0].toUpperCase()
-                            : authService.email?.isNotEmpty == true
-                                ? authService.email![0].toUpperCase()
-                                : '?',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    : null,
-              ),
-              onPressed: () {
-                if (authService.isAuthenticated) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                  );
-                } else {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  );
-                }
-              },
-              tooltip: authService.isAuthenticated ? 'Profile' : 'Sign In',
-            );
-          },
-        ),
-      ],
     );
   }
 
   Widget _buildNavigationDrawer() {
     return Drawer(
-      backgroundColor: _primaryColor,
+      backgroundColor: _drawerBackground,
+      surfaceTintColor: Colors.transparent,
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
           Container(
-            height: 220,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [_accentColor, _secondaryAccent, _tertiaryAccent],
+                colors: [
+                  CinemaPalette.wine,
+                  CinemaPalette.surface,
+                  _drawerBackground,
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _primaryColor.withValues(alpha: 0.3),
-                    shape: BoxShape.circle,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Semantics(
+                        header: true,
+                        label: 'Movie Hub Downloader',
+                        excludeSemantics: true,
+                        child: const Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('Movie Hub',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: _drawerText,
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1,
+                                  height: 1.2,
+                                )),
+                            SizedBox(height: 6),
+                            Text('DOWNLOADER',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: _drawerAccent,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 3,
+                                  height: 1.4,
+                                )),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      const Text('Unlimited Movies & TV Shows',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: _drawerMuted,
+                            fontSize: 13,
+                            height: 1.5,
+                          )),
+                    ],
                   ),
-                  child: Icon(Icons.movie_filter_rounded,
-                      size: 70, color: _onSurfaceColor),
                 ),
-                const SizedBox(height: 16),
-                ShaderMask(
-                  shaderCallback: (bounds) {
-                    return LinearGradient(
-                      colors: [_onSurfaceColor, _secondaryAccent, _accentColor],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ).createShader(bounds);
-                  },
-                  child: const Text("FLIXORA X",
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 2)),
-                ),
-                const SizedBox(height: 8),
-                Text("Unlimited Movies & Shows",
-                    style: TextStyle(
-                        color: _onSurfaceColor.withValues(alpha: 0.9),
-                        fontSize: 16)),
-              ],
+              ),
             ),
           ),
-          _buildPremiumContentItem(),
-          _buildDrawerItem("⭐ Favorites", Icons.favorite_rounded, _accentColor),
-          const Divider(color: Colors.white24),
+          const Divider(height: 1, color: Color(0x20E6BB83)),
+          _buildDrawerSectionLabel('YOUR EXPERIENCE'),
+          _buildDrawerItem(
+            title: 'Cinema Rewards',
+            icon: Icons.toll_rounded,
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const RewardsScreen()));
+            },
+          ),
+          _buildDrawerSectionLabel('INFORMATION'),
+          _buildAboutUsItem(),
+          _buildCopyrightPolicyItem(),
+          _buildTermsOfServiceItem(),
+          _buildPrivacyItem(),
+          _buildDisclaimerItem(),
+          _buildDrawerSectionLabel('HELP & FEEDBACK'),
           _buildFAQsItem(),
           _buildSupportItem(),
           _buildRateUsItem(),
-          _buildPrivacyItem(),
-          const Divider(color: Colors.white24),
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                Text("FLIXORA X  v1.0.0",
-                    style: TextStyle(
-                        color: Colors.white54,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold)),
-                SizedBox(height: 6),
-                Text(
-                    "© 2024 Ultimate Entertainment\n50K+ Movies • 10K+ Shows. All rights reserved!",
-                    style: TextStyle(color: Colors.white54, fontSize: 12),
-                    textAlign: TextAlign.center),
-              ],
-            ),
-          ),
+          _buildShareItem(),
+          const SizedBox(height: 16),
+          const Divider(
+              height: 1, indent: 24, endIndent: 24, color: Color(0x20E6BB83)),
+          _buildDrawerFooter(),
         ],
       ),
     );
   }
 
-  Widget _buildDrawerItem(String title, IconData icon, Color color) {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              color.withValues(alpha: 0.3),
-              color.withValues(alpha: 0.1)
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(12),
+  Widget _buildDrawerSectionLabel(String label) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 22, 24, 8),
+        child: Semantics(
+          header: true,
+          child: Text(label,
+              style: const TextStyle(
+                color: _drawerMuted,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.6,
+                height: 1.5,
+              )),
         ),
-        child: Icon(icon, color: color, size: 24),
-      ),
-      title: Text(title,
-          style: const TextStyle(
-              color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
-      trailing:
-          const Icon(Icons.chevron_right_rounded, color: Colors.white54, size: 20),
+      );
+
+  Widget _buildAboutUsItem() => _buildLegalDrawerItem(
+        title: 'About Us',
+        icon: Icons.info_outline_rounded,
+        type: LegalPageType.about,
+      );
+
+  Widget _buildDrawerFooter() => const SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(24, 20, 24, 24),
+          child: Column(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Color(0x14E6BB83),
+                  borderRadius: BorderRadius.all(Radius.circular(18)),
+                  border: Border.fromBorderSide(
+                    BorderSide(color: Color(0x33E6BB83)),
+                  ),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          Text('Movie Hub Downloader',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: _drawerText,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                height: 1.4,
+                              )),
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Color(0x20E6BB83),
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(7)),
+                            ),
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              child: Text('v1.0.0',
+                                  style: TextStyle(
+                                    color: _drawerMuted,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.3,
+                                  )),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 18),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _DrawerCatalogueCount(
+                              value: '50K+',
+                              label: 'MOVIES',
+                              accentColor: _drawerAccent,
+                              mutedColor: _drawerMuted,
+                            ),
+                          ),
+                          SizedBox(
+                            width: 1,
+                            height: 30,
+                            child: ColoredBox(color: Color(0x33E6BB83)),
+                          ),
+                          Expanded(
+                            child: _DrawerCatalogueCount(
+                              value: '10K+',
+                              label: 'SHOWS',
+                              accentColor: _drawerAccent,
+                              mutedColor: _drawerMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: 16),
+              Text('2026 Ultimate Entertainment',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: _drawerMuted, fontSize: 11, height: 1.5)),
+              SizedBox(height: 3),
+              Text('All rights reserved.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: _drawerMuted, fontSize: 10, height: 1.5)),
+            ],
+          ),
+        ),
+      );
+
+  Widget _buildCopyrightPolicyItem() => _buildLegalDrawerItem(
+        title: 'Copyright Policy',
+        icon: Icons.copyright_outlined,
+        type: LegalPageType.copyright,
+      );
+
+  Widget _buildTermsOfServiceItem() => _buildLegalDrawerItem(
+        title: 'Terms of Service',
+        icon: Icons.gavel_outlined,
+        type: LegalPageType.terms,
+      );
+
+  Widget _buildLegalDrawerItem({
+    required String title,
+    required IconData icon,
+    required LegalPageType type,
+  }) {
+    return _buildDrawerItem(
+      title: title,
+      icon: icon,
       onTap: () {
         Navigator.pop(context);
-        _showSnackBar("$title • Coming Soon!");
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => LegalInfoScreen(type: type)),
+        );
       },
     );
   }
 
-  Widget _buildPremiumContentItem() {
-    return Container(
-      margin: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [_accentColor, _tertiaryAccent],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: _onSurfaceColor.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(Icons.workspace_premium_rounded,
-              color: _onSurfaceColor, size: 24),
-        ),
-        title: const Text("🚀 Premium Access",
-            style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold)),
-        subtitle: const Text("Unlock exclusive content",
-            style: TextStyle(color: Colors.white70, fontSize: 12)),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: _onSurfaceColor.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: const Text("PRO",
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold)),
-        ),
+  Widget _buildFAQsItem() => _buildDrawerItem(
+        title: 'FAQs & Help',
+        icon: Icons.help_outline_rounded,
         onTap: () {
           Navigator.pop(context);
-          _showPremiumContentScreen();
+          _showFAQsScreen();
         },
-      ),
-    );
-  }
+      );
 
-  Widget _buildFAQsItem() {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              _secondaryAccent.withValues(alpha: 0.3),
-              _secondaryAccent.withValues(alpha: 0.1)
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child:
-            Icon(Icons.help_outline_rounded, color: _secondaryAccent, size: 24),
-      ),
-      title: const Text("❓ FAQs & Help",
-          style: TextStyle(
-              color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
-      trailing:
-          const Icon(Icons.chevron_right_rounded, color: Colors.white54, size: 20),
-      onTap: () {
-        Navigator.pop(context);
-        _showFAQsScreen();
-      },
-    );
-  }
+  Widget _buildSupportItem() => _buildDrawerItem(
+        title: 'Contact Support',
+        icon: Icons.help_center_rounded,
+        onTap: () {
+          Navigator.pop(context);
+          _showSupportScreen();
+        },
+      );
 
-  Widget _buildSupportItem() {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              _secondaryAccent.withValues(alpha: 0.3),
-              _secondaryAccent.withValues(alpha: 0.1)
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child:
-            Icon(Icons.help_center_rounded, color: _secondaryAccent, size: 24),
-      ),
-      title: const Text("📞 Contact Support",
-          style: TextStyle(
-              color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
-      trailing:
-          const Icon(Icons.chevron_right_rounded, color: Colors.white54, size: 20),
-      onTap: () {
-        Navigator.pop(context);
-        _showSupportScreen();
-      },
-    );
-  }
+  Widget _buildRateUsItem() => _buildDrawerItem(
+        title: 'Rate Our App',
+        icon: Icons.star_rate_rounded,
+        onTap: () {
+          Navigator.pop(context);
+          _showRateUsDialog();
+        },
+      );
 
-  Widget _buildRateUsItem() {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              _accentColor.withValues(alpha: 0.3),
-              _accentColor.withValues(alpha: 0.1)
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(Icons.star_rate_rounded, color: _accentColor, size: 24),
-      ),
-      title: const Text("⭐ Rate Our App",
-          style: TextStyle(
-              color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
-      trailing: const Icon(Icons.chevron_right_rounded,
-          color: Color.fromARGB(136, 255, 255, 255), size: 20),
-      onTap: () {
-        Navigator.pop(context);
-        _showRateUsDialog();
-      },
-    );
-  }
+  Widget _buildPrivacyItem() => _buildDrawerItem(
+        title: 'Privacy Policy',
+        icon: Icons.security_rounded,
+        onTap: () {
+          Navigator.pop(context);
+          _showPrivacyPolicyScreen();
+        },
+      );
 
-  Widget _buildPrivacyItem() {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              _tertiaryAccent.withValues(alpha: 0.3),
-              _tertiaryAccent.withValues(alpha: 0.1)
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+  Widget _buildDisclaimerItem() => _buildDrawerItem(
+        title: 'Legal & Disclaimer',
+        icon: Icons.policy_outlined,
+        onTap: () {
+          Navigator.pop(context);
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const LegalScreen()),
+          );
+        },
+      );
+
+  Widget _buildDrawerItem({
+    required String title,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) =>
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: ListTile(
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          minLeadingWidth: 44,
+          horizontalTitleGap: 14,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          leading: Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: _drawerAccent.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: _drawerAccent, size: 24),
           ),
-          borderRadius: BorderRadius.circular(12),
+          title: Text(title,
+              style: const TextStyle(
+                color: _drawerText,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                height: 1.4,
+              )),
+          trailing: const Icon(Icons.chevron_right_rounded,
+              color: _drawerMuted, size: 20),
+          onTap: onTap,
         ),
-        child: Icon(Icons.security_rounded, color: _tertiaryAccent, size: 24),
-      ),
-      title: const Text("🔒 Privacy Policy",
-          style: TextStyle(
-              color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
-      trailing:
-          const Icon(Icons.chevron_right_rounded, color: Colors.white54, size: 20),
-      onTap: () {
-        Navigator.pop(context);
-        _showPrivacyPolicyScreen();
-      },
-    );
-  }
+      );
 
   Widget _buildBottomNavigationBar() {
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [_primaryColor, _primaryColor.withValues(alpha: 0.95)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            CinemaPalette.wine,
+            CinemaPalette.surface,
+            CinemaPalette.background,
+          ],
         ),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.8),
+              color: Colors.black.withValues(alpha: 0.4),
               blurRadius: 20,
               offset: const Offset(0, -5))
         ],
       ),
       child: SafeArea(
         child: Container(
-          height: 70,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          height: 56 + MediaQuery.textScalerOf(context).scale(12) * 1.3,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildBottomNavItem(Icons.home_filled, 'Home', 0),
               _buildBottomNavItem(Icons.explore, 'Explore', 1),
               _buildBottomNavItem(Icons.search, 'Search', 2),
+              _buildBottomNavItem(Icons.forum_rounded, 'Forum', 3),
             ],
           ),
         ),
@@ -551,8 +539,10 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildBottomNavItem(IconData icon, String label, int index) {
-    bool isSelected = _selectedIndex == index;
-    return GestureDetector(
+    final isSelected = _selectedIndex == index;
+    const activeColor = CinemaPalette.gold;
+    return Expanded(
+        child: GestureDetector(
       onTap: () => _onItemTapped(index),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -560,36 +550,47 @@ class _MainScreenState extends State<MainScreen> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              gradient: isSelected
-                  ? LinearGradient(
-                      colors: [_accentColor, _secondaryAccent],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    )
-                  : null,
+              color: isSelected ? activeColor : null,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               icon,
               color: isSelected
-                  ? _onSurfaceColor
-                  : _onSurfaceColor.withValues(alpha: 0.6),
+                  ? CinemaPalette.background
+                  : _onSurfaceColor.withValues(alpha: 0.65),
               size: 24,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: isSelected
-                  ? _accentColor
-                  : _onSurfaceColor.withValues(alpha: 0.6),
+                  ? activeColor
+                  : _onSurfaceColor.withValues(alpha: 0.65),
               fontSize: 12,
+              height: 1.3,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             ),
           ),
         ],
       ),
+    ));
+  }
+
+  Widget _buildShareItem() {
+    return _buildDrawerItem(
+      title: 'Share App',
+      icon: Icons.share_rounded,
+      onTap: () {
+        Navigator.pop(context);
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ShareScreen()),
+        );
+      },
     );
   }
 
@@ -610,4 +611,43 @@ class _MainScreenState extends State<MainScreen> {
       ),
     );
   }
+}
+
+class _DrawerCatalogueCount extends StatelessWidget {
+  const _DrawerCatalogueCount({
+    required this.value,
+    required this.label,
+    required this.accentColor,
+    required this.mutedColor,
+  });
+
+  final String value;
+  final String label;
+  final Color accentColor;
+  final Color mutedColor;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(value,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: accentColor,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+                height: 1.2,
+              )),
+          const SizedBox(height: 5),
+          Text(label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: mutedColor,
+                fontSize: 10,
+                letterSpacing: 1.4,
+                height: 1.4,
+              )),
+        ],
+      );
 }

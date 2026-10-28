@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -25,6 +26,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   double _playbackSpeed = 1.0;
   bool _showControls = true;
   bool _isFullscreen = false;
+  int _initializationAttempt = 0;
+  Timer? _controlsHideTimer;
+  Duration? _lastReportedPosition;
+  bool? _lastReportedPlaying;
 
   bool get _isPlaying => _controller?.value.isPlaying ?? false;
   Duration get _position => _controller?.value.position ?? Duration.zero;
@@ -37,26 +42,51 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Future<void> _initializeVideo() async {
+    final attempt = ++_initializationAttempt;
+    VideoPlayerController? controller;
     try {
-      final controller = widget.localFilePath != null
-          ? VideoPlayerController.file(File(widget.localFilePath!))
-          : VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl!));
+      if (widget.localFilePath != null) {
+        controller = VideoPlayerController.file(File(widget.localFilePath!));
+      } else {
+        final videoUrl = widget.videoUrl?.trim();
+        if (videoUrl == null || videoUrl.isEmpty) {
+          throw ArgumentError.value(videoUrl, 'videoUrl', 'Must not be empty.');
+        }
+        final uri = Uri.parse(videoUrl);
+        if (!uri.hasScheme) {
+          throw FormatException('Video URL must be absolute.', videoUrl);
+        }
+        controller = VideoPlayerController.networkUrl(uri);
+      }
 
       await controller.initialize();
-      controller.setLooping(false);
-      controller.setPlaybackSpeed(_playbackSpeed);
+      await controller.setLooping(false);
+      await controller.setPlaybackSpeed(_playbackSpeed);
+
+      if (!mounted || attempt != _initializationAttempt) {
+        await controller.dispose();
+        return;
+      }
 
       controller.addListener(_onControllerUpdate);
 
-      if (!mounted) return;
       setState(() {
         _controller = controller;
         _errorMessage = null;
+        _isBuffering = controller!.value.isBuffering;
+        _lastReportedPosition = controller.value.position;
+        _lastReportedPlaying = controller.value.isPlaying;
       });
     } catch (error) {
-      if (!mounted) return;
+      var message = 'Failed to load video: $error';
+      try {
+        await controller?.dispose();
+      } catch (disposeError) {
+        message = '$message\nFailed to release video player: $disposeError';
+      }
+      if (!mounted || attempt != _initializationAttempt) return;
       setState(() {
-        _errorMessage = 'Failed to load video: $error';
+        _errorMessage = message;
       });
     }
   }
@@ -67,56 +97,145 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final controller = _controller;
     if (controller == null) return;
 
-    final isBuffering = controller.value.isBuffering;
-    if (_isBuffering != isBuffering) {
-      setState(() => _isBuffering = isBuffering);
+    final value = controller.value;
+    if (value.errorDescription != null) {
+      _showPlaybackError(value.errorDescription!);
+      return;
     }
 
-    // Auto-hide controls after 3 seconds
-    if (_showControls && _isPlaying && !isBuffering) {
-      Future.delayed(const Duration(seconds: 3), () {
-        if (mounted && _isPlaying) {
-          setState(() => _showControls = false);
-        }
+    if (_isBuffering != value.isBuffering ||
+        _lastReportedPosition != value.position ||
+        _lastReportedPlaying != value.isPlaying) {
+      setState(() {
+        _isBuffering = value.isBuffering;
+        _lastReportedPosition = value.position;
+        _lastReportedPlaying = value.isPlaying;
       });
+    }
+
+    if (_showControls && _isPlaying && !_isBuffering) {
+      _scheduleControlsHide();
+    } else {
+      _cancelControlsHide();
+    }
+  }
+
+  void _scheduleControlsHide() {
+    if (_controlsHideTimer != null) return;
+
+    _controlsHideTimer = Timer(const Duration(seconds: 3), () {
+      _controlsHideTimer = null;
+      if (mounted && _isPlaying && _showControls) {
+        setState(() => _showControls = false);
+      }
+    });
+  }
+
+  void _cancelControlsHide() {
+    _controlsHideTimer?.cancel();
+    _controlsHideTimer = null;
+  }
+
+  void _showPlaybackError(Object error) {
+    if (!mounted) return;
+    _cancelControlsHide();
+    final message = 'Playback failed: $error';
+    if (_errorMessage == message) return;
+    setState(() {
+      _errorMessage = message;
+      _isBuffering = false;
+    });
+  }
+
+  Future<void> _runPlayerAction(Future<void> Function() action) async {
+    try {
+      await action();
+    } catch (error) {
+      _showPlaybackError(error);
     }
   }
 
   @override
   void dispose() {
-    _controller?.dispose();
+    _initializationAttempt++;
+    _cancelControlsHide();
+    final controller = _controller;
+    if (controller != null) {
+      controller.removeListener(_onControllerUpdate);
+      unawaited(controller.dispose());
+    }
     super.dispose();
   }
 
-  void _togglePlay() {
+  Future<void> _togglePlay() async {
     final controller = _controller;
-    if (controller == null) return;
-    if (controller.value.isPlaying) {
-      controller.pause();
-    } else {
-      controller.play();
+    if (controller == null || !controller.value.isInitialized) return;
+    try {
+      if (controller.value.isPlaying) {
+        await controller.pause();
+      } else {
+        await controller.play();
+      }
+      if (mounted) setState(() {});
+    } catch (error) {
+      _showPlaybackError(error);
     }
-    setState(() {});
   }
 
   void _setPlaybackSpeed(double speed) {
     _playbackSpeed = speed;
-    _controller?.setPlaybackSpeed(speed);
     setState(() {});
+    final controller = _controller;
+    if (controller != null) {
+      unawaited(_runPlayerAction(() => controller.setPlaybackSpeed(speed)));
+    }
   }
 
-  void _seekTo(Duration position) {
-    _controller?.seekTo(position);
+  Future<void> _seekTo(Duration position) async {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) return;
+
+    final duration = controller.value.duration;
+    final boundedPosition = position < Duration.zero
+        ? Duration.zero
+        : position > duration
+            ? duration
+            : position;
+    await _runPlayerAction(() => controller.seekTo(boundedPosition));
   }
 
-  void _skipForward() {
+  Future<void> _skipForward() async {
     final newPosition = _position + const Duration(seconds: 10);
-    _seekTo(newPosition);
+    await _seekTo(newPosition);
   }
 
-  void _skipBackward() {
+  Future<void> _skipBackward() async {
     final newPosition = _position - const Duration(seconds: 10);
-    _seekTo(newPosition);
+    await _seekTo(newPosition);
+  }
+
+  Future<void> _retryVideo() async {
+    _initializationAttempt++;
+    _cancelControlsHide();
+    final previousController = _controller;
+    previousController?.removeListener(_onControllerUpdate);
+    setState(() {
+      _controller = null;
+      _errorMessage = null;
+      _isBuffering = false;
+      _lastReportedPosition = null;
+      _lastReportedPlaying = null;
+    });
+
+    try {
+      await previousController?.dispose();
+    } catch (error) {
+        if (mounted) {
+        setState(() => _errorMessage = 'Failed to restart video: $error');
+      }
+      return;
+    }
+    if (mounted) await _initializeVideo();
   }
 
   void _toggleFullscreen() {
@@ -126,6 +245,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   void _onTapScreen() {
     setState(() => _showControls = !_showControls);
+    if (_showControls && _isPlaying) {
+      _scheduleControlsHide();
+    } else {
+      _cancelControlsHide();
+    }
   }
 
   String _formatDuration(Duration duration) {
@@ -182,12 +306,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         ),
         const SizedBox(height: 24),
         ElevatedButton.icon(
-          onPressed: () {
-            _controller?.dispose();
-            _controller = null;
-            setState(() => _errorMessage = null);
-            _initializeVideo();
-          },
+          onPressed: _retryVideo,
           icon: const Icon(Icons.refresh),
           label: const Text('Retry'),
           style: ElevatedButton.styleFrom(

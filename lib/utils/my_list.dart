@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class MyList {
   MyList._internal();
@@ -10,13 +11,33 @@ class MyList {
   final Set<int> _ids = {};
   bool _initialized = false;
   Timer? _saveTimer;
+  String? _currentUserId;
+
+  String _getUserKey() {
+    final userId = FirebaseAuth.instance.currentUser?.uid ?? 'guest';
+    return '${_storageKey}_$userId';
+  }
 
   /// Call ONCE at app start (in main.dart)
   Future<void> init() async {
     if (_initialized) return;
+    await _loadData();
+    _initialized = true;
+
+    // Listen for auth changes to reload data
+    FirebaseAuth.instance.authStateChanges().listen((user) {
+      final newUserId = user?.uid ?? 'guest';
+      if (newUserId != _currentUserId) {
+        _currentUserId = newUserId;
+        _loadData();
+      }
+    });
+  }
+
+  Future<void> _loadData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final stored = prefs.getStringList(_storageKey) ?? [];
+      final stored = prefs.getStringList(_getUserKey()) ?? [];
       _ids
         ..clear()
         ..addAll(
@@ -26,7 +47,6 @@ class MyList {
       debugPrint('Failed to load MyList: $e');
       _ids.clear();
     }
-    _initialized = true;
   }
 
   /// Ensures init() has been called before use.
@@ -41,7 +61,7 @@ class MyList {
       try {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setStringList(
-          _storageKey,
+          _getUserKey(),
           _ids.map((e) => e.toString()).toList(),
         );
       } catch (e) {
@@ -57,7 +77,7 @@ class MyList {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(
-        _storageKey,
+        _getUserKey(),
         _ids.map((e) => e.toString()).toList(),
       );
     } catch (e) {

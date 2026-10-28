@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-import '../services/movie_download_service.dart';
+import '../services/movie_download_service.dart' show DownloadedMovie;
+import '../services/download_service.dart';
 import '../services/ad_service.dart';
 import 'video_player_screen.dart';
 
@@ -13,24 +13,15 @@ class DownloadedMoviesScreen extends StatefulWidget {
 }
 
 class _DownloadedMoviesScreenState extends State<DownloadedMoviesScreen> {
-  final MovieDownloadService _service = MovieDownloadService();
+  final DownloadService _service = DownloadService();
   bool _isLoading = true;
   String? _error;
   List<DownloadedMovie> _movies = const [];
-  InterstitialAd? _interstitialAd;
-  bool _isInterstitialLoaded = false;
 
   @override
   void initState() {
     super.initState();
     _loadDownloadedMovies();
-    _loadInterstitialAd();
-  }
-
-  @override
-  void dispose() {
-    _interstitialAd?.dispose();
-    super.dispose();
   }
 
   Future<void> _loadDownloadedMovies() async {
@@ -56,43 +47,21 @@ class _DownloadedMoviesScreenState extends State<DownloadedMoviesScreen> {
   }
 
   Future<void> _deleteMovie(DownloadedMovie movie) async {
-    await _service.deleteDownloadedMovie(movie.path);
+    final deleted = await _service.deleteDownloadedMovie(movie.path);
+    if (!mounted) return;
+    if (!deleted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Could not delete this download. Please try again.')),
+      );
+      return;
+    }
     await _loadDownloadedMovies();
   }
 
-  void _loadInterstitialAd() {
-    InterstitialAd.load(
-      adUnitId: AdService().interstitialAdUnitId,
-      request: const AdRequest(),
-      adLoadCallback: InterstitialAdLoadCallback(
-        onAdLoaded: (ad) {
-          _interstitialAd = ad;
-          _isInterstitialLoaded = true;
-          ad.fullScreenContentCallback = FullScreenContentCallback(
-            onAdDismissedFullScreenContent: (ad) {
-              ad.dispose();
-              _loadInterstitialAd();
-            },
-            onAdFailedToShowFullScreenContent: (ad, error) {
-              ad.dispose();
-              _loadInterstitialAd();
-            },
-          );
-        },
-        onAdFailedToLoad: (error) {
-          _interstitialAd = null;
-          _isInterstitialLoaded = false;
-        },
-      ),
-    );
-  }
-
   void _showInterstitialAd(Function actionAfterAd) {
-    if (_isInterstitialLoaded && _interstitialAd != null) {
-      AdService().showInterstitial(_interstitialAd, actionAfterAd);
-    } else {
-      actionAfterAd();
-    }
+    AdService().onActionWithAd(actionAfterAd,
+        isActive: () => mounted && (ModalRoute.of(context)?.isCurrent ?? true));
   }
 
   @override
@@ -169,7 +138,8 @@ class _DownloadedMoviesScreenState extends State<DownloadedMoviesScreen> {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          subtitle: Text('${movie.formattedSize} • ${movie.modifiedAt.toLocal()}'),
+          subtitle:
+              Text('${movie.formattedSize} • ${movie.modifiedAt.toLocal()}'),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -180,7 +150,8 @@ class _DownloadedMoviesScreenState extends State<DownloadedMoviesScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => VideoPlayerScreen(localFilePath: movie.path),
+                        builder: (_) =>
+                            VideoPlayerScreen(localFilePath: movie.path),
                       ),
                     );
                   });

@@ -1,12 +1,15 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'movie_details_screen.dart';
 import '../utils/my_list.dart';
+import '../utils/cinema_palette.dart';
 import '../services/ad_service.dart';
 import '../widgets/safe_network_image.dart';
+import '../widgets/movie_hub_banner_ad.dart';
+import '../utils/movie_download_availability.dart';
 
 final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '';
 const String baseUrl = 'https://api.themoviedb.org/3';
@@ -24,97 +27,173 @@ class ExploreScreen extends StatefulWidget {
 class _ExploreScreenState extends State<ExploreScreen> {
   List<dynamic> genres = [];
   List<dynamic> movies = [];
-  int? selectedGenreId;
+  String? selectedGenreId;
+  String _mediaType = 'movie';
   bool isLoading = true;
   String searchQuery = '';
+  String? _error;
+  int _requestGeneration = 0;
+  Timer? _searchDebounce;
+  final _searchController = TextEditingController();
 
-  late BannerAd bannerAd;
-  bool isAdLoaded = false;
+  bool get _isTv => _mediaType == 'tv';
 
   @override
   void initState() {
     super.initState();
-    _initAds();
     fetchGenres();
   }
 
-  void _initAds() {
-    bannerAd = BannerAd(
-      adUnitId: AdService().bannerAdUnitId,
-      size: AdSize.banner,
-      request: const AdRequest(),
-      listener: BannerAdListener(
-        onAdLoaded: (_) => setState(() => isAdLoaded = true),
-        onAdFailedToLoad: (_, __) => setState(() => isAdLoaded = false),
-      ),
-    )..load();
+  Future<Map<String, dynamic>> _getData(String path,
+      [Map<String, String> parameters = const {}]) async {
+    final uri = Uri.https('api.themoviedb.org', '/3/$path', {
+      'api_key': apiKey,
+      'language': 'en-US',
+      ...parameters,
+    });
+    final response = await http.get(uri).timeout(const Duration(seconds: 20));
+    if (response.statusCode != 200) throw Exception('Catalogue unavailable');
+    return json.decode(response.body) as Map<String, dynamic>;
   }
 
   Future<void> fetchGenres() async {
+    _searchDebounce?.cancel();
+    final generation = ++_requestGeneration;
+    setState(() {
+      isLoading = true;
+      _error = null;
+    });
     try {
-      final response = await http
-          .get(Uri.parse('$baseUrl/genre/movie/list?api_key=$apiKey'));
-      final data = json.decode(response.body);
-
+      final data = await _getData('genre/$_mediaType/list');
+      if (!mounted || generation != _requestGeneration) return;
       setState(() {
-        genres = data['genres'] ?? [];
+        genres = [
+          ...?data['genres'] as List?,
+          if (!_isTv) {'id': '878,12', 'name': 'Sci-Fi & Adventure'},
+        ];
+        if (!genres.any((genre) => genre['id'].toString() == selectedGenreId)) {
+          selectedGenreId =
+              genres.isEmpty ? null : genres.first['id'].toString();
+        }
         isLoading = false;
       });
-
-      if (genres.isNotEmpty) {
-        fetchMoviesByGenre(genres.first['id']);
+      if (searchQuery.isNotEmpty) {
+        await searchMovies(searchQuery);
+      } else if (selectedGenreId != null) {
+        await fetchMoviesByGenre(selectedGenreId!);
       }
-    } catch (e) {
-      debugPrint('Error fetching genres: $e');
-      setState(() => isLoading = false);
+    } catch (_) {
+      if (!mounted || generation != _requestGeneration) return;
+      setState(() {
+        isLoading = false;
+        _error = 'Unable to load genres. Pull down to retry.';
+      });
     }
   }
 
-  Future<void> fetchMoviesByGenre(int genreId) async {
+  Future<void> fetchMoviesByGenre(String genreId) async {
+    selectedGenreId = genreId;
+    await _loadTitles('discover/$_mediaType', {'with_genres': genreId});
+  }
+
+  Future<void> _loadTitles(String path, Map<String, String> parameters) async {
+    final generation = ++_requestGeneration;
+    final mediaType = _mediaType;
     setState(() {
-      selectedGenreId = genreId;
       movies = [];
       isLoading = true;
+      _error = null;
     });
     try {
-      final response = await http.get(
-        Uri.parse(
-            '$baseUrl/discover/movie?api_key=$apiKey&with_genres=$genreId'),
-      );
-      final data = json.decode(response.body);
-
+      final data = await _getData(path, parameters);
+      if (!mounted || generation != _requestGeneration) return;
       setState(() {
-        movies = data['results'] ?? [];
+        movies = filterReleasedMovies(data['results'])
+            .map((item) => {...item, 'media_type': mediaType})
+            .toList();
         isLoading = false;
       });
-    } catch (e) {
-      debugPrint('Error fetching movies: $e');
-      setState(() => isLoading = false);
+    } catch (_) {
+      if (!mounted || generation != _requestGeneration) return;
+      setState(() {
+        isLoading = false;
+        _error = 'Unable to load titles. Pull down to retry.';
+      });
     }
   }
 
   Future<void> searchMovies(String query) async {
-    if (query.isEmpty) return;
-
-    setState(() {
-      movies = [];
-      isLoading = true;
-    });
-
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/search/movie?api_key=$apiKey&query=$query'),
-      );
-      final data = json.decode(response.body);
-
-      setState(() {
-        movies = data['results'] ?? [];
-        isLoading = false;
-      });
-    } catch (e) {
-      debugPrint('Error searching movies: $e');
-      setState(() => isLoading = false);
+    if (query.isEmpty) {
+      if (selectedGenreId != null) {
+        await fetchMoviesByGenre(selectedGenreId!);
+      } else {
+        await fetchGenres();
+      }
+      return;
     }
+    await _loadTitles('search/$_mediaType', {'query': query});
+  }
+
+  void _onSearchChanged(String value) {
+    final query = value.trim();
+    _searchDebounce?.cancel();
+    ++_requestGeneration;
+    searchQuery = query;
+    setState(() {
+      isLoading = true;
+      _error = null;
+    });
+    if (query.isEmpty) {
+      searchMovies(query);
+      return;
+    }
+    _searchDebounce = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) searchMovies(query);
+    });
+  }
+
+  void _selectGenre(String genreId) {
+    _searchDebounce?.cancel();
+    _searchController.clear();
+    searchQuery = '';
+    fetchMoviesByGenre(genreId);
+  }
+
+  void _selectMediaType(String mediaType) {
+    if (_mediaType == mediaType) return;
+    _searchDebounce?.cancel();
+    _searchController.clear();
+    setState(() {
+      _mediaType = mediaType;
+      searchQuery = '';
+      selectedGenreId = null;
+      genres = [];
+      movies = [];
+    });
+    fetchGenres();
+  }
+
+  Widget _buildMediaTabs() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: SizedBox(
+        width: double.infinity,
+        child: SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: 'movie', label: Text('Movies')),
+            ButtonSegment(value: 'tv', label: Text('TV Shows')),
+          ],
+          selected: {_mediaType},
+          onSelectionChanged: (selection) => _selectMediaType(selection.single),
+          style: SegmentedButton.styleFrom(
+            foregroundColor: CinemaPalette.ivory,
+            backgroundColor: CinemaPalette.surface,
+            selectedForegroundColor: CinemaPalette.background,
+            selectedBackgroundColor: CinemaPalette.gold,
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildGenresSection() {
@@ -126,25 +205,40 @@ class _ExploreScreenState extends State<ExploreScreen> {
         itemCount: genres.length,
         itemBuilder: (context, index) {
           final genre = genres[index];
-          final isSelected = genre['id'] == selectedGenreId;
+          final isSelected = genre['id'].toString() == selectedGenreId;
 
           return GestureDetector(
-            onTap: () => fetchMoviesByGenre(genre['id']),
+            onTap: () => _selectGenre(genre['id'].toString()),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),
               margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
-                color:
-                    isSelected ? const Color(0xFF00D4FF) : Colors.grey.shade900,
+                color: isSelected ? CinemaPalette.gold : CinemaPalette.surface,
+                border: Border.all(
+                  color: CinemaPalette.gold.withValues(
+                    alpha: isSelected ? 1 : 0.16,
+                  ),
+                ),
                 borderRadius: BorderRadius.circular(20),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: CinemaPalette.gold.withValues(alpha: 0.18),
+                          blurRadius: 12,
+                          spreadRadius: 1,
+                        ),
+                      ]
+                    : null,
               ),
               child: Center(
                 child: Text(
                   genre['name'] ?? 'Unknown',
                   style: TextStyle(
                     fontSize: 14,
-                    color: isSelected ? Colors.black : Colors.white,
+                    color: isSelected
+                        ? CinemaPalette.background
+                        : CinemaPalette.ivory,
                     fontWeight:
                         isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
@@ -159,15 +253,33 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Widget _buildMoviesSliverGrid() {
+    if (isLoading) {
+      return _buildSkeletonSliverGrid();
+    }
+
     if (movies.isEmpty) {
-      return const SliverFillRemaining(
+      return SliverFillRemaining(
         hasScrollBody: false,
         child: Center(
           child: Padding(
-            padding: EdgeInsets.all(30),
-            child: Text(
-              'No movies found.',
-              style: TextStyle(color: Colors.white54),
+            padding: const EdgeInsets.all(30),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.movie_filter,
+                  color: CinemaPalette.gold,
+                  size: 54,
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  _error ??
+                      'No ${_isTv ? 'TV shows' : 'movies'} found for this genre/search.',
+                  textAlign: TextAlign.center,
+                  style:
+                      const TextStyle(color: CinemaPalette.muted, fontSize: 16),
+                ),
+              ],
             ),
           ),
         ),
@@ -177,8 +289,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 200,
           childAspectRatio: 0.65,
           crossAxisSpacing: 10,
           mainAxisSpacing: 12,
@@ -194,15 +306,21 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
             return GestureDetector(
               onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => MovieDetailsScreen(movie: movie)),
-                );
+                AdService().onMoviePosterTap(() {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => MovieDetailsScreen(movie: movie)),
+                  );
+                },
+                    isActive: () =>
+                        mounted &&
+                        context.mounted &&
+                        (ModalRoute.of(context)?.isCurrent ?? true));
               },
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade900,
+                  color: CinemaPalette.surface,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Stack(
@@ -229,9 +347,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       left: 8,
                       right: 8,
                       child: Text(
-                        movie['title'] ?? 'Unknown',
+                        movie['title'] ?? movie['name'] ?? 'Unknown',
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: CinemaPalette.ivory,
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                         ),
@@ -254,7 +372,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                       ? 'Added to My List'
                                       : 'Removed from My List',
                                 ),
-                                backgroundColor: const Color(0xFFE50914),
+                                backgroundColor: CinemaPalette.wine,
                                 duration: const Duration(seconds: 1),
                               ),
                             );
@@ -269,8 +387,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           child: Icon(
                             isInMyList ? Icons.bookmark : Icons.bookmark_border,
                             color: isInMyList
-                                ? const Color(0xFFE50914)
-                                : Colors.white,
+                                ? CinemaPalette.gold
+                                : CinemaPalette.ivory,
                             size: 22,
                           ),
                         ),
@@ -289,12 +407,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.star, color: Colors.amber, size: 12),
+                            const Icon(Icons.star,
+                                color: CinemaPalette.gold, size: 12),
                             const SizedBox(width: 2),
                             Text(
                               '${movie['vote_average']?.toStringAsFixed(1) ?? 'N/A'}',
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: CinemaPalette.ivory,
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -314,26 +433,54 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
+  Widget _buildSkeletonSliverGrid() {
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      sliver: SliverGrid(
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 200,
+          childAspectRatio: 0.65,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 12,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) => const _MovieSkeletonCard(),
+          childCount: 6,
+        ),
+      ),
+    );
+  }
+
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: TextField(
-        style: const TextStyle(color: Colors.white),
+        controller: _searchController,
+        style: const TextStyle(color: CinemaPalette.ivory),
+        cursorColor: CinemaPalette.gold,
         decoration: InputDecoration(
-          hintText: 'Search movies...',
-          hintStyle: const TextStyle(color: Colors.white54),
+          hintText: _isTv ? 'Search TV shows...' : 'Search movies...',
+          hintStyle: const TextStyle(color: CinemaPalette.muted),
           filled: true,
-          fillColor: Colors.grey.shade900,
-          prefixIcon: const Icon(Icons.search, color: Colors.white54),
+          fillColor: CinemaPalette.surface,
+          prefixIcon: const Icon(Icons.search, color: CinemaPalette.muted),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
             borderSide: BorderSide.none,
           ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(
+              color: CinemaPalette.gold.withValues(alpha: 0.16),
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: const BorderSide(color: CinemaPalette.gold),
+          ),
         ),
-        onSubmitted: (value) {
-          searchQuery = value.trim();
-          if (searchQuery.isNotEmpty) searchMovies(searchQuery);
-        },
+        onChanged: _onSearchChanged,
+        onSubmitted: _onSearchChanged,
       ),
     );
   }
@@ -341,63 +488,53 @@ class _ExploreScreenState extends State<ExploreScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: CinemaPalette.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0A0A0A),
+        backgroundColor: Colors.transparent,
+        foregroundColor: CinemaPalette.ivory,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
+        flexibleSpace: const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                CinemaPalette.wine,
+                CinemaPalette.surface,
+                CinemaPalette.background,
+              ],
+            ),
+          ),
+        ),
         title: const Text(
-          'Explore Movies',
+          'Explore',
           style: TextStyle(
-            color: Colors.white,
+            color: CinemaPalette.ivory,
             fontSize: 22,
             fontWeight: FontWeight.bold,
           ),
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.grey[800],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.bookmark,
-                    color: Color(0xFFE50914),
-                    size: 18,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${MyList().all.length}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
-      body: isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF00D4FF)))
-          : RefreshIndicator(
+      body: Column(
+        children: [
+          if (!isLoading && movies.isNotEmpty)
+            const MovieHubBannerAd(placement: 'explore'),
+          Expanded(
+            child: RefreshIndicator(
               onRefresh: () async {
                 await fetchGenres();
               },
-              color: const Color(0xFF00D4FF),
+              color: CinemaPalette.gold,
+              backgroundColor: CinemaPalette.surface,
               child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
                   SliverToBoxAdapter(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        _buildMediaTabs(),
                         _buildSearchBar(),
                         const SizedBox(height: 10),
                         const Padding(
@@ -405,7 +542,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           child: Text(
                             'Genres',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: CinemaPalette.ivory,
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
@@ -417,26 +554,69 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     ),
                   ),
                   _buildMoviesSliverGrid(),
-                  if (isAdLoaded)
-                    SliverToBoxAdapter(
-                      child: Container(
-                        alignment: Alignment.center,
-                        margin: const EdgeInsets.symmetric(vertical: 12),
-                        width: bannerAd.size.width.toDouble(),
-                        height: bannerAd.size.height.toDouble(),
-                        child: AdWidget(ad: bannerAd),
-                      ),
-                    ),
                   const SliverToBoxAdapter(child: SizedBox(height: 20)),
                 ],
               ),
             ),
+          ),
+        ],
+      ),
     );
   }
 
   @override
   void dispose() {
-    bannerAd.dispose();
+    ++_requestGeneration;
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+}
+
+class _MovieSkeletonCard extends StatefulWidget {
+  const _MovieSkeletonCard();
+
+  @override
+  State<_MovieSkeletonCard> createState() => _MovieSkeletonCardState();
+}
+
+class _MovieSkeletonCardState extends State<_MovieSkeletonCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) => Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            begin: Alignment(-1.0 + (_controller.value * 2), -0.3),
+            end: Alignment(_controller.value * 2, 0.3),
+            colors: const [
+              CinemaPalette.surface,
+              CinemaPalette.wine,
+              CinemaPalette.surface,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
     super.dispose();
   }
 }

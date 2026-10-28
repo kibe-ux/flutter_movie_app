@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
@@ -10,6 +11,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../models/download_task.dart';
 import '../models/movie.dart';
+import 'http_diagnostics.dart';
 
 class DownloadedMovie {
   const DownloadedMovie({
@@ -29,7 +31,8 @@ class DownloadedMovie {
 
 class MovieDownloadService {
   MovieDownloadService._internal();
-  static final MovieDownloadService _instance = MovieDownloadService._internal();
+  static final MovieDownloadService _instance =
+      MovieDownloadService._internal();
   factory MovieDownloadService() => _instance;
 
   final StreamController<Map<String, DownloadTask>> _downloadController =
@@ -43,15 +46,17 @@ class MovieDownloadService {
   Map<String, DownloadTask> get tasks => Map.unmodifiable(_tasks);
 
   String get _baseUrl {
-    final raw = dotenv.env['MOVIE_DOWNLOAD_API_BASE_URL'] ?? 'http://10.0.2.2:3000';
+    final raw =
+        dotenv.env['MOVIE_DOWNLOAD_API_BASE_URL'] ?? 'http://10.0.2.2:3000';
     return raw.replaceAll(RegExp(r'/+$'), '');
   }
 
-  String get _apiKey => dotenv.env['MOVIE_DOWNLOAD_API_KEY'] ?? 'dev-api-key';
-
   Future<List<Movie>> fetchMovies() async {
     final response = await _withRetry(
-      () => _apiClient.get(Uri.parse('$_baseUrl/api/movies'), headers: _authHeaders),
+      () async => _apiClient.get(
+        Uri.parse('$_baseUrl/api/movies'),
+        headers: await _authHeaders(),
+      ),
     );
     _ensureSuccess(response, endpoint: '/api/movies');
 
@@ -64,10 +69,14 @@ class MovieDownloadService {
 
   Future<Movie> fetchMovieDetails(String id) async {
     final response = await _withRetry(
-      () => _apiClient.get(Uri.parse('$_baseUrl/api/movies/$id'), headers: _authHeaders),
+      () async => _apiClient.get(
+        Uri.parse('$_baseUrl/api/movies/$id'),
+        headers: await _authHeaders(),
+      ),
     );
     _ensureSuccess(response, endpoint: '/api/movies/$id');
-    return Movie.fromJson((jsonDecode(response.body) as Map).cast<String, dynamic>());
+    return Movie.fromJson(
+        (jsonDecode(response.body) as Map).cast<String, dynamic>());
   }
 
   Future<String> requestSignedDownloadUrl({
@@ -75,9 +84,9 @@ class MovieDownloadService {
     required String quality,
   }) async {
     final response = await _withRetry(
-      () => _apiClient.post(
+      () async => _apiClient.post(
         Uri.parse('$_baseUrl/api/download/request'),
-        headers: _jsonHeaders,
+        headers: await _authHeaders(json: true),
         body: jsonEncode({'movieId': movieId, 'quality': quality}),
       ),
     );
@@ -161,7 +170,8 @@ class MovieDownloadService {
     unawaited(_resumeTaskInternal(taskId));
   }
 
-  Future<void> cancelDownload(String taskId, {bool deletePartial = true}) async {
+  Future<void> cancelDownload(String taskId,
+      {bool deletePartial = true}) async {
     final task = _tasks[taskId];
     if (task == null) return;
 
@@ -188,14 +198,14 @@ class MovieDownloadService {
       return const [];
     }
 
-    final files = directory
-        .listSync()
-        .whereType<File>()
-        .where((file) {
-          final ext = p.extension(file.path).toLowerCase();
-          return ext == '.mp4' || ext == '.mkv' || ext == '.mov' || ext == '.webm' || ext == '.avi';
-        })
-        .toList();
+    final files = directory.listSync().whereType<File>().where((file) {
+      final ext = p.extension(file.path).toLowerCase();
+      return ext == '.mp4' ||
+          ext == '.mkv' ||
+          ext == '.mov' ||
+          ext == '.webm' ||
+          ext == '.avi';
+    }).toList();
 
     final output = <DownloadedMovie>[];
     for (final file in files) {
@@ -270,13 +280,18 @@ class MovieDownloadService {
     int downloadedBytes = await _safeFileLength(task.savePath);
 
     final request = http.Request('GET', Uri.parse(signedUrl));
-    request.headers['x-api-key'] = _apiKey;
     if (downloadedBytes > 0) {
       request.headers['Range'] = 'bytes=$downloadedBytes-';
     }
 
     final client = http.Client();
     final response = await client.send(request);
+    logHttpDiagnostic(
+      endpoint: '/api/download/stream',
+      status: response.statusCode,
+      headers: response.headers,
+      fallbackSource: 'download-origin',
+    );
     if (response.statusCode != 200 && response.statusCode != 206) {
       client.close();
       throw Exception('Download failed (${response.statusCode}).');
@@ -290,8 +305,9 @@ class MovieDownloadService {
 
     int totalBytes = task.totalBytes;
     if (response.statusCode == 206) {
-      totalBytes = _parseTotalFromContentRange(response.headers['content-range']) ??
-          (downloadedBytes + (response.contentLength ?? 0));
+      totalBytes =
+          _parseTotalFromContentRange(response.headers['content-range']) ??
+              (downloadedBytes + (response.contentLength ?? 0));
     } else {
       totalBytes = response.contentLength ?? totalBytes;
     }
@@ -305,7 +321,8 @@ class MovieDownloadService {
     );
     _emitTasks();
 
-    final sink = file.openWrite(mode: append ? FileMode.append : FileMode.write);
+    final sink =
+        file.openWrite(mode: append ? FileMode.append : FileMode.write);
     late final StreamSubscription<List<int>> subscription;
 
     subscription = response.stream.listen(
@@ -318,7 +335,8 @@ class MovieDownloadService {
         _tasks[taskId] = current.copyWith(
           downloadedBytes: downloadedBytes,
           totalBytes: totalBytes,
-          progress: totalBytes > 0 ? downloadedBytes / totalBytes : current.progress,
+          progress:
+              totalBytes > 0 ? downloadedBytes / totalBytes : current.progress,
         );
         _emitTasks();
       },
@@ -353,7 +371,8 @@ class MovieDownloadService {
         }
 
         final actualBytes = await _safeFileLength(current.savePath);
-        final completedTotal = current.totalBytes > 0 ? current.totalBytes : actualBytes;
+        final completedTotal =
+            current.totalBytes > 0 ? current.totalBytes : actualBytes;
         _tasks[taskId] = current.copyWith(
           status: DownloadTaskStatus.completed,
           downloadedBytes: actualBytes,
@@ -413,9 +432,11 @@ class MovieDownloadService {
     return dir;
   }
 
-  Future<String> _buildLocalPath(Movie movie, String quality, String remotePath) async {
+  Future<String> _buildLocalPath(
+      Movie movie, String quality, String remotePath) async {
     final dir = await _downloadDirectory();
-    final ext = p.extension(remotePath).isEmpty ? '.mp4' : p.extension(remotePath);
+    final ext =
+        p.extension(remotePath).isEmpty ? '.mp4' : p.extension(remotePath);
     final safeTitle = movie.title.replaceAll(RegExp(r'[^a-zA-Z0-9]+'), '.');
     final fileName = '$safeTitle.${movie.year}.${quality.toLowerCase()}$ext';
     return p.join(dir.path, fileName);
@@ -433,12 +454,18 @@ class MovieDownloadService {
     return int.tryParse(suffix);
   }
 
-  Map<String, String> get _authHeaders => {'x-api-key': _apiKey};
+  Future<Map<String, String>> _authHeaders({bool json = false}) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final idToken = await user?.getIdToken();
+    if (idToken == null || idToken.trim().isEmpty) {
+      throw StateError('Sign in is required to use movie downloads.');
+    }
 
-  Map<String, String> get _jsonHeaders => {
-        'x-api-key': _apiKey,
-        'Content-Type': 'application/json',
-      };
+    return {
+      'Authorization': 'Bearer $idToken',
+      if (json) 'Content-Type': 'application/json',
+    };
+  }
 
   Future<http.Response> _withRetry(
     Future<http.Response> Function() operation, {
@@ -458,15 +485,24 @@ class MovieDownloadService {
   }
 
   void _ensureSuccess(http.Response response, {required String endpoint}) {
+    logHttpDiagnostic(
+      endpoint:
+          endpoint.startsWith('/api/movies/') ? '/api/movies/:id' : endpoint,
+      status: response.statusCode,
+      headers: response.headers,
+    );
     if (response.statusCode >= 200 && response.statusCode < 300) return;
-    throw Exception('Request to $endpoint failed (${response.statusCode}): ${response.body}');
+    throw Exception(
+        'Request to $endpoint failed (${response.statusCode}): ${response.body}');
   }
 
-  String _taskId(String movieId, String quality) => '$movieId::$quality'.toLowerCase();
+  String _taskId(String movieId, String quality) =>
+      '$movieId::$quality'.toLowerCase();
 
   String _titleFromFilePath(String filePath) {
     final base = p.basenameWithoutExtension(filePath);
-    final match = RegExp(r'^(.*)\.(\d{4})\.(\d{3,4}p?)$', caseSensitive: false).firstMatch(base);
+    final match = RegExp(r'^(.*)\.(\d{4})\.(\d{3,4}p?)$', caseSensitive: false)
+        .firstMatch(base);
     if (match == null) {
       return base.replaceAll('.', ' ');
     }
@@ -484,7 +520,9 @@ class MovieDownloadService {
       value /= 1024;
       index += 1;
     }
-    final amount = value < 10 && index > 0 ? value.toStringAsFixed(1) : value.toStringAsFixed(0);
+    final amount = value < 10 && index > 0
+        ? value.toStringAsFixed(1)
+        : value.toStringAsFixed(0);
     return '$amount ${units[index]}';
   }
 

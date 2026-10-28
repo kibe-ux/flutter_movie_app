@@ -7,6 +7,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/films365_models.dart';
+import '../utils/movie_download_availability.dart';
+import 'http_diagnostics.dart';
 
 enum Films365ContentType { all, movie, tv }
 
@@ -25,10 +27,12 @@ class Films365ApiService {
     String Function()? apiBaseUrlProvider,
     Future<String?> Function()? idTokenProvider,
     Duration requestTimeout = const Duration(seconds: 30),
+    DateTime Function()? now,
   })  : _client = client ?? http.Client(),
         _apiBaseUrlProvider = apiBaseUrlProvider,
         _idTokenProvider = idTokenProvider,
-        _requestTimeout = requestTimeout;
+        _requestTimeout = requestTimeout,
+        _now = now ?? DateTime.now;
 
   static const _debugBackendUrl = 'http://127.0.0.1:3000';
   static const _releaseBackendUrl =
@@ -38,14 +42,26 @@ class Films365ApiService {
   final String Function()? _apiBaseUrlProvider;
   final Future<String?> Function()? _idTokenProvider;
   final Duration _requestTimeout;
+  final DateTime Function() _now;
+  final Map<String, String?> _uuidCache = {};
+  final _infoCache =
+      <String, ({DateTime fetchedAt, Map<String, dynamic> data})>{};
+  final _pendingInfo = <String, Future<Map<String, dynamic>?>>{};
+  static const _infoCacheLifetime = Duration(minutes: 2);
+  static const _maxInfoEntries = 32;
 
   bool get isConfigured => _backendUrl.isNotEmpty;
+
+  String _cacheKey(int tmdbId, String type) => '${type}_$tmdbId';
 
   String get _backendUrl {
     final configuredUrl = _apiBaseUrlProvider?.call() ??
         dotenv.env['MOVIE_DOWNLOAD_API_BASE_URL'];
-    final baseUrl =
-        configuredUrl ?? (kDebugMode ? _debugBackendUrl : _releaseBackendUrl);
+    final baseUrl = configuredUrl != null && configuredUrl.trim().isNotEmpty
+        ? configuredUrl
+        : (_releaseBackendUrl.isNotEmpty
+            ? _releaseBackendUrl
+            : (kDebugMode ? _debugBackendUrl : ''));
     return baseUrl.trim().replaceAll(RegExp(r'/+$'), '');
   }
 
@@ -57,6 +73,327 @@ class Films365ApiService {
         'trending',
         queryParameters: _listParameters(type, page),
       ));
+
+  Future<Map<String, dynamic>?> findUuidByTmdbId({
+    required int tmdbId,
+    required String type,
+    String? title,
+    String? providerId,
+    List<String> alternativeTitles = const [],
+    bool metadataOnly = false,
+    bool refresh = false,
+  }) async {
+    Future<Map<String, dynamic>?> resolve() => _resolveByTmdbId(
+          tmdbId: tmdbId,
+          type: type,
+          title: title,
+          providerId: providerId,
+          alternativeTitles: alternativeTitles,
+          metadataOnly: metadataOnly,
+        );
+    // Download resolution always checks the provider for a fresh link.
+    if (!metadataOnly) return resolve();
+    // Scope cached display data to the backend and current Firebase token.
+    // Tokens are kept only in bounded memory and are never logged.
+    final token = await _getIdToken();
+    final key =
+        '$_backendUrl|$token|${type.toLowerCase()}|$tmdbId|${providerId ?? ''}';
+    final cached = _infoCache[key];
+    if (!refresh &&
+        cached != null &&
+        _now().difference(cached.fetchedAt) < _infoCacheLifetime) {
+      return Map<String, dynamic>.from(cached.data);
+    }
+    final pending = _pendingInfo[key];
+    if (pending != null) {
+      final data = await pending;
+      return data == null ? null : Map<String, dynamic>.from(data);
+    }
+    final request = resolve();
+    _pendingInfo[key] = request;
+    try {
+      final data = await request;
+      if (data != null && data.isNotEmpty) {
+        _infoCache.remove(key);
+        while (_infoCache.length >= _maxInfoEntries) {
+          _infoCache.remove(_infoCache.keys.first);
+        }
+        _infoCache[key] =
+            (fetchedAt: _now(), data: Map<String, dynamic>.from(data));
+      }
+      return data;
+    } finally {
+      _pendingInfo.remove(key);
+    }
+  }
+
+  Future<Map<String, dynamic>?> _resolveByTmdbId({
+    required int tmdbId,
+    required String type,
+    String? title,
+    String? providerId,
+    List<String> alternativeTitles = const [],
+    bool metadataOnly = false,
+  }) async {
+    final normalizedType = type.toLowerCase();
+    if (tmdbId < 1 || (normalizedType != 'movie' && normalizedType != 'tv')) {
+      throw ArgumentError(
+        'A positive tmdbId and type movie or tv are required.',
+      );
+    }
+
+    final cacheKey = _cacheKey(tmdbId, normalizedType);
+    final cataloguePages = <String, Films365ListEnvelope>{};
+    Map<String, dynamic>? matchedMetadata;
+    final attemptedIds = <String>{};
+    Future<Map<String, dynamic>?> resolveId(String id) async {
+      final uuid = id.trim();
+      if (uuid.isEmpty || !attemptedIds.add(uuid)) return null;
+      try {
+        final metadata =
+            await _detailsForUuid(type: normalizedType, uuid: uuid);
+        if (metadata != null && metadata.isNotEmpty) {
+          _uuidCache[cacheKey] = uuid;
+          matchedMetadata ??= metadata;
+          if (metadataOnly ||
+              normalizedType == 'tv' ||
+              hasMovieDownloadLink(metadata)) {
+            return metadata;
+          }
+        }
+      } on Films365RequestException catch (error) {
+        if (error.statusCode != 404) rethrow;
+        _uuidCache.remove(cacheKey);
+      }
+      return null;
+    }
+
+    final suppliedUuid = providerId?.trim();
+    final cachedUuid = suppliedUuid != null && suppliedUuid.isNotEmpty
+        ? suppliedUuid
+        : _uuidCache[cacheKey];
+    if (cachedUuid != null) {
+      final metadata = await resolveId(cachedUuid);
+      if (metadata != null) return metadata;
+    }
+
+    // Display information must not wait for download discovery/catalogue scans.
+    // Missing records can still use the exact-title search below; authorization
+    // failures are propagated without trying alternative Details routes.
+    if (metadataOnly) {
+      try {
+        final response = await details(
+          type: normalizedType == 'movie'
+              ? Films365DetailsType.movie
+              : Films365DetailsType.tv,
+          tmdbId: tmdbId,
+        );
+        if (response is Map && response.isNotEmpty) {
+          final id = response['id'];
+          if (id is String && id.trim().isNotEmpty) {
+            _uuidCache[cacheKey] = id.trim();
+          }
+          return _downloadMetadata(response,
+              uuid: id is String ? id.trim() : null);
+        }
+      } on Films365RequestException catch (error) {
+        if (error.statusCode != 404) rethrow;
+      }
+    }
+
+    String? cacheMatch(
+      Iterable<Map<String, dynamic>> items, {
+      String? fallbackType,
+    }) {
+      for (final item in items) {
+        final itemType = item['type'] ?? fallbackType;
+        final id = item['id'];
+        if (item['tmdbId'].toString() == tmdbId.toString() &&
+            itemType?.toString().toLowerCase() == normalizedType &&
+            id is String &&
+            id.trim().isNotEmpty &&
+            !attemptedIds.contains(id.trim())) {
+          return id.trim();
+        }
+      }
+      return null;
+    }
+
+    // Prefer the provider's own ID. Search by title, but only accept an exact
+    // TMDB ID and content type match so remakes and TV names cannot collide.
+    final titles = <String>{
+      if (title != null && title.trim().isNotEmpty) title.trim(),
+      ...alternativeTitles
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty),
+    };
+    for (final query in titles.take(metadataOnly ? 1 : titles.length)) {
+      Object? response;
+      try {
+        response = await search(query: query);
+      } on Films365RequestException catch (error) {
+        if (error.source == 'firebase-auth') rethrow;
+        // An optional catalogue lookup must not prevent direct ID lookup.
+      } on TimeoutException {
+        // Fall back to the documented direct lookup.
+      } on http.ClientException {
+        // Fall back to the documented direct lookup.
+      }
+      if (response is Films365SearchEnvelope) {
+        final typedResults =
+            normalizedType == 'movie' ? response.movies : response.tvs;
+        final id = cacheMatch(typedResults, fallbackType: normalizedType) ??
+            cacheMatch(response.all);
+        if (id != null) {
+          final metadata = await resolveId(id);
+          if (metadata != null) return metadata;
+        }
+      }
+    }
+
+    if (metadataOnly) return matchedMetadata;
+
+    // TMDB catalogue screens do not carry a Film365 ID. When search has no
+    // usable match, check the current catalogue pages before choosing the
+    // TMDB Details route. Both routes are documented but can return different
+    // outcomes. Never retry a denied Details request through another route.
+    if (titles.isNotEmpty) {
+      for (final endpoint in ['popular', 'trending', 'latest']) {
+        Object? response;
+        try {
+          response = await _get(endpoint,
+              queryParameters: {'type': 'all', 'page': '1'});
+        } on Films365RequestException catch (error) {
+          if (error.source == 'firebase-auth') rethrow;
+        } on TimeoutException {
+          // Optional discovery must not block a direct lookup.
+        } on http.ClientException {
+          // Optional discovery must not block a direct lookup.
+        }
+        if (response == null) continue;
+        final envelope = Films365ListEnvelope.fromJson(_responseMap(response));
+        cataloguePages[endpoint] = envelope;
+        final id = cacheMatch(envelope.results);
+        if (id != null) {
+          final metadata = await resolveId(id);
+          if (metadata != null) return metadata;
+        }
+      }
+    }
+
+    try {
+      final directDetails = await details(
+        type: normalizedType == 'movie'
+            ? Films365DetailsType.movie
+            : Films365DetailsType.tv,
+        tmdbId: tmdbId,
+      );
+      if (directDetails is Map) {
+        final id = directDetails['id'];
+        if (id is String && id.trim().isNotEmpty) {
+          _uuidCache[cacheKey] = id.trim();
+        }
+        if (directDetails.isNotEmpty) {
+          final metadata = _downloadMetadata(directDetails,
+              uuid: id is String ? id.trim() : null);
+          if (normalizedType == 'tv' || hasMovieDownloadLink(metadata)) {
+            return metadata;
+          }
+          matchedMetadata ??= metadata;
+          // Some TMDB responses contain metadata only. Resolve the actual
+          // provider record before deciding it has no downloadable file.
+          if (id is String) {
+            final providerMetadata = await resolveId(id);
+            if (providerMetadata != null) return providerMetadata;
+          }
+        }
+      }
+    } on Films365RequestException catch (error) {
+      // A missing movie can be resolved through the catalogue. Authorization
+      // failures must reach the caller immediately, regardless of ID format.
+      if (error.statusCode != 404) rethrow;
+    }
+
+    if (matchedMetadata != null) return matchedMetadata;
+
+    for (final endpoint in ['trending', 'popular', 'latest']) {
+      for (var page = 1; page <= 10; page++) {
+        var envelope = page == 1 ? cataloguePages[endpoint] : null;
+        if (envelope == null) {
+          final response = await _get(endpoint, queryParameters: {
+            'type': 'all',
+            'page': '$page',
+          });
+          if (response == null) break;
+          envelope = Films365ListEnvelope.fromJson(_responseMap(response));
+        }
+        final id = cacheMatch(envelope.results);
+        if (id != null) {
+          final metadata = await resolveId(id);
+          if (metadata != null) return metadata;
+          if (matchedMetadata != null) return matchedMetadata;
+        }
+        if (page >= envelope.totalPages) break;
+      }
+    }
+
+    const genres = [
+      'Action',
+      'Adventure',
+      'Animation',
+      'Comedy',
+      'Crime',
+      'Drama',
+      'Fantasy',
+      'Horror',
+    ];
+    final contentType = normalizedType == 'movie'
+        ? Films365ContentType.movie
+        : Films365ContentType.tv;
+    for (final genre in genres) {
+      for (var page = 1; page <= 3; page++) {
+        final response = await _get('explore', queryParameters: {
+          'type': contentType.name,
+          'page': '$page',
+          'genre': genre,
+        });
+        if (response == null) break;
+        final envelope = Films365ListEnvelope.fromJson(_responseMap(response));
+        final id = cacheMatch(envelope.results);
+        if (id != null) {
+          final metadata = await resolveId(id);
+          if (metadata != null) return metadata;
+          if (matchedMetadata != null) return matchedMetadata;
+        }
+        if (page >= envelope.totalPages) break;
+      }
+    }
+
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> _detailsForUuid({
+    required String type,
+    required String uuid,
+  }) async {
+    final detailsResponse = await details(
+      type:
+          type == 'movie' ? Films365DetailsType.movie : Films365DetailsType.tv,
+      id: uuid,
+    );
+    if (detailsResponse is! Map) return null;
+    if (detailsResponse.isEmpty) return null;
+    return _downloadMetadata(detailsResponse, uuid: uuid);
+  }
+
+  Map<String, dynamic> _downloadMetadata(Map response, {String? uuid}) {
+    final metadata = Map<String, dynamic>.from(response);
+    final downloadUrl = metadata['downloadUrl'];
+    metadata['uuid'] = uuid;
+    if (downloadUrl is String) metadata['downloadUrl'] = downloadUrl.trim();
+    metadata['downloadUrlFetchedAt'] = DateTime.now().toUtc().toIso8601String();
+    return metadata;
+  }
 
   Future<Object?> popular({
     Films365ContentType type = Films365ContentType.all,
@@ -200,8 +537,7 @@ class Films365ApiService {
     String? body,
     String? contentType,
   }) async {
-    final usesFirebaseAuth = _idTokenProvider == null;
-    final token = await _getIdToken(forceRefresh: usesFirebaseAuth);
+    final token = await _getIdToken();
     if (token == null || token.trim().isEmpty) {
       throw StateError('Sign in is required to use the FILMS365 catalogue.');
     }
@@ -218,28 +554,51 @@ class Films365ApiService {
     final headers = {'Authorization': 'Bearer $token'};
     if (contentType != null) headers['Content-Type'] = contentType;
 
-    Future<http.Response> sendRequest() => method == 'GET'
-        ? _client.get(uri, headers: headers).timeout(_requestTimeout)
-        : _client
-            .post(uri, headers: headers, body: body)
-            .timeout(_requestTimeout);
+    Future<http.Response> sendRequest() async {
+      final response = await (method == 'GET'
+          ? _client.get(uri, headers: headers).timeout(_requestTimeout)
+          : _client
+              .post(uri, headers: headers, body: body)
+              .timeout(_requestTimeout));
+      const endpoints = {
+        'trending',
+        'popular',
+        'latest',
+        'explore',
+        'search',
+        'details',
+        'person',
+        'details/torrent-link',
+      };
+      logHttpDiagnostic(
+        endpoint: endpoints.contains(path) ? '/api/mobile/$path' : '/api/other',
+        status: response.statusCode,
+        headers: response.headers,
+      );
+      return response;
+    }
 
     var response = await sendRequest();
-    if (response.statusCode == 401 && usesFirebaseAuth) {
+    if (response.statusCode == 401 &&
+        response.headers['x-moviehub-response-source'] == 'firebase-auth') {
       final refreshedToken = await _getIdToken(forceRefresh: true);
       if (refreshedToken != null && refreshedToken.trim().isNotEmpty) {
         headers['Authorization'] = 'Bearer $refreshedToken';
         final retryResponse = await sendRequest();
         if (retryResponse.statusCode == 401) {
-          throw Exception('FILMS365 $path request failed (401).');
+          throw Films365RequestException(
+            401,
+            source: retryResponse.headers['x-moviehub-response-source'],
+          );
         }
         response = retryResponse;
       }
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(
-        'FILMS365 $path request failed (${response.statusCode}).',
+      throw Films365RequestException(
+        response.statusCode,
+        source: response.headers['x-moviehub-response-source'],
       );
     }
 
@@ -252,4 +611,13 @@ class Films365ApiService {
     if (provider != null) return provider();
     return await FirebaseAuth.instance.currentUser?.getIdToken(forceRefresh);
   }
+}
+
+class Films365RequestException implements Exception {
+  const Films365RequestException(this.statusCode, {this.source});
+  final int statusCode;
+  final String? source;
+
+  @override
+  String toString() => 'Movie download service request failed ($statusCode).';
 }

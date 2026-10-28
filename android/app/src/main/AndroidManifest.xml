@@ -1,9 +1,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:label="Movie Hub"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+
+        <!-- Dart enables collection after Firebase starts, according to build mode. -->
+        <meta-data
+            android:name="firebase_crashlytics_collection_enabled"
+            android:value="false" />
 
         <!-- AdMob App ID (Test ID) -->
         <meta-data

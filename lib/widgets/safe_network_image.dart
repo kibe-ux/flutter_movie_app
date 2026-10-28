@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
 
 class SafeNetworkImage extends StatelessWidget {
   final String? imageUrl;
@@ -44,17 +45,9 @@ class SafeNetworkImage extends StatelessWidget {
       width: width,
       height: height,
       fit: fit,
-      placeholder: (context, url) => Container(
-        width: width,
-        height: height,
-        color: Colors.grey[850],
-        child: const Center(
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: Color(0xFF00D4FF),
-          ),
-        ),
-      ),
+      fadeInDuration: const Duration(milliseconds: 350),
+      fadeOutDuration: const Duration(milliseconds: 150),
+      placeholder: (context, url) => _buildLoadingPlaceholder(),
       errorWidget: (context, url, error) => Container(
         width: width,
         height: height,
@@ -77,5 +70,27 @@ class SafeNetworkImage extends StatelessWidget {
     }
 
     return image;
+  }
+
+  Widget _buildLoadingPlaceholder() {
+    final placeholder = Container(
+      width: width,
+      height: height,
+      color: const Color(0xFF20242B),
+      child: Center(
+        child: Icon(
+          Icons.local_movies_rounded,
+          color: Colors.white24,
+          size: placeholderIconSize,
+        ),
+      ),
+    );
+
+    return Shimmer.fromColors(
+      baseColor: const Color(0xFF20242B),
+      highlightColor: const Color(0xFF383F4A),
+      period: const Duration(milliseconds: 1300),
+      child: placeholder,
+    );
   }
 }

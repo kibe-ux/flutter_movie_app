@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/watch_history_service.dart';
 import 'movie_details_screen.dart';
+import '../services/ad_service.dart';
 import '../widgets/safe_network_image.dart';
 
 const String imageBase = 'https://image.tmdb.org/t/p/w500';
@@ -159,12 +160,18 @@ class _WatchHistoryScreenState extends State<WatchHistoryScreen> {
                       'poster_path': entry.posterPath,
                       'vote_average': entry.voteAverage,
                     };
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => MovieDetailsScreen(movie: movie),
-                      ),
-                    );
+                    AdService().onMoviePosterTap(() {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => MovieDetailsScreen(movie: movie),
+                        ),
+                      );
+                    },
+                        isActive: () =>
+                            mounted &&
+                            context.mounted &&
+                            (ModalRoute.of(context)?.isCurrent ?? true));
                   },
                   borderRadius: BorderRadius.circular(12),
                   child: Padding(

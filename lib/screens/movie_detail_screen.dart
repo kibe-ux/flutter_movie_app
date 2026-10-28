@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/download_task.dart';
 import '../models/movie.dart';
 import '../services/movie_download_service.dart';
+import '../services/ad_service.dart';
 import 'downloaded_movies_screen.dart';
 
 class MovieDetailScreen extends StatefulWidget {
@@ -73,6 +74,8 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
     if (movie == null || quality == null) return;
 
     try {
+      if (!await AdService().beforeTransition(isActive: () => mounted)) return;
+      if (!mounted) return;
       await _service.startDownload(movie: movie, quality: quality);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -126,7 +129,8 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
 
     final movie = _movie!;
     final selectedQuality = _selectedQuality;
-    final qualityInfo = selectedQuality != null ? movie.qualities[selectedQuality] : null;
+    final qualityInfo =
+        selectedQuality != null ? movie.qualities[selectedQuality] : null;
     final task = _task;
 
     return Scaffold(
@@ -138,7 +142,8 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const DownloadedMoviesScreen()),
+                MaterialPageRoute(
+                    builder: (_) => const DownloadedMoviesScreen()),
               );
             },
           ),
@@ -158,17 +163,21 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
           const SizedBox(height: 8),
           RadioGroup<String>(
             groupValue: selectedQuality,
-            onChanged: (value) => setState(() => _selectedQuality = value),
+            onChanged: (value) {
+              if (value != null) setState(() => _selectedQuality = value);
+            },
             child: Column(
-              children: movie.qualities.entries.map(
-                (entry) => RadioListTile<String>(
-                  value: entry.key,
-                  title: Text(entry.key),
-                  subtitle: Text(entry.value.formattedSize),
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ).toList(),
+              children: movie.qualities.entries
+                  .map(
+                    (entry) => RadioListTile<String>(
+                      value: entry.key,
+                      title: Text(entry.key),
+                      subtitle: Text(entry.value.formattedSize),
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  )
+                  .toList(),
             ),
           ),
           const SizedBox(height: 8),
@@ -179,12 +188,16 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
             ),
           if (task != null) ...[
             const SizedBox(height: 16),
-            LinearProgressIndicator(value: task.status == DownloadTaskStatus.completed ? 1 : task.progress),
+            LinearProgressIndicator(
+                value: task.status == DownloadTaskStatus.completed
+                    ? 1
+                    : task.progress),
             const SizedBox(height: 6),
             Text(_taskLabel(task)),
             if (task.errorMessage != null) ...[
               const SizedBox(height: 6),
-              Text(task.errorMessage!, style: const TextStyle(color: Colors.redAccent)),
+              Text(task.errorMessage!,
+                  style: const TextStyle(color: Colors.redAccent)),
             ],
           ],
           const SizedBox(height: 20),
@@ -198,7 +211,9 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: task == null ? null : () => _service.pauseDownload(task.id),
+                  onPressed: task == null
+                      ? null
+                      : () => _service.pauseDownload(task.id),
                   icon: const Icon(Icons.pause),
                   label: const Text('Pause'),
                 ),
@@ -206,7 +221,9 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: task == null ? null : () => _service.resumeDownload(task.id),
+                  onPressed: task == null
+                      ? null
+                      : () => _service.resumeDownload(task.id),
                   icon: const Icon(Icons.play_arrow),
                   label: const Text('Resume'),
                 ),
@@ -215,7 +232,8 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
           ),
           const SizedBox(height: 10),
           OutlinedButton.icon(
-            onPressed: task == null ? null : () => _service.cancelDownload(task.id),
+            onPressed:
+                task == null ? null : () => _service.cancelDownload(task.id),
             icon: const Icon(Icons.close),
             label: const Text('Cancel Download'),
           ),

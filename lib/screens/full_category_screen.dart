@@ -1,13 +1,12 @@
 // lib/screens/full_category_screen.dart
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:google_mobile_ads/google_mobile_ads.dart';
+import '../config/home_categories.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'movie_details_screen.dart';
 import '../utils/my_list.dart';
 import '../services/ad_service.dart';
 import '../widgets/safe_network_image.dart';
+import '../services/catalogue_service.dart';
 
 final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '';
 const String baseUrl = 'https://api.themoviedb.org/3';
@@ -16,8 +15,14 @@ const String imageBase = 'https://image.tmdb.org/t/p/w300';
 class FullCategoryScreen extends StatefulWidget {
   final String title;
   final List<Map<String, dynamic>> items;
+  final int initialPage;
+  final bool hasMore;
   const FullCategoryScreen(
-      {super.key, required this.title, required this.items});
+      {super.key,
+      required this.title,
+      required this.items,
+      this.initialPage = 1,
+      this.hasMore = true});
   @override
   State<FullCategoryScreen> createState() => _FullCategoryScreenState();
 }
@@ -26,144 +31,82 @@ class _FullCategoryScreenState extends State<FullCategoryScreen> {
   late List<Map<String, dynamic>> _allItems;
   int _currentPage = 1;
   bool _isLoading = false;
+  late bool _hasMore;
+  String? _loadError;
   final ScrollController _scrollController = ScrollController();
   final Set<int> _loadedIds = {};
-  InterstitialAd? _interstitialAd;
-  bool _isInterstitialReady = false;
   @override
   void initState() {
     super.initState();
     _allItems = List.from(widget.items);
+    _currentPage = widget.items.isEmpty ? 0 : widget.initialPage;
+    _hasMore = widget.hasMore;
     _loadedIds.addAll(_allItems.map((item) => item['id'] ?? 0));
-    _loadInterstitial();
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
               _scrollController.position.maxScrollExtent - 200 &&
-          !_isLoading) {
+          !_isLoading &&
+          _hasMore &&
+          _loadError == null) {
         _loadMore();
       }
     });
-  }
-
-  void _loadInterstitial() {
-    InterstitialAd.load(
-      adUnitId: AdService().interstitialAdUnitId,
-      request: const AdRequest(),
-      adLoadCallback: InterstitialAdLoadCallback(
-        onAdLoaded: (ad) {
-          _interstitialAd = ad;
-          _isInterstitialReady = true;
-        },
-        onAdFailedToLoad: (_) {
-          _interstitialAd = null;
-          _isInterstitialReady = false;
-        },
-      ),
-    );
+    if (_allItems.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadMore();
+      });
+    }
   }
 
   void _showInterstitial(VoidCallback onComplete) {
-    if (_isInterstitialReady && _interstitialAd != null) {
-      AdService().showInterstitial(_interstitialAd, onComplete);
-      _interstitialAd = null;
-      _isInterstitialReady = false;
-      _loadInterstitial(); // reload for next time
-    } else {
-      onComplete();
-    }
+    AdService().onMoviePosterTap(onComplete,
+        isActive: () => mounted && (ModalRoute.of(context)?.isCurrent ?? true));
   }
 
   Future<void> _loadMore() async {
-    if (_isLoading) return;
+    if (!mounted || _isLoading || !_hasMore) return;
     setState(() {
       _isLoading = true;
+      _loadError = null;
     });
-    _currentPage++;
-    String url;
-    if (widget.title.contains('TV')) {
-      // Handle TV categories
-      final tvCategoryMap = {
-        'TV Shows': '$baseUrl/tv/popular?api_key=$apiKey',
-        'Trending TV Today': '$baseUrl/trending/tv/day?api_key=$apiKey',
-        'Trending TV This Week': '$baseUrl/trending/tv/week?api_key=$apiKey',
-        'Popular TV Shows': '$baseUrl/tv/popular?api_key=$apiKey',
-        'Top Rated TV Shows': '$baseUrl/tv/top_rated?api_key=$apiKey',
-        'Airing Today': '$baseUrl/tv/airing_today?api_key=$apiKey',
-        'Drama & Mystery TV':
-            '$baseUrl/discover/tv?api_key=$apiKey&with_genres=18,9648',
-        'Sci-Fi & Fantasy TV':
-            '$baseUrl/discover/tv?api_key=$apiKey&with_genres=10765',
-      };
-      url =
-          tvCategoryMap[widget.title] ?? '$baseUrl/tv/popular?api_key=$apiKey';
-    } else {
-      final categoryMap = {
-        'Trending Today': '$baseUrl/trending/movie/day?api_key=$apiKey',
-        'Trending This Week': '$baseUrl/trending/movie/week?api_key=$apiKey',
-        'Now Playing': '$baseUrl/movie/now_playing?api_key=$apiKey',
-        'Upcoming Releases': '$baseUrl/movie/upcoming?api_key=$apiKey',
-        'Recently Released':
-            '$baseUrl/discover/movie?api_key=$apiKey&sort_by=release_date.desc',
-        'Top Rated': '$baseUrl/movie/top_rated?api_key=$apiKey',
-        'Popular Movies': '$baseUrl/movie/popular?api_key=$apiKey',
-        'Most Watched Now':
-            '$baseUrl/discover/movie?api_key=$apiKey&sort_by=popularity.desc',
-        'Box Office Hits':
-            '$baseUrl/discover/movie?api_key=$apiKey&sort_by=revenue.desc',
-        'Award Winning Movies':
-            '$baseUrl/discover/movie?api_key=$apiKey&vote_average.gte=7',
-        'Hollywood Movies':
-            '$baseUrl/discover/movie?api_key=$apiKey&with_original_language=en',
-        'Romance & Fantasy':
-            '$baseUrl/discover/movie?api_key=$apiKey&with_genres=10749,14',
-        'Horror & Mystery':
-            '$baseUrl/discover/movie?api_key=$apiKey&with_genres=27,9648',
-      };
-      url =
-          categoryMap[widget.title] ?? '$baseUrl/movie/popular?api_key=$apiKey';
-    }
-    url += '&page=$_currentPage&language=en-US';
+    final nextPage = _currentPage + 1;
+    final category = homeCategoriesByName[widget.title];
+    final uri =
+        (category ?? const HomeCategory('Popular Movies', 'movie/popular'))
+            .uri(apiKey, page: nextPage);
     try {
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode == 200) {
-        final results =
-            (json.decode(response.body)['results'] as List<dynamic>? ?? [])
-                .cast<Map<String, dynamic>>()
-                .where((item) {
-          final id = item['id'] ?? 0;
-          return !_loadedIds.contains(id);
-        }).toList();
-
-        if (results.isNotEmpty) {
-          setState(() {
-            _allItems.addAll(results);
-            _loadedIds.addAll(results.map((item) => item['id'] ?? 0));
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint('Error loading more: $e');
-    } finally {
+      final result = await const CatalogueService().fetchPage(uri);
+      if (!mounted) return;
       setState(() {
-        _isLoading = false;
+        _allItems.addAll(
+            result.items.where((item) => _loadedIds.add(item['id'] as int)));
+        _currentPage = nextPage;
+        _hasMore = result.hasMore;
       });
+    } on CatalogueLoadException catch (error) {
+      if (mounted) setState(() => _loadError = error.message);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
-    _interstitialAd?.dispose();
     super.dispose();
   }
 
   String _getYear(Map<String, dynamic> item) {
     final date = item['release_date'] ?? item['first_air_date'];
-    if (date == null || date.isEmpty) return '—';
+    if (date == null || date.isEmpty) return '\u2014';
     try {
       return DateTime.parse(date).year.toString();
     } catch (_) {
-      return '—';
+      return '\u2014';
     }
   }
 
@@ -175,6 +118,8 @@ class _FullCategoryScreenState extends State<FullCategoryScreen> {
         backgroundColor: Colors.black,
         title: Text(
           widget.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             color: Colors.white,
             fontSize: 20,
@@ -183,141 +128,177 @@ class _FullCategoryScreenState extends State<FullCategoryScreen> {
         ),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: GridView.builder(
-        controller: _scrollController,
-        padding: const EdgeInsets.all(12),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          childAspectRatio: 0.5,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-        ),
-        itemCount: _allItems.length + (_isLoading ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (index == _allItems.length) {
-            return Container(
-              alignment: Alignment.center,
-              child: _isLoading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : GestureDetector(
-                      onTap: _loadMore,
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white12,
-                          borderRadius: BorderRadius.circular(6),
+      body: SafeArea(
+        top: false,
+        child: LayoutBuilder(builder: (context, constraints) {
+          const padding = 12.0;
+          const spacing = 8.0;
+          final columns = ((constraints.maxWidth - padding * 2 + spacing) / 128)
+              .floor()
+              .clamp(1, 12);
+          final cardWidth =
+              (constraints.maxWidth - padding * 2 - spacing * (columns - 1)) /
+                  columns;
+          final textScaler = MediaQuery.textScalerOf(context);
+          final cardHeight = cardWidth / 0.7 +
+              4 +
+              (textScaler.scale(12) * 1.3).ceilToDouble() * 2 +
+              (textScaler.scale(10) * 1.3).ceilToDouble();
+          return GridView.builder(
+            controller: _scrollController,
+            padding: const EdgeInsets.all(12),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              mainAxisExtent: cardHeight,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+            ),
+            itemCount: _allItems.length + (_hasMore ? 1 : 0),
+            itemBuilder: (context, index) {
+              if (index == _allItems.length) {
+                return Container(
+                  alignment: Alignment.center,
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (_loadError != null)
+                              Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: Text(_loadError!,
+                                    maxLines: 4,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                        color: Colors.white70, fontSize: 12)),
+                              ),
+                            TextButton(
+                              onPressed: _loadMore,
+                              child: Text(
+                                  _loadError == null ? 'Load More' : 'Retry',
+                                  style:
+                                      const TextStyle(color: Colors.white70)),
+                            ),
+                          ],
                         ),
-                        child: const Center(
-                          child: Text(
-                            'Load More',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                        ),
-                      ),
-                    ),
-            );
-          }
-          final item = _allItems[index];
-          final poster = item['poster_path'] != null
-              ? '$imageBase${item['poster_path']}'
-              : '';
-          final isInMyList = MyList().contains(item['id'] ?? 0); // ADDED
-          return GestureDetector(
-            onTap: () {
-              _showInterstitial(() {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => MovieDetailsScreen(movie: item),
-                  ),
                 );
-              });
-            },
-            child: Stack(
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              }
+              final item = _allItems[index];
+              final poster = item['poster_path'] != null
+                  ? '$imageBase${item['poster_path']}'
+                  : '';
+              final isInMyList = MyList().contains(item['id'] ?? 0); // ADDED
+              return GestureDetector(
+                onTap: () {
+                  _showInterstitial(() {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => MovieDetailsScreen(movie: item),
+                      ),
+                    );
+                  });
+                },
+                child: Stack(
                   children: [
-                    AspectRatio(
-                      aspectRatio: 0.7,
-                      child: SafeNetworkImage(
-                        imageUrl: poster,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      child: Text(
-                        item['title'] ?? item['name'] ?? 'Unknown',
-                        style: const TextStyle(
-                            color: Colors.white70, fontSize: 12),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 2,
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.star, color: Colors.amber, size: 10),
-                          const SizedBox(width: 2),
-                          Text(
-                            ((item['vote_average'] ?? 0) as num)
-                                .toStringAsFixed(1),
-                            style: const TextStyle(
-                                color: Colors.white70, fontSize: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AspectRatio(
+                          aspectRatio: 0.7,
+                          child: SafeNetworkImage(
+                            imageUrl: poster,
+                            fit: BoxFit.cover,
                           ),
-                          const Spacer(),
-                          Text(
-                            _getYear(item),
+                        ),
+                        const SizedBox(height: 4),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          child: Text(
+                            item['title'] ?? item['name'] ?? 'Unknown',
                             style: const TextStyle(
-                                color: Colors.white38, fontSize: 10),
+                                color: Colors.white70,
+                                fontSize: 12,
+                                height: 1.3),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
                           ),
-                        ],
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.star,
+                                  color: Colors.amber, size: 10),
+                              const SizedBox(width: 2),
+                              Text(
+                                ((item['vote_average'] ?? 0) as num)
+                                    .toStringAsFixed(1),
+                                style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 10,
+                                    height: 1.3),
+                              ),
+                              const Spacer(),
+                              Flexible(
+                                child: Text(
+                                  _getYear(item),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      color: Colors.white38,
+                                      fontSize: 10,
+                                      height: 1.3),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            MyList().toggle(item['id'] ?? 0);
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                MyList().contains(item['id'] ?? 0)
+                                    ? 'Added to My List'
+                                    : 'Removed from My List',
+                              ),
+                              backgroundColor: const Color(0xFFE50914),
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            isInMyList ? Icons.bookmark : Icons.bookmark_border,
+                            color: isInMyList
+                                ? const Color(0xFFE50914)
+                                : Colors.white,
+                            size: 16,
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
-                Positioned(
-                  top: 4,
-                  right: 4,
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        MyList().toggle(item['id'] ?? 0);
-                      });
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            MyList().contains(item['id'] ?? 0)
-                                ? 'Added to My List'
-                                : 'Removed from My List',
-                          ),
-                          backgroundColor: const Color(0xFFE50914),
-                          duration: const Duration(seconds: 1),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.6),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        isInMyList ? Icons.bookmark : Icons.bookmark_border,
-                        color:
-                            isInMyList ? const Color(0xFFE50914) : Colors.white,
-                        size: 16,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              );
+            },
           );
-        },
+        }),
       ),
     );
   }

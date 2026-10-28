@@ -1,10 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/download_task.dart';
 import '../models/movie.dart';
 import '../services/movie_download_service.dart';
+import '../utils/cinema_palette.dart';
+import '../utils/movie_download_error.dart';
+import '../widgets/connection_notice.dart';
 import 'downloaded_movies_screen.dart';
 import 'movie_detail_screen.dart';
 
@@ -21,6 +26,8 @@ class _MovieListScreenState extends State<MovieListScreen> {
   List<Movie> _movies = const [];
   bool _isLoading = true;
   String? _error;
+  bool _offline = false;
+  bool _loadingRequest = false;
   StreamSubscription<Map<String, DownloadTask>>? _downloadSub;
   Map<String, DownloadTask> _tasks = const {};
 
@@ -35,12 +42,26 @@ class _MovieListScreenState extends State<MovieListScreen> {
   }
 
   Future<void> _loadMovies() async {
+    if (_loadingRequest) return;
+    _loadingRequest = true;
     setState(() {
       _isLoading = true;
       _error = null;
+      _offline = false;
     });
 
     try {
+      final connections = await Connectivity().checkConnectivity();
+      if (!mounted) return;
+      if (!connections.any((value) => value != ConnectivityResult.none)) {
+        setState(() {
+          _offline = true;
+          _isLoading = false;
+          _error =
+              'Connect to Wi-Fi or mobile data to browse the movie catalog, then try again.';
+        });
+        return;
+      }
       final movies = await _service.fetchMovies();
       if (!mounted) return;
       setState(() {
@@ -51,10 +72,18 @@ class _MovieListScreenState extends State<MovieListScreen> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = error.toString();
+        _error = error is FirebaseAuthException || error is StateError
+            ? movieDownloadErrorMessage(error)
+            : 'We couldn’t load the movie catalog. Check your connection or try again shortly.';
       });
+    } finally {
+      _loadingRequest = false;
     }
   }
+
+  void _openDownloads() => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const DownloadedMoviesScreen()),
+      );
 
   DownloadTask? _primaryTaskForMovie(Movie movie) {
     final movieTasks = _tasks.values
@@ -74,17 +103,13 @@ class _MovieListScreenState extends State<MovieListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: CinemaPalette.background,
       appBar: AppBar(
         title: const Text('Movie Downloads'),
         actions: [
           IconButton(
             tooltip: 'Downloaded movies',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const DownloadedMoviesScreen()),
-              );
-            },
+            onPressed: _openDownloads,
             icon: const Icon(Icons.download_done_rounded),
           ),
         ],
@@ -98,32 +123,16 @@ class _MovieListScreenState extends State<MovieListScreen> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+          child: CircularProgressIndicator(color: CinemaPalette.gold));
     }
 
     if (_error != null) {
-      return ListView(
-        children: [
-          const SizedBox(height: 120),
-          Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
-          const SizedBox(height: 12),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                _error!,
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Center(
-            child: ElevatedButton(
-              onPressed: _loadMovies,
-              child: const Text('Retry'),
-            ),
-          ),
-        ],
+      return ConnectionNotice(
+        offline: _offline,
+        title: _offline ? 'You’re offline' : 'Can’t load movies right now',
+        message: _error!,
+        onRetry: _loadMovies,
       );
     }
 
@@ -202,7 +211,8 @@ class _MovieCard extends StatelessWidget {
             children: [
               Expanded(
                 child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(12)),
                   child: movie.poster != null && movie.poster!.isNotEmpty
                       ? Image.network(
                           movie.poster!,
@@ -226,17 +236,21 @@ class _MovieCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       '${movie.year} • ${movie.qualities.length} qualities',
-                      style: const TextStyle(fontSize: 12, color: Colors.white70),
+                      style:
+                          const TextStyle(fontSize: 12, color: Colors.white70),
                     ),
                     if (task != null) ...[
                       const SizedBox(height: 8),
                       LinearProgressIndicator(
-                        value: task!.status == DownloadTaskStatus.completed ? 1 : task!.progress,
+                        value: task!.status == DownloadTaskStatus.completed
+                            ? 1
+                            : task!.progress,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         _statusLabel(task!),
-                        style: const TextStyle(fontSize: 11, color: Colors.white70),
+                        style: const TextStyle(
+                            fontSize: 11, color: Colors.white70),
                       ),
                     ],
                   ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/favorites_service.dart';
 import '../services/media_api_service.dart';
 import 'movie_details_screen.dart';
+import '../services/ad_service.dart';
 import '../widgets/safe_network_image.dart';
 
 class FavoritesScreen extends StatefulWidget {
@@ -145,12 +146,18 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               tooltip: 'Remove from favorites',
             ),
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => MovieDetailsScreen(movie: movie),
-                ),
-              );
+              AdService().onMoviePosterTap(() {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MovieDetailsScreen(movie: movie),
+                  ),
+                );
+              },
+                  isActive: () =>
+                      mounted &&
+                      context.mounted &&
+                      (ModalRoute.of(context)?.isCurrent ?? true));
             },
           ),
         );

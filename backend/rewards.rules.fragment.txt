@@ -1,0 +1,13 @@
+// Merge inside match /databases/{database}/documents in the existing rules.
+// These collections are owned exclusively by the authenticated backend.
+// IMPORTANT: Firestore allows access when ANY matching allow rule is true.
+// Remove or narrow broad public-write wildcard rules covering these paths.
+match /reward_accounts/{document=**} {
+  allow read, write: if false;
+}
+match /reward_sessions/{document=**} {
+  allow read, write: if false;
+}
+match /reward_receipts/{document=**} {
+  allow read, write: if false;
+}

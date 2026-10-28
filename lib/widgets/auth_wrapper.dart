@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../services/rewards_service.dart';
 
 class AuthWrapper extends StatelessWidget {
   final Widget child;
@@ -22,6 +23,9 @@ class AuthWrapper extends StatelessWidget {
     }
 
     // Return child regardless of auth state to allow guest access
+    // Resolve rewards only after startup has initialized Firebase. An eager
+    // proxy provider would construct AuthService before Firebase.initializeApp.
+    context.read<RewardsService?>();
     return child;
   }
 }

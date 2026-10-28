@@ -80,9 +80,22 @@ class AuthService extends ChangeNotifier {
   // Update user profile
   Future<void> updateProfile({String? displayName, String? photoURL}) async {
     try {
-      await currentUser?.updateDisplayName(displayName);
-      await currentUser?.updatePhotoURL(photoURL);
-      await currentUser?.reload();
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw FirebaseAuthException(
+          code: 'no-current-user',
+          message: 'No authenticated user found.',
+        );
+      }
+
+      if (displayName != null) {
+        await user.updateDisplayName(displayName);
+      }
+      if (photoURL != null) {
+        await user.updatePhotoURL(photoURL);
+      }
+      await user.reload();
+      _currentUser = _auth.currentUser;
       notifyListeners();
     } catch (e) {
       debugPrint('Profile update error: $e');
@@ -90,10 +103,30 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  // Refresh current user data from Firebase
+  Future<void> reloadCurrentUser() async {
+    try {
+      await _auth.currentUser?.reload();
+      _currentUser = _auth.currentUser;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('User reload error: $e');
+      rethrow;
+    }
+  }
+
   // Delete account
   Future<void> deleteAccount() async {
     try {
-      await currentUser?.delete();
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw FirebaseAuthException(
+          code: 'no-current-user',
+          message: 'No authenticated user found.',
+        );
+      }
+      await user.delete();
+      _currentUser = _auth.currentUser;
       notifyListeners();
     } catch (e) {
       debugPrint('Account deletion error: $e');
@@ -116,7 +149,14 @@ class AuthService extends ChangeNotifier {
   // Send email verification
   Future<void> sendEmailVerification() async {
     try {
-      await currentUser?.sendEmailVerification();
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw FirebaseAuthException(
+          code: 'no-current-user',
+          message: 'No authenticated user found.',
+        );
+      }
+      await user.sendEmailVerification();
     } catch (e) {
       debugPrint('Email verification error: $e');
       rethrow;
