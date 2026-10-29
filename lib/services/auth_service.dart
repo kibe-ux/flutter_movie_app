@@ -20,10 +20,12 @@ class AuthService extends ChangeNotifier {
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
+  // Sign in with Google - Temporarily disabled due to API issues
   Future<UserCredential?> signInWithGoogle() async {
     throw UnimplementedError('Google Sign-In temporarily disabled');
   }
 
+  // Sign in with Email and Password
   Future<UserCredential> signInWithEmail(String email, String password) async {
     try {
       final userCredential = await _auth.signInWithEmailAndPassword(
@@ -38,6 +40,7 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  // Create account with Email and Password
   Future<UserCredential> createAccountWithEmail(
       String email, String password) async {
     try {
@@ -53,6 +56,7 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  // Send password reset email
   Future<void> sendPasswordResetEmail(String email) async {
     try {
       await _auth.sendPasswordResetEmail(email: email);
@@ -62,6 +66,7 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  // Sign out
   Future<void> signOut() async {
     try {
       await _auth.signOut();
@@ -72,6 +77,7 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  // Update user profile
   Future<void> updateProfile({String? displayName, String? photoURL}) async {
     try {
       final user = _auth.currentUser;
@@ -97,6 +103,7 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  // Refresh current user data from Firebase
   Future<void> reloadCurrentUser() async {
     try {
       await _auth.currentUser?.reload();
@@ -108,6 +115,7 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  // Delete account
   Future<void> deleteAccount() async {
     try {
       final user = _auth.currentUser;
@@ -126,14 +134,19 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  // Get user display name
   String? get displayName => currentUser?.displayName;
 
+  // Get user email
   String? get email => currentUser?.email;
 
+  // Get user photo URL
   String? get photoURL => currentUser?.photoURL;
 
+  // Check if email is verified
   bool get isEmailVerified => currentUser?.emailVerified ?? false;
 
+  // Send email verification
   Future<void> sendEmailVerification() async {
     try {
       final user = _auth.currentUser;

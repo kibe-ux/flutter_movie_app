@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 
+/// Session-only entitlement, populated from the authenticated rewards backend.
+/// Coins and expiry are never accepted from local preferences or ad callbacks.
 class AdFreeAccess extends ChangeNotifier {
   static final instance = AdFreeAccess();
   String? _uid;

@@ -1,3 +1,5 @@
+// SDK snapshot test doubles do not access a real Firebase project.
+// ignore_for_file: subtype_of_sealed_class
 
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';

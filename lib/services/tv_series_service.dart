@@ -8,6 +8,7 @@ bool isTvSeries(Map<String, dynamic> item) {
   return item['first_air_date'] != null || item['name'] != null;
 }
 
+// Movie IDs stay in their existing namespace; episodes get a separate stable ID.
 int episodeDownloadId(int episodeId) => 1000000000000 + episodeId;
 
 Map<String, dynamic>? episodeDownloadMetadata(

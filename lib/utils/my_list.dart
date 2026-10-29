@@ -18,11 +18,13 @@ class MyList {
     return '${_storageKey}_$userId';
   }
 
+  /// Call ONCE at app start (in main.dart)
   Future<void> init() async {
     if (_initialized) return;
     await _loadData();
     _initialized = true;
 
+    // Listen for auth changes to reload data
     FirebaseAuth.instance.authStateChanges().listen((user) {
       final newUserId = user?.uid ?? 'guest';
       if (newUserId != _currentUserId) {
@@ -47,10 +49,12 @@ class MyList {
     }
   }
 
+  /// Ensures init() has been called before use.
   Future<void> ensureInitialized() async {
     if (!_initialized) await init();
   }
 
+  /// Debounced persist: only the last call within 300 ms actually writes.
   void _persist() {
     _saveTimer?.cancel();
     _saveTimer = Timer(const Duration(milliseconds: 300), () async {
@@ -66,6 +70,7 @@ class MyList {
     });
   }
 
+  /// Persist immediately (no debounce), awaitable.
   Future<void> _persistNow() async {
     _saveTimer?.cancel();
     _saveTimer = null;

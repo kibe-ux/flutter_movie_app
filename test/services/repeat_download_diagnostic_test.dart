@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:moviehub_app/services/download_service.dart';
 
+// Diagnostic tests only: no provider, credentials, or production logic changes.
 void main() {
   late Directory directory;
   DownloadService? service;

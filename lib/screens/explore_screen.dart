@@ -15,9 +15,10 @@ final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '';
 const String baseUrl = 'https://api.themoviedb.org/3';
 const String imageBase = 'https://image.tmdb.org/t/p/w500';
 
+// Explore Screen
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen(
-      {super.key, required Set<int> myListIds});
+      {super.key, required Set<int> myListIds}); // REMOVED: myListIds parameter
 
   @override
   State<ExploreScreen> createState() => _ExploreScreenState();

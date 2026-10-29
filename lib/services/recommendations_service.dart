@@ -12,18 +12,22 @@ class RecommendationsService {
     int limit = 10,
   }) async {
     try {
+      // Get user's favorites and watch history
       final favorites = await FavoritesService.getFavorites();
       final history = await WatchHistoryService.getWatchHistory();
 
       if (favorites.isEmpty && history.isEmpty) {
+        // If no history, return trending movies
         return _getTrendingMovies(limit);
       }
 
+      // Collect movies to fetch recommendations from
       final moviesToAnalyze = <int>{
         ...favorites,
         ...history.take(5).map((h) => h.movieId),
       }.toList();
 
+      // Fetch recommendations for each movie
       final allRecommendations = <Map<String, dynamic>>[];
       final seenMovieIds = <int>{
         ...favorites,
@@ -41,9 +45,11 @@ class RecommendationsService {
             }
           }
         } catch (e) {
+          // Continue with next movie if this fails
         }
       }
 
+      // Sort by vote average and limit
       allRecommendations.sort((a, b) {
         final ratingA = (a['vote_average'] as num?) ?? 0;
         final ratingB = (b['vote_average'] as num?) ?? 0;

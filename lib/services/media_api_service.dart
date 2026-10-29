@@ -2,6 +2,12 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+/// Lightweight helper for any media‑related network calls.
+///
+/// The class initially supported a custom friend API, but for the
+/// current trailer/ download flow we simply hit TMDB directly.  The
+/// key is read from the `.env` file so you can switch environments
+/// without recompiling.
 class MediaApiService {
   static const String _tmdbBase = 'https://api.themoviedb.org/3';
 
@@ -26,6 +32,9 @@ class MediaApiService {
     return (data['results'] as Map).cast<String, dynamic>();
   }
 
+  /// Returns a playable trailer URL (usually a YouTube link) for the
+  /// given movie ID.  If the request fails or no trailer is found
+  /// the future completes with null.
   static Future<String?> fetchTrailerUrl(int movieId,
       {String mediaType = 'movie'}) async {
     if (_apiKey.isEmpty) return null;
@@ -35,6 +44,7 @@ class MediaApiService {
 
     final response = await http.get(url).timeout(const Duration(seconds: 30));
     if (response.statusCode != 200) {
+      // could log the error here
       return null;
     }
 
@@ -52,6 +62,8 @@ class MediaApiService {
     return null;
   }
 
+  /// Fetches detailed movie information from TMDB for the given movie ID.
+  /// Returns null if the request fails or movie is not found.
   static Future<Map<String, dynamic>?> fetchMovieDetails(int movieId) async {
     if (_apiKey.isEmpty) return null;
 
@@ -70,7 +82,11 @@ class MediaApiService {
     }
   }
 
+  /// (Optional) stub left in place; you can repurpose it later when
+  /// the friend API becomes available.
   static Future<String?> fetchDownloadUrl(int movieId) async {
+    // ignore: todo
+    // TODO: implement once you have a download endpoint
     return null;
   }
 }

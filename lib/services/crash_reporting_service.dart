@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 
+/// Crash reporting is available after Firebase initializes on mobile and macOS.
 class CrashReportingService {
   static const bool collectionEnabled = bool.fromEnvironment(
     'CRASHLYTICS_ENABLED',
@@ -55,10 +56,12 @@ class CrashReportingService {
         return true;
       };
     } catch (error) {
+      // Reporting must never prevent the app from starting.
       debugPrint('Crashlytics initialization failed: $error');
     }
   }
 
+  /// Use for caught errors that would otherwise never reach a global handler.
   static Future<void> recordError(
     Object error,
     StackTrace stack, {

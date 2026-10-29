@@ -16,6 +16,8 @@ bool hasMovieDownloadLink(Map<String, dynamic>? metadata) {
       uri.host.isNotEmpty;
 }
 
+/// Reuse a just-fetched link during the same details-page interaction.
+/// Older or failed downloads must resolve a fresh provider URL.
 bool hasRecentMovieDownloadLink(Map<String, dynamic>? metadata,
     {DateTime? now}) {
   if (!hasMovieDownloadLink(metadata)) return false;
@@ -27,10 +29,12 @@ bool hasRecentMovieDownloadLink(Map<String, dynamic>? metadata,
   return !age.isNegative && age < const Duration(minutes: 1);
 }
 
+/// Returns true if the movie has already been released (not in the future).
 bool isMovieReleased(Object? releaseDate, {DateTime? now}) {
   return !isFutureMovieRelease(releaseDate, now: now);
 }
 
+/// Filters a list of movie objects to exclude unreleased / future releases.
 List<Map<String, dynamic>> filterReleasedMovies(
   Iterable<dynamic>? movies, {
   DateTime? now,

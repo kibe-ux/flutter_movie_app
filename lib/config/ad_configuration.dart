@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+/// Test ads by default; live ads require an explicit release configuration.
 class AdConfiguration {
   AdConfiguration({
     required this.platform,

@@ -1,3 +1,4 @@
+// lib/screens/full_category_screen.dart
 import 'package:flutter/material.dart';
 import '../config/home_categories.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -187,7 +188,7 @@ class _FullCategoryScreenState extends State<FullCategoryScreen> {
               final poster = item['poster_path'] != null
                   ? '$imageBase${item['poster_path']}'
                   : '';
-              final isInMyList = MyList().contains(item['id'] ?? 0);
+              final isInMyList = MyList().contains(item['id'] ?? 0); // ADDED
               return GestureDetector(
                 onTap: () {
                   _showInterstitial(() {

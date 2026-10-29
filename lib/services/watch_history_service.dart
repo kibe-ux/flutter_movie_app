@@ -8,7 +8,7 @@ class WatchHistoryEntry {
   final String? posterPath;
   final double voteAverage;
   final DateTime watchedAt;
-  final int watchDuration;
+  final int watchDuration; // in seconds
 
   WatchHistoryEntry({
     required this.movieId,
@@ -59,10 +59,13 @@ class WatchHistoryService {
   static Future<void> addToHistory(WatchHistoryEntry entry) async {
     final history = await getWatchHistory();
 
+    // Remove if already exists (to update position)
     history.removeWhere((h) => h.movieId == entry.movieId);
 
+    // Add new entry at the beginning
     history.insert(0, entry);
 
+    // Keep only last 100 entries
     if (history.length > 100) {
       history.removeRange(100, history.length);
     }

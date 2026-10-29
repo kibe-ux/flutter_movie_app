@@ -153,6 +153,7 @@ class _WatchHistoryScreenState extends State<WatchHistoryScreen> {
                 ),
                 child: InkWell(
                   onTap: () {
+                    // Create a minimal movie object for navigation
                     final movie = {
                       'id': entry.movieId,
                       'title': entry.title,
@@ -177,6 +178,7 @@ class _WatchHistoryScreenState extends State<WatchHistoryScreen> {
                     padding: const EdgeInsets.all(12),
                     child: Row(
                       children: [
+                        // Poster
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: SafeNetworkImage(
@@ -189,6 +191,7 @@ class _WatchHistoryScreenState extends State<WatchHistoryScreen> {
                           ),
                         ),
                         const SizedBox(width: 12),
+                        // Info
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -232,6 +235,7 @@ class _WatchHistoryScreenState extends State<WatchHistoryScreen> {
                             ],
                           ),
                         ),
+                        // Remove button
                         IconButton(
                           icon: const Icon(
                             Icons.close,

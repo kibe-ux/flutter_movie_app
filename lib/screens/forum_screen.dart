@@ -9,7 +9,9 @@ import '../services/forum_service.dart';
 import '../utils/cinema_palette.dart';
 import 'login_screen.dart';
 
+// --- Firestore collection paths -----------------------------------------------
 
+// --- Palette ------------------------------------------------------------------
 const _obsidian = CinemaPalette.background;
 const _surface = CinemaPalette.surface;
 const _card = CinemaPalette.surface;
@@ -95,6 +97,7 @@ class _ForumScreenState extends State<ForumScreen>
     }).toList(growable: false);
   }
 
+  // -- Firestore helpers -----------------------------------------------------
   Stream<QuerySnapshot> get _postsStream {
     if (_cachedPostsStream != null &&
         _cachedStreamCategory == _selectedCategory) {
@@ -174,6 +177,7 @@ class _ForumScreenState extends State<ForumScreen>
     return 'The forum could not complete your request. Please try again.';
   }
 
+  // -- Create Post Sheet -----------------------------------------------------
   Future<void> _showCreatePostSheet() async {
     if (_posting || await _ensureSignedIn() == null || !mounted) return;
     String selectedCategory = _categories[1];
@@ -204,6 +208,7 @@ class _ForumScreenState extends State<ForumScreen>
                 ),
                 child: Column(
                   children: [
+                    // Handle bar
                     Container(
                       margin: const EdgeInsets.only(top: 12),
                       width: 40,
@@ -394,6 +399,7 @@ class _ForumScreenState extends State<ForumScreen>
     );
   }
 
+  // -- Comments Sheet --------------------------------------------------------
   void _openCommentsSheet(Map<String, dynamic> data, String postId) {
     final commentCtrl = TextEditingController();
     bool sending = false;
@@ -493,6 +499,7 @@ class _ForumScreenState extends State<ForumScreen>
                     },
                   ),
                 ),
+                // Comment input bar
                 Container(
                   padding: const EdgeInsets.only(
                     left: 16,
@@ -584,6 +591,7 @@ class _ForumScreenState extends State<ForumScreen>
     });
   }
 
+  // -- Build -----------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     final currentUid = context.watch<AuthService>().currentUser?.uid ?? '';
@@ -685,6 +693,7 @@ class _ForumScreenState extends State<ForumScreen>
               ),
             ),
           ),
+          // Category filter chips
           SliverToBoxAdapter(
             child: SizedBox(
               height: 44,
@@ -811,6 +820,7 @@ class _ForumScreenState extends State<ForumScreen>
     );
   }
 
+  // -- Helpers ---------------------------------------------------------------
   Widget _buildEmpty() => Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1058,6 +1068,7 @@ class _ForumScreenState extends State<ForumScreen>
   }
 }
 
+// --- Post Card -------------------------------------------------------------
 class _PostCard extends StatelessWidget {
   final String postId;
   final Map<String, dynamic> data;
@@ -1124,6 +1135,7 @@ class _PostCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Header row
               Row(
                 children: [
                   _avatar(
@@ -1146,6 +1158,7 @@ class _PostCard extends StatelessWidget {
                       ],
                     ),
                   ),
+                  // Category chip
                   Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -1207,6 +1220,7 @@ class _PostCard extends StatelessWidget {
               const SizedBox(height: 6),
               _postContent(context, content),
               const SizedBox(height: 14),
+              // Footer actions
               Row(
                 children: [
                   GestureDetector(
@@ -1335,6 +1349,7 @@ class _PostCard extends StatelessWidget {
   }
 }
 
+// --- Comment Tile ----------------------------------------------------------
 class _CommentTile extends StatelessWidget {
   final Map<String, dynamic> data;
   const _CommentTile({required this.data});

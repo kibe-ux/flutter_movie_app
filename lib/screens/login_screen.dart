@@ -57,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.of(context).pop(true);
+        Navigator.of(context).pop(true); // Resume the requested action.
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) {
@@ -131,8 +131,37 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  // Future<void> _signInWithGoogle() async {
+  //   setState(() => _isLoading = true);
 
+  //   try {
+  //     final authService = context.read<AuthService>();
+  //     await authService.signInWithGoogle();
 
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(
+  //           content: Text('Signed in with Google successfully!'),
+  //           backgroundColor: Colors.green,
+  //         ),
+  //       );
+  //       Navigator.of(context).pop();
+  //     }
+  //   } catch (e) {
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text('Google sign-in failed: ${e.toString()}'),
+  //           backgroundColor: Colors.red,
+  //         ),
+  //       );
+  //     }
+  //   } finally {
+  //     if (mounted) {
+  //       setState(() => _isLoading = false);
+  //     }
+  //   }
+  // }
 
   Future<void> _resetPassword() async {
     final email = _emailController.text.trim();
@@ -207,6 +236,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Logo/Title
                 const SizedBox(height: 40),
                 const Icon(
                   Icons.movie,
@@ -256,6 +286,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 28),
 
+                // Email Field
                 TextFormField(
                   controller: _emailController,
                   style: const TextStyle(color: Colors.white),
@@ -289,6 +320,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
 
+                // Password Field
                 TextFormField(
                   controller: _passwordController,
                   style: const TextStyle(color: Colors.white),
@@ -331,6 +363,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 24),
 
+                // Sign In/Sign Up Button
                 ElevatedButton(
                   onPressed: _isLoading ? null : _signInWithEmail,
                   style: ElevatedButton.styleFrom(
@@ -361,6 +394,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
 
+                // Forgot Password (only for sign in)
                 if (!_isSignUp)
                   TextButton(
                     onPressed: _resetPassword,
@@ -373,6 +407,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
 
+                // Divider
                 const SizedBox(height: 24),
                 Row(
                   children: [
@@ -389,8 +424,28 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 24),
 
+                // Google Sign In Button - Temporarily disabled
+                // OutlinedButton.icon(
+                //   onPressed: _isLoading ? null : _signInWithGoogle,
+                //   icon: Image.asset(
+                //     'assets/images/google_logo.png',
+                //     height: 20,
+                //     errorBuilder: (context, error, stackTrace) =>
+                //         const Icon(Icons.g_mobiledata, color: Colors.white),
+                //   ),
+                //   label: const Text('Continue with Google'),
+                //   style: OutlinedButton.styleFrom(
+                //     foregroundColor: Colors.white,
+                //     side: const BorderSide(color: Colors.grey),
+                //     padding: const EdgeInsets.symmetric(vertical: 16),
+                //     shape: RoundedRectangleBorder(
+                //       borderRadius: BorderRadius.circular(12),
+                //     ),
+                //   ),
+                // ),
                 const SizedBox(height: 24),
 
+                // Toggle Sign In/Sign Up
                 Wrap(
                   alignment: WrapAlignment.center,
                   crossAxisAlignment: WrapCrossAlignment.center,

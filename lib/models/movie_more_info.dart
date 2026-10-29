@@ -1,3 +1,4 @@
+/// Fields supplied by the Film365 Details response, alongside downloadUrl.
 List<Map<String, dynamic>> movieInfoRecords(Object? value) {
   if (value is Map) value = value['results'];
   return value is List
@@ -91,6 +92,7 @@ class MovieInfoVideo {
         isOfficial: item['official'] == true,
       ));
     }
+    // Keep the source order within trailers and within other videos.
     return [
       ...videos.where((item) => item.type.toLowerCase() == 'trailer'),
       ...videos.where((item) => item.type.toLowerCase() != 'trailer'),

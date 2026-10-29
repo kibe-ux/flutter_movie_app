@@ -37,6 +37,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
             movies.add(movieDetails);
           }
         } catch (e) {
+          // Skip movies that can't be loaded
           continue;
         }
       }

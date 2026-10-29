@@ -12,6 +12,7 @@ class AuthWrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     final authService = context.watch<AuthService>();
 
+    // Wait for Firebase to resolve persisted auth state
     if (authService.isLoading) {
       return const Scaffold(
         backgroundColor: Color(0xFF0A0A0A),
@@ -21,6 +22,9 @@ class AuthWrapper extends StatelessWidget {
       );
     }
 
+    // Return child regardless of auth state to allow guest access
+    // Resolve rewards only after startup has initialized Firebase. An eager
+    // proxy provider would construct AuthService before Firebase.initializeApp.
     context.read<RewardsService?>();
     return child;
   }

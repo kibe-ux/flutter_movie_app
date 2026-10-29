@@ -9,6 +9,7 @@ import 'package:moviehub_app/widgets/auth_wrapper.dart';
 import 'package:moviehub_app/services/catalogue_service.dart';
 import 'package:provider/provider.dart';
 
+// Keep the destination at its auth gate so these tests only exercise startup.
 class _LoadingAuth extends ChangeNotifier implements AuthService {
   @override
   bool get isLoading => true;
@@ -178,6 +179,7 @@ void main() {
     final retry = Completer<void>();
     var attempts = 0;
     await tester.pumpWidget(MaterialApp(
+      // Avoid loading a GPU shader when exercising the retry tap in tests.
       theme: ThemeData(splashFactory: InkRipple.splashFactory),
       home: SplashScreen(initialize: () {
         if (++attempts == 1) throw StateError('Initialization failed');
@@ -193,6 +195,7 @@ void main() {
     expect(attempts, 2);
     expect(find.text('Retry'), findsNothing);
 
+    // Completion after disposal must not navigate or update a removed screen.
     await tester.pumpWidget(const SizedBox());
     retry.complete();
     await tester.pump(const Duration(seconds: 2));

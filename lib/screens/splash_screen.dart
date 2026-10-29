@@ -38,6 +38,7 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
     _minimumDisplay = Future<void>.delayed(const Duration(milliseconds: 1400));
 
+    // Make system status bar and nav bar transparent for full immersion
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -47,6 +48,7 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
 
+    // 1. Image animation controller (subtle zoom settle)
     _imageController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
@@ -59,6 +61,7 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
 
+    // 2. Text animation controller (smooth entrance with slide)
     _textController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
@@ -79,11 +82,13 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
 
+    // Sequence start
     _imageController.forward();
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) _textController.forward();
     });
 
+    // Start initialization after the first frame so the artwork appears first.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _startApp();
     });
@@ -158,6 +163,7 @@ class _SplashScreenState extends State<SplashScreen>
       body: Stack(
         fit: StackFit.expand,
         children: [
+          // Background cinematic image with subtle zoom
           AnimatedBuilder(
             animation: _imageController,
             builder: (context, child) {
@@ -172,6 +178,7 @@ class _SplashScreenState extends State<SplashScreen>
             },
           ),
 
+          // Vignette / gradient overlays to darken bottom and top for text legibility
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -237,6 +244,7 @@ class _SplashScreenState extends State<SplashScreen>
                             ),
                           ),
                           const SizedBox(height: 24),
+                          // Champagne gold loading indicator
                           if (_startupFailed) ...[
                             Text(
                               _startupMessage,

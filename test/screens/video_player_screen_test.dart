@@ -1,3 +1,4 @@
+// ignore_for_file: depend_on_referenced_packages
 
 import 'dart:async';
 
@@ -181,6 +182,7 @@ class FakeVideoPlayerPlatform extends platform.VideoPlayerPlatform {
   }
 
   @override
+  // ignore: deprecated_member_use
   Widget buildView(int playerId) => const SizedBox.shrink();
 
   @override

@@ -184,6 +184,8 @@ class RewardsService extends ChangeNotifier with WidgetsBindingObserver {
     _notify();
   }
 
+  /// Lets members verify the native test ad without a live rewards backend.
+  /// Demo completions never call the wallet/session/credit APIs.
   Future<void> watchTestAd({required bool Function() isActive}) async {
     final uid = _uid;
     if (uid == null || busy || adFree || !testAds) return;
@@ -238,6 +240,7 @@ class RewardsService extends ChangeNotifier with WidgetsBindingObserver {
         message =
             'Your reward is being confirmed. Refresh shortly to check your coins.';
         _notify();
+        // The SDK callback never grants coins; only a signed server callback can.
         for (var attempt = 0; attempt < 5; attempt++) {
           await _delay(const Duration(seconds: 2));
           if (_uid != uid || _disposed) return;
@@ -260,6 +263,7 @@ class RewardsService extends ChangeNotifier with WidgetsBindingObserver {
           await _request('cancel',
               uid: uid, body: {'sessionId': session['id']});
         } catch (_) {
+          /* The server session expires if cancellation cannot connect. */
         }
       }
       busy = false;

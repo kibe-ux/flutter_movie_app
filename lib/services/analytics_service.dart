@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 class AnalyticsService {
   static final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
 
+  // Log user sign-in
   static Future<void> logUserSignIn({required String method}) async {
     try {
       await _analytics.logLogin(loginMethod: method);
@@ -12,6 +13,7 @@ class AnalyticsService {
     }
   }
 
+  // Log user sign-out
   static Future<void> logUserSignOut() async {
     try {
       await _analytics.logEvent(
@@ -25,6 +27,7 @@ class AnalyticsService {
     }
   }
 
+  // Log movie view
   static Future<void> logMovieView({
     required int movieId,
     required String movieTitle,
@@ -45,6 +48,7 @@ class AnalyticsService {
     }
   }
 
+  // Log search query
   static Future<void> logSearch({required String query}) async {
     try {
       await _analytics.logSearch(
@@ -55,6 +59,7 @@ class AnalyticsService {
     }
   }
 
+  // Log favorite action
   static Future<void> logFavoriteAction({
     required int movieId,
     required String movieTitle,
@@ -74,6 +79,7 @@ class AnalyticsService {
     }
   }
 
+  // Log download action
   static Future<void> logDownloadAction({
     required int movieId,
     required String movieTitle,
@@ -93,12 +99,13 @@ class AnalyticsService {
     }
   }
 
+  // Log video playback
   static Future<void> logVideoPlayback({
     required int movieId,
     required String movieTitle,
-    required int duration,
-    required int position,
-    required String source,
+    required int duration, // in seconds
+    required int position, // in seconds
+    required String source, // 'web' or 'local'
   }) async {
     try {
       await _analytics.logEvent(
@@ -118,6 +125,7 @@ class AnalyticsService {
     }
   }
 
+  // Log screen view
   static Future<void> logScreenView({required String screenName}) async {
     try {
       await _analytics.logScreenView(screenName: screenName);
@@ -126,8 +134,9 @@ class AnalyticsService {
     }
   }
 
+  // Log app rating
   static Future<void> logAppRating({
-    required int rating,
+    required int rating, // 1-5
     required String feedback,
   }) async {
     try {
@@ -144,6 +153,7 @@ class AnalyticsService {
     }
   }
 
+  // Log custom event
   static Future<void> logCustomEvent({
     required String eventName,
     Map<String, Object>? parameters,
@@ -161,6 +171,7 @@ class AnalyticsService {
     }
   }
 
+  // Set user ID
   static Future<void> setUserId(String userId) async {
     try {
       await _analytics.setUserId(id: userId);
@@ -169,6 +180,7 @@ class AnalyticsService {
     }
   }
 
+  // Set user properties
   static Future<void> setUserProperties({
     String? preferredGenre,
     String? accountType,

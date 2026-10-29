@@ -7,6 +7,7 @@ class MovieApiService {
 
   MovieApiService({required this.apiKey, required this.baseUrl});
 
+  // Fetch cast
   Future<List<Map<String, dynamic>>> fetchCast(int movieId) async {
     final response = await http
         .get(Uri.parse('$baseUrl/movie/$movieId/credits?api_key=$apiKey'));
@@ -17,6 +18,7 @@ class MovieApiService {
     return [];
   }
 
+  // Fetch similar movies
   Future<List<Map<String, dynamic>>> fetchSimilarMovies(int movieId) async {
     final response = await http
         .get(Uri.parse('$baseUrl/movie/$movieId/similar?api_key=$apiKey'));
@@ -27,6 +29,7 @@ class MovieApiService {
     return [];
   }
 
+  // Fetch trailers
   Future<List<Map<String, dynamic>>> fetchTrailers(int movieId) async {
     final response = await http
         .get(Uri.parse('$baseUrl/movie/$movieId/videos?api_key=$apiKey'));
@@ -37,7 +40,9 @@ class MovieApiService {
     return [];
   }
 
+  // Placeholder for download link
   Future<String?> getDownloadLink(int movieId) async {
+    // Replace this with your real API call that returns a downloadable URL
     return null;
   }
 }

@@ -57,6 +57,7 @@ String movieDownloadErrorMessage(Object error) {
   return 'Could not prepare the download. Please try again.';
 }
 
+// Do not include exception messages: they can contain tokens or signed URLs.
 String movieDownloadErrorDiagnostic(Object error) {
   if (error is FirebaseAuthException) {
     const knownCodes = {
