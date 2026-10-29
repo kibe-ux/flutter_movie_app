@@ -6,7 +6,6 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../services/ad_service.dart';
 
-/// A banner is mounted only after loading, with bounded retries after failures.
 class MovieHubBannerAd extends StatefulWidget {
   const MovieHubBannerAd({super.key, required this.placement});
 
@@ -93,7 +92,6 @@ class _MovieHubBannerAdState extends State<MovieHubBannerAd>
       _banner = null;
       _loaded = false;
     });
-    // Remove the previous platform view before releasing its native ad.
     if (oldBanner != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => oldBanner.dispose());
     }
@@ -178,8 +176,6 @@ class _MovieHubBannerAdState extends State<MovieHubBannerAd>
       final banner = _banner;
       final size = _slotSize;
       if (size == null) return const SizedBox.shrink();
-      // Reserve the slot across loading/failure and keep clear, non-clickable
-      // space between the creative and the app's controls on either side.
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 24),
         child: SizedBox(

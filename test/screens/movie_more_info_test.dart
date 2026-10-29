@@ -6,7 +6,6 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:moviehub_app/widgets/movie_more_info.dart';
 import 'package:moviehub_app/widgets/inline_trailer_player.dart';
-// ignore: depend_on_referenced_packages
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
 import '../helpers/fake_trailer_webview.dart';
 

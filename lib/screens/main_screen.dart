@@ -35,9 +35,7 @@ class _MainScreenState extends State<MainScreen> {
   static const Color _drawerText = CinemaPalette.ivory;
   static const Color _drawerMuted = CinemaPalette.muted;
 
-  // Shared set to track "My List" items (REDUNDANT: now using MyList singleton)
 
-  // Colors
   final Color _primaryColor = const Color(0xFF0D0D0D);
   final Color _surfaceColor = const Color(0xFF1A1A1A);
   final Color _onSurfaceColor = Colors.white;

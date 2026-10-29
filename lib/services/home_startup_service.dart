@@ -63,7 +63,6 @@ class HomeStartupService {
         });
   }
 
-  // Warm only the first visible artwork; the screen does not wait for this.
   Future<void> preloadImages(HomeStartupData data, BuildContext context) async {
     final width = MediaQuery.sizeOf(context).width;
     final cardWidth = width < 376
@@ -94,7 +93,6 @@ class HomeStartupService {
                 onError: (error, stack) {})
             .timeout(const Duration(seconds: 3));
       } on TimeoutException {
-        // The visible image widget can finish loading independently.
       }
     }));
   }

@@ -7,10 +7,8 @@ import 'package:path/path.dart' as p;
 import '../services/movie_download_service.dart';
 import 'http_diagnostics.dart';
 
-/// Download status enum
 enum DownloadStatus { idle, downloading, paused, completed, failed }
 
-/// Download item model
 class DownloadItem {
   final int movieId;
   final String movieTitle;
@@ -47,7 +45,6 @@ class DownloadItem {
   }
 }
 
-/// Download Service - Ready for your friend's API integration
 class DownloadService {
   static final DownloadService _instance = DownloadService._internal();
 
@@ -78,7 +75,6 @@ class DownloadService {
   bool _isCurrentAttempt(int movieId, int attempt) =>
       !_disposed && _downloadAttempts[movieId] == attempt;
 
-  // Store active downloads
   final Map<int, DownloadItem> _activeDownloads = {};
   final Map<int, StreamSubscription<List<int>>> _activeSubscriptions = {};
   final Map<int, RandomAccessFile> _openFiles = {};
@@ -89,14 +85,11 @@ class DownloadService {
 
   bool _disposed = false;
 
-  /// Get stream of downloads for UI updates
   Stream<Map<int, DownloadItem>> get downloadsStream =>
       _downloadController.stream;
 
-  /// Get all active downloads
   Map<int, DownloadItem> get activeDownloads => Map.from(_activeDownloads);
 
-  /// Start downloading a movie
   Future<void> downloadMovie({
     required int movieId,
     required String movieTitle,
@@ -109,10 +102,9 @@ class DownloadService {
     _downloadAttempts[movieId] = attempt;
 
     try {
-      // Check if download already exists
       if (_activeDownloads.containsKey(movieId) &&
           _activeDownloads[movieId]!.status == DownloadStatus.downloading) {
-        return; // Already downloading
+        return;
       }
 
       final url = downloadUrl.trim();
@@ -121,7 +113,6 @@ class DownloadService {
             downloadUrl, 'downloadUrl', 'Must not be empty.');
       }
 
-      // Initialize download item
       _activeDownloads[movieId] = DownloadItem(
         movieId: movieId,
         movieTitle: movieTitle,
@@ -131,8 +122,6 @@ class DownloadService {
       );
       _notifyListeners();
 
-      // App-private storage needs no Android storage permission and remains
-      // writable on Android 10+ scoped-storage devices.
       final appDir = await _documentsDirectoryProvider();
       if (!_isCurrentAttempt(movieId, attempt)) return;
       final moviesDir = Directory(p.join(appDir.path, 'movies'));
@@ -141,8 +130,6 @@ class DownloadService {
       }
       if (!_isCurrentAttempt(movieId, attempt)) return;
 
-      // Start the request before choosing an extension because FILMS365 URLs
-      // are often tokenized and do not expose one in their path.
       final request = http.Request('GET', Uri.parse(url));
       final response =
           await _client.send(request).timeout(const Duration(seconds: 30));
@@ -177,7 +164,6 @@ class DownloadService {
             'The provider returned a page or playlist instead of a movie file.');
       }
 
-      // Create a safe filename with an extension inferred from the response.
       final safeTitle =
           movieTitle.replaceAll(RegExp(r'[^\w\s-]'), '').replaceAll(' ', '_');
       final fileName = '${movieId}_${safeTitle.isEmpty ? 'movie' : safeTitle}'
@@ -216,8 +202,6 @@ class DownloadService {
             }
           }
 
-          // The stream pauses for each asynchronous disk write. A user pause
-          // is an additional pause token and remains in effect afterwards.
           subscription.pause(writeChunk());
         },
         onDone: () => unawaited(
@@ -366,7 +350,6 @@ class DownloadService {
     return '.mp4';
   }
 
-  /// Pause download
   Future<void> pauseDownload(int movieId) async {
     if (_disposed ||
         _activeDownloads[movieId]?.status != DownloadStatus.downloading) {
@@ -380,7 +363,6 @@ class DownloadService {
     _notifyListeners();
   }
 
-  /// Resume download
   Future<void> resumeDownload(int movieId) async {
     if (_disposed ||
         _activeDownloads[movieId]?.status != DownloadStatus.paused) {
@@ -394,7 +376,6 @@ class DownloadService {
     _notifyListeners();
   }
 
-  /// Cancel download
   Future<void> cancelDownload(int movieId) async {
     if (_disposed) return;
 
@@ -408,7 +389,6 @@ class DownloadService {
     }
   }
 
-  /// Update download progress
   void _updateProgress(int movieId, double progress) {
     if (_disposed || !_activeDownloads.containsKey(movieId)) return;
 
@@ -418,19 +398,16 @@ class DownloadService {
     _notifyListeners();
   }
 
-  /// Notify listeners of changes
   void _notifyListeners() {
     if (!_disposed && !_downloadController.isClosed) {
       _downloadController.add(Map.from(_activeDownloads));
     }
   }
 
-  /// Get download status for a specific movie
   DownloadStatus? getDownloadStatus(int movieId) {
     return _activeDownloads[movieId]?.status;
   }
 
-  /// Restore saved status after restarting, and clear it if the file vanished.
   Future<void> refreshDownloadStatus({
     required int movieId,
     required String movieTitle,
@@ -471,11 +448,9 @@ class DownloadService {
         _notifyListeners();
       }
     } on FileSystemException {
-      // An inaccessible directory does not prove a saved movie was deleted.
     }
   }
 
-  /// Get list of downloaded movies
   Future<List<DownloadedMovie>> getDownloadedMovies() async {
     try {
       final appDir = await _documentsDirectoryProvider();
@@ -515,7 +490,6 @@ class DownloadService {
     }
   }
 
-  /// Delete downloaded movie
   Future<bool> deleteDownloadedMovie(String filePath) async {
     try {
       final file = File(filePath);
@@ -536,7 +510,6 @@ class DownloadService {
     }
   }
 
-  /// Helper method to extract title from file path
   String _titleFromFilePath(String filePath) {
     final base = p.basenameWithoutExtension(filePath);
     final savedTitle = RegExp(r'^\d+_(.+)$').firstMatch(base);
@@ -551,7 +524,6 @@ class DownloadService {
     return '$title ($year)';
   }
 
-  /// Helper method to format bytes
   String _formatBytes(int bytes) {
     if (bytes <= 0) return '0 B';
     const units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -567,7 +539,6 @@ class DownloadService {
     return '$amount ${units[index]}';
   }
 
-  /// Proper cleanup - must be called on app exit
   void dispose() {
     if (_disposed) return;
     _disposed = true;

@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class CacheEntry<T> {
   final T data;
   final DateTime createdAt;
-  final Duration ttl; // time to live
+  final Duration ttl;
 
   CacheEntry({
     required this.data,
@@ -20,10 +20,8 @@ class CacheService {
   static const int _maxMemCacheSize = 50;
   static const String _prefKey = 'cache_';
 
-  // Memory cache operations
   static void setMemCache<T>(String key, T value, {Duration? ttl}) {
     if (_memCache.length >= _maxMemCacheSize) {
-      // Remove oldest entry
       final oldest = _memCache.keys.first;
       _memCache.remove(oldest);
     }
@@ -54,7 +52,6 @@ class CacheService {
     _memCache.clear();
   }
 
-  // Persistent cache operations
   static Future<void> setDiskCache(
     String key,
     dynamic value, {
@@ -84,7 +81,6 @@ class CacheService {
       final ttlMs = cacheData['ttl_ms'] as int;
       final ttl = Duration(milliseconds: ttlMs);
 
-      // Check if expired
       if (DateTime.now().difference(createdAt).compareTo(ttl) > 0) {
         await prefs.remove(_prefKey + key);
         return null;
@@ -120,7 +116,6 @@ class CacheService {
     }
   }
 
-  // Get memory usage stats
   static Map<String, int> getMemCacheStats() {
     return {
       'entries': _memCache.length,
@@ -128,16 +123,12 @@ class CacheService {
     };
   }
 
-  // Smart cache - uses both memory and disk
   static Future<T?> getSmartCache<T>(String key) async {
-    // Try memory first
     final memValue = getMemCache<T>(key);
     if (memValue != null) return memValue;
 
-    // Try disk
     final diskValue = await getDiskCache<T>(key);
     if (diskValue != null) {
-      // Cache in memory for quick access
       setMemCache<T>(key, diskValue, ttl: const Duration(minutes: 30));
       return diskValue;
     }
@@ -151,9 +142,7 @@ class CacheService {
     Duration memTtl = const Duration(hours: 1),
     Duration diskTtl = const Duration(days: 7),
   }) async {
-    // Cache in memory
     setMemCache<T>(key, value, ttl: memTtl);
-    // Cache on disk
     await setDiskCache(key, value, ttl: diskTtl);
   }
 }

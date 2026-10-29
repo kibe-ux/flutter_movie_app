@@ -279,8 +279,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   double _getCardHeight(BuildContext context) {
     final textScaler = MediaQuery.textScalerOf(context);
-    // Keep the poster, two title lines and year inside the horizontal list.
-    // Rotation must not shrink the list below the height of its contents.
     return _getCardWidth(context) / 0.75 +
         8 +
         (textScaler.scale(13) * 1.3).ceilToDouble() * 2 +

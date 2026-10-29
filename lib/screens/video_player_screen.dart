@@ -240,7 +240,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   void _toggleFullscreen() {
     setState(() => _isFullscreen = !_isFullscreen);
-    // In a real app, you'd handle orientation changes here
   }
 
   void _onTapScreen() {
@@ -326,13 +325,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           child: VideoPlayer(_controller!),
         ),
 
-        // Buffering indicator
         if (_isBuffering)
           const CircularProgressIndicator(color: Color(0xFF00D4FF)),
 
-        // Controls overlay
         if (_showControls) ...[
-          // Top controls
           Positioned(
             top: 0,
             left: 0,
@@ -375,7 +371,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             ),
           ),
 
-          // Center play/pause button
           Positioned(
             child: IconButton(
               icon: Icon(
@@ -387,7 +382,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             ),
           ),
 
-          // Bottom controls
           Positioned(
             bottom: 0,
             left: 0,
@@ -404,7 +398,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Progress bar
                   VideoProgressIndicator(
                     _controller!,
                     allowScrubbing: true,
@@ -415,7 +408,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     ),
                   ),
 
-                  // Time and controls row
                   Row(
                     children: [
                       Text(

@@ -1,4 +1,3 @@
-// -------------------- MovieDetailsScreen.dart --------------------
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -131,7 +130,6 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     }));
   }
 
-  // -------------------- Ads --------------------
   void _showInterstitialAd(Function actionAfterAd) {
     AdService().onMoviePosterTap(actionAfterAd,
         isActive: () => mounted && (ModalRoute.of(context)?.isCurrent ?? true));
@@ -168,7 +166,6 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     }
   }
 
-  // -------------------- API Fetch --------------------
   Future<void> fetchSimilarMovies() async {
     try {
       final movieId = widget.movie['id'];
@@ -195,7 +192,6 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     }
   }
 
-  // -------------------- Helpers --------------------
   Widget buildImage(String? url,
       {double? width,
       double? height,
@@ -237,7 +233,6 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     );
   }
 
-  // -------------------- Build --------------------
   @override
   Widget build(BuildContext context) {
     final movie = widget.movie;
@@ -450,7 +445,6 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     );
   }
 
-  // -------------------- Sections --------------------
   Widget _buildHeaderSection(
     String? posterUrl,
     Map<String, dynamic> movie,
@@ -784,7 +778,6 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     }
   }
 
-  // -------------------- Primary actions --------------------
   Widget _buildPrimaryActions(Map<String, dynamic> movie) {
     if (_isTv) {
       return TvSeasonsSection(
@@ -835,7 +828,6 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     ]);
   }
 
-  /// Build download button with different states
   Widget _buildDownloadButton(
       Map<String, dynamic> movie, DownloadStatus status, double progress) {
     IconData icon = Icons.download_rounded;
@@ -864,7 +856,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
       case DownloadStatus.completed:
         icon = Icons.check_rounded;
         label = 'Downloaded';
-        onPressed = null; // Disable for downloaded items
+        onPressed = null;
         buttonColor = Colors.green;
         break;
       case DownloadStatus.failed:
@@ -906,7 +898,6 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     if (_resolvingDownload || isFutureMovieRelease(episode['air_date'])) return;
     setState(() => _resolvingDownload = true);
     try {
-      // Refresh expiring links and match both numbers; never use a series URL.
       final details =
           await _loadFilms365Metadata(reportErrors: true, forDownload: true);
       final number = (episode['episode_number'] as num).toInt();
@@ -951,7 +942,6 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     }
   }
 
-  /// Start download with API integration
   Future<void> _startDownload(Map<String, dynamic> movie,
       {bool refreshMetadata = false}) async {
     if (_resolvingDownload) {
@@ -966,8 +956,6 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
         throw StateError('Movie is missing a valid TMDB ID.');
       }
 
-      // Share the page's pending/successful lookup. Retry old, missing or failed
-      // links instead of discarding a freshly resolved link on every tap.
       downloadStage = 'authentication-and-details';
       final previousMetadata = _films365Metadata;
       final metadataFuture = () async {
@@ -976,7 +964,6 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
             final metadata = await previousMetadata;
             if (hasRecentMovieDownloadLink(metadata)) return metadata;
           } catch (_) {
-            // A failed page lookup can be retried by the download action.
           }
         }
         return _loadFilms365Metadata(reportErrors: true, forDownload: true);
@@ -1056,17 +1043,14 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     }
   }
 
-  /// Pause download
   void _pauseDownload(int movieId) {
     _downloadService.pauseDownload(movieId);
   }
 
-  /// Resume download
   void _resumeDownload(int movieId) {
     _downloadService.resumeDownload(movieId);
   }
 
-  // -------------------- Overview --------------------
   Widget _buildOverview(Map<String, dynamic> movie) {
     if (movie['overview'] == null || (movie['overview'] as String).isEmpty) {
       return const SizedBox();
@@ -1086,7 +1070,6 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     );
   }
 
-  // -------------------- Similar Movies --------------------
   Widget _buildSimilarMoviesSection() {
     if (isLoadingSimilar) {
       return const SizedBox(

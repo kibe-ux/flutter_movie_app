@@ -25,8 +25,6 @@ class GoogleInterstitialGateway implements InterstitialGateway {
       debugPrint('Ads unavailable: this platform is not Android or iOS.');
       return false;
     }
-    // Google's sample app ID has no publisher consent message configured.
-    // Test units serve test inventory; production requests require UMP below.
     await MobileAds.instance.updateRequestConfiguration(RequestConfiguration(
       maxAdContentRating: MaxAdContentRating.t,
       tagForChildDirectedTreatment: TagForChildDirectedTreatment.no,

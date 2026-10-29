@@ -18,9 +18,6 @@ enum Films365SortBy { popularity, rating, date }
 
 enum Films365SortOrder { asc, desc }
 
-/// Authenticated client for the server-side FILMS365 proxy.
-///
-/// The upstream API key is never sent to or stored by this client.
 class Films365ApiService {
   Films365ApiService({
     http.Client? client,
@@ -91,10 +88,7 @@ class Films365ApiService {
           alternativeTitles: alternativeTitles,
           metadataOnly: metadataOnly,
         );
-    // Download resolution always checks the provider for a fresh link.
     if (!metadataOnly) return resolve();
-    // Scope cached display data to the backend and current Firebase token.
-    // Tokens are kept only in bounded memory and are never logged.
     final token = await _getIdToken();
     final key =
         '$_backendUrl|$token|${type.toLowerCase()}|$tmdbId|${providerId ?? ''}';
@@ -177,9 +171,6 @@ class Films365ApiService {
       if (metadata != null) return metadata;
     }
 
-    // Display information must not wait for download discovery/catalogue scans.
-    // Missing records can still use the exact-title search below; authorization
-    // failures are propagated without trying alternative Details routes.
     if (metadataOnly) {
       try {
         final response = await details(
@@ -219,8 +210,6 @@ class Films365ApiService {
       return null;
     }
 
-    // Prefer the provider's own ID. Search by title, but only accept an exact
-    // TMDB ID and content type match so remakes and TV names cannot collide.
     final titles = <String>{
       if (title != null && title.trim().isNotEmpty) title.trim(),
       ...alternativeTitles
@@ -233,11 +222,8 @@ class Films365ApiService {
         response = await search(query: query);
       } on Films365RequestException catch (error) {
         if (error.source == 'firebase-auth') rethrow;
-        // An optional catalogue lookup must not prevent direct ID lookup.
       } on TimeoutException {
-        // Fall back to the documented direct lookup.
       } on http.ClientException {
-        // Fall back to the documented direct lookup.
       }
       if (response is Films365SearchEnvelope) {
         final typedResults =
@@ -253,10 +239,6 @@ class Films365ApiService {
 
     if (metadataOnly) return matchedMetadata;
 
-    // TMDB catalogue screens do not carry a Film365 ID. When search has no
-    // usable match, check the current catalogue pages before choosing the
-    // TMDB Details route. Both routes are documented but can return different
-    // outcomes. Never retry a denied Details request through another route.
     if (titles.isNotEmpty) {
       for (final endpoint in ['popular', 'trending', 'latest']) {
         Object? response;
@@ -266,9 +248,7 @@ class Films365ApiService {
         } on Films365RequestException catch (error) {
           if (error.source == 'firebase-auth') rethrow;
         } on TimeoutException {
-          // Optional discovery must not block a direct lookup.
         } on http.ClientException {
-          // Optional discovery must not block a direct lookup.
         }
         if (response == null) continue;
         final envelope = Films365ListEnvelope.fromJson(_responseMap(response));
@@ -300,8 +280,6 @@ class Films365ApiService {
             return metadata;
           }
           matchedMetadata ??= metadata;
-          // Some TMDB responses contain metadata only. Resolve the actual
-          // provider record before deciding it has no downloadable file.
           if (id is String) {
             final providerMetadata = await resolveId(id);
             if (providerMetadata != null) return providerMetadata;
@@ -309,8 +287,6 @@ class Films365ApiService {
         }
       }
     } on Films365RequestException catch (error) {
-      // A missing movie can be resolved through the catalogue. Authorization
-      // failures must reach the caller immediately, regardless of ID format.
       if (error.statusCode != 404) rethrow;
     }
 
@@ -485,8 +461,6 @@ class Films365ApiService {
     return Films365DetailsEnvelope.fromJson(_responseMap(response)).data;
   }
 
-  /// Forwards a caller-supplied link to the optional torrent-link endpoint.
-  /// The link is not logged or otherwise retained by this client.
   Future<Object?> torrentLink({required String link}) {
     if (link.trim().isEmpty) {
       throw ArgumentError.value(link, 'link', 'Must not be empty.');

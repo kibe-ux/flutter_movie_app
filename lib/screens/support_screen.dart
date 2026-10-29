@@ -10,7 +10,6 @@ class SupportScreen extends StatefulWidget {
 }
 
 class _SupportScreenState extends State<SupportScreen> {
-  // Shared cinema palette.
   final Color _bgDark = CinemaPalette.background;
   final Color _surfaceDark = CinemaPalette.surface;
   final Color _cardDark = CinemaPalette.wine;
@@ -464,11 +463,9 @@ class _SupportScreenState extends State<SupportScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status Live Banner
             _buildLiveStatusBanner(),
             const SizedBox(height: 28),
 
-            // Section Header: Direct Channels
             const Text(
               'Direct Assistance',
               style: TextStyle(
@@ -490,7 +487,6 @@ class _SupportScreenState extends State<SupportScreen> {
             ),
             const SizedBox(height: 28),
 
-            // Section Header: Interactive Help
             const Text(
               'Quick Actions',
               style: TextStyle(
@@ -527,7 +523,6 @@ class _SupportScreenState extends State<SupportScreen> {
             ),
             const SizedBox(height: 28),
 
-            // Section Header: FAQ Accordion
             const Text(
               'Frequently Asked Questions',
               style: TextStyle(
@@ -556,7 +551,6 @@ class _SupportScreenState extends State<SupportScreen> {
             ),
             const SizedBox(height: 36),
 
-            // Security & Privacy Note
             Center(
               child: Text(
                 'FLIXORA X Support \u2022 Support opens in your email app.\nPlease keep the app updated for the latest fixes and features.',

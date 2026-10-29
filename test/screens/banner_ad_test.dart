@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-// The plugin's channel codec is needed to emulate native ad loading in tests.
-// ignore: implementation_imports
 import 'package:google_mobile_ads/src/ad_instance_manager.dart' as plugin;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moviehub_app/widgets/movie_hub_banner_ad.dart';

@@ -100,7 +100,6 @@ class _SearchScreenState extends State<SearchScreen>
       _resetSearch();
       return;
     }
-    // Debounce so we don't fire a request on every keystroke.
     _debounce = Timer(
       const Duration(milliseconds: 400),
       () => _performSearch(query),
@@ -124,7 +123,6 @@ class _SearchScreenState extends State<SearchScreen>
       return;
     }
 
-    // Invalidate any in-flight request so stale results never win.
     final requestToken = ++_requestToken;
 
     setState(() {
@@ -141,13 +139,10 @@ class _SearchScreenState extends State<SearchScreen>
       if (requestToken != _requestToken || !mounted) return;
 
       setState(() {
-        // Only show movies / TV shows that have already been released so we
-        // don't surface content that users cannot yet download or watch.
         _searchResults = filterReleasedMovies([...results[0], ...results[1]]);
         _isSearching = false;
       });
 
-      // Add to search history
       if (!_searchHistory.contains(sanitizedQuery)) {
         _searchHistory.insert(0, sanitizedQuery);
         if (_searchHistory.length > 10) {
@@ -347,7 +342,7 @@ class _SearchScreenState extends State<SearchScreen>
     final imageUrl = posterPath != null ? '$imageBase$posterPath' : null;
     final title = item['title'] ?? item['name'] ?? 'Unknown Title';
     final overview = item['overview'] ?? 'No description available';
-    final isInMyList = MyList().contains(item['id']); // UPDATED
+    final isInMyList = MyList().contains(item['id']);
     final isMovie = item['title'] != null;
     final tagColor = isMovie ? AppTheme.netflixRed : AppTheme.primaryBlue;
     return Padding(

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../utils/cinema_palette.dart';
 
-/// A scrollable recovery state that fits small screens and enlarged text.
 class ConnectionNotice extends StatefulWidget {
   const ConnectionNotice({
     super.key,

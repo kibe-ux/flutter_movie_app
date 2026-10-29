@@ -99,7 +99,6 @@ class _InlineTrailerPlayerState extends State<InlineTrailerPlayer>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
-    // Clearing the document also stops media when switching trailers or closing.
     unawaited(_controller
         .loadHtmlString('<html><body></body></html>')
         .catchError((Object _) {}));

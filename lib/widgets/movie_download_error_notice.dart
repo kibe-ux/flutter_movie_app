@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../utils/movie_download_error.dart';
 
-/// Download errors expire even when the snackbar includes a Retry action.
 class MovieDownloadErrorNotice extends SnackBar {
   MovieDownloadErrorNotice(
       {super.key, required Object error, VoidCallback? onRetry})

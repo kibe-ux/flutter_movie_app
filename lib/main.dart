@@ -23,9 +23,6 @@ void main() {
 }
 
 Future<void> _initializeApp() async {
-  // MyList uses FirebaseAuth, so Firebase must exist before MyList starts.
-  // Running them together caused MyList to occasionally access FirebaseAuth
-  // before the default Firebase app had been created.
   await _initializeFirebase();
   await CrashReportingService.initialize();
   try {
@@ -39,7 +36,6 @@ Future<void> _initializeApp() async {
     rethrow;
   }
 
-  // Initialize Ads and preload first interstitial
   unawaited(
       AdService().init().catchError((Object error, StackTrace stack) async {
     debugPrint('Ads initialization failed: $error');

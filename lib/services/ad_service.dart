@@ -46,7 +46,6 @@ class AdService {
   final int minimumBrowsingActions;
   final int posterOpensPerAd;
   late final DateTime _sessionStartedAt;
-  // Conservative app limits, not universal intervals prescribed by Google.
   static const cooldown = Duration(minutes: 2);
   int _browsingTransitions = 0;
   int _adGeneration = 0;
@@ -181,8 +180,6 @@ class AdService {
     }
   }
 
-  /// Only explicitly eligible browsing transitions can present a preloaded ad.
-  /// Downloads, playback and generic actions proceed without an interstitial.
   Future<bool> beforeTransition({
     bool Function()? isActive,
     bool allowInterstitial = false,

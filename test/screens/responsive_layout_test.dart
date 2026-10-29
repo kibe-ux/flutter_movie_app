@@ -58,7 +58,6 @@ void main() {
         ));
         expect(tester.takeException(), isNull);
 
-        // Rotating an existing screen must recalculate the grid immediately.
         tester.view.physicalSize = Size(size.height, size.width);
         await tester.pump();
         expect(tester.takeException(), isNull);
@@ -78,7 +77,6 @@ void main() {
         const MethodChannel('dev.fluttercommunity.plus/connectivity_status'),
         (_) async => null,
       );
-      // Ads use a custom codec; no native ad is needed for layout tests.
       messenger.setMockMessageHandler(
         'plugins.flutter.io/google_mobile_ads',
         (_) async => const StandardMethodCodec().encodeSuccessEnvelope(null),
@@ -110,7 +108,6 @@ void main() {
         }
         expect(tester.takeException(), isNull);
         if (connected) {
-          // Offscreen categories must not all fetch during startup.
           expect(requestedPaths.length, lessThan(12));
           await tester.drag(find.byType(ListView).first, const Offset(0, -200));
           await tester.pump();
@@ -140,7 +137,6 @@ void main() {
                 }),
               ),
               2));
-          // Seeded content is available on the very first frame.
           expect(find.text('Preloaded movie'), findsWidgets);
           for (var frame = 0; frame < 5; frame++) {
             await tester.pump(const Duration(milliseconds: 100));
@@ -152,7 +148,6 @@ void main() {
           await tester.pumpWidget(const SizedBox());
           await tester.pump();
 
-          // An empty successful initial feed must still allow lazy rows to load.
           requestedPaths.clear();
           await tester.pumpWidget(app(
             const HomeScreen(

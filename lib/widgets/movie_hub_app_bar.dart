@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../utils/cinema_palette.dart';
 import 'movie_hub_icon.dart';
 
-/// The home toolbar's visual treatment; navigation stays with its caller.
 class MovieHubAppBar extends StatelessWidget implements PreferredSizeWidget {
   const MovieHubAppBar({super.key, required this.accountAction});
 

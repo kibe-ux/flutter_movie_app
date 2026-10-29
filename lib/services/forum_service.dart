@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// All users share the same collection; no device, user or country feed partition.
 class ForumService {
   ForumService({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -97,7 +96,6 @@ class ForumService {
   Future<void> deletePost(String postId, String uid) async {
     _requireUser(uid);
     final ref = _posts.doc(postId);
-    // Check ownership before reading replies. Server rules must enforce it too.
     final exists = await _firestore.runTransaction((transaction) async {
       final snapshot = await transaction.get(ref);
       if (!snapshot.exists) return false;
@@ -108,8 +106,6 @@ class ForumService {
     });
     if (!exists) return;
 
-    // Remove replies while the parent still exists so owner-based rules can
-    // authorize cleanup. Keep each transaction bounded for large discussions.
     while (true) {
       final replies = await ref.collection('comments').limit(200).get();
       if (replies.docs.isEmpty) break;

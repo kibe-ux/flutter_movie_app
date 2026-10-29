@@ -542,7 +542,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                     ),
                     const SizedBox(height: 8),
 
-                    // Email Verification Status
                     if (!authService.isEmailVerified)
                       EmailVerificationNotice(
                         isBusy: _isBusy,
@@ -590,7 +589,6 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
               const SizedBox(height: 10),
 
-              // Account Actions
               _buildActionTile(
                 icon: Icons.person,
                 title: 'Account Settings',
@@ -618,7 +616,6 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
               const SizedBox(height: 10),
 
-              // Sign Out Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -643,7 +640,6 @@ class _ProfileScreenState extends State<ProfileScreen>
 
               const SizedBox(height: 16),
 
-              // Delete Account Button
               SizedBox(
                 width: double.infinity,
                 child: TextButton(
