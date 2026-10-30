@@ -21,15 +21,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         flexibleSpace: const DecoratedBox(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                CinemaPalette.wine,
-                CinemaPalette.surface,
-                CinemaPalette.background,
-              ],
-            ),
+            gradient: CinemaPalette.appBarGradient,
           ),
         ),
         elevation: 0,
@@ -67,7 +59,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   icon: Icons.devices_outlined,
                   title: 'Information stored on your device',
                   paragraphs: const [
-                    'Features such as My List, favorites, watch history, settings, and downloads may store information locally on your device so they work between app sessions.',
+                    'Features such as My List, favorites,settings, and downloads may store information locally on your device so they work between app sessions.',
                     'You can remove locally stored app information through the relevant feature where available, or by clearing the app\u2019s storage in your device settings. This may remove saved titles and preferences.',
                   ],
                 ),
@@ -279,6 +271,17 @@ class PrivacyPolicyScreen extends StatelessWidget {
                 fontWeight: FontWeight.w500,
                 height: 1.4,
                 fontSize: 15)),
+        subtitle: icon == Icons.child_care_rounded
+            ? const SelectableText(
+                _privacyEmail,
+                style: TextStyle(
+                  color: _accent,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.5,
+                ),
+              )
+            : null,
         iconColor: _accent,
         collapsedIconColor: CinemaPalette.muted,
         children: [

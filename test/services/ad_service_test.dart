@@ -76,13 +76,13 @@ void main() {
     try {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       expect(service.usesTestAds, isTrue);
-      expect(service.bannerAdUnitId, 'ca-app-pub-3940256099942544/9214589741');
+      expect(service.bannerAdUnitId, 'ca-app-pub-3940256099942544/6300978111');
       expect(service.interstitialAdUnitId,
           'ca-app-pub-3940256099942544/1033173712');
       expect(
           service.rewardedAdUnitId, 'ca-app-pub-3940256099942544/5224354917');
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-      expect(service.bannerAdUnitId, 'ca-app-pub-3940256099942544/2435281174');
+      expect(service.bannerAdUnitId, 'ca-app-pub-3940256099942544/2934735716');
       expect(service.interstitialAdUnitId,
           'ca-app-pub-3940256099942544/4411468910');
       expect(

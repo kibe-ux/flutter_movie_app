@@ -48,7 +48,7 @@ class MovieInfoVideo {
       final difference = rank(a.value).compareTo(rank(b.value));
       return difference == 0 ? a.key.compareTo(b.key) : difference;
     });
-    return videos.take(3).map((entry) => entry.value).toList();
+    return videos.map((entry) => entry.value).toList();
   }
 
   Uri get embedUri => youtubeKey != null

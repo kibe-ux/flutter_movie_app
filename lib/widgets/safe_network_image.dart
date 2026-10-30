@@ -40,13 +40,22 @@ class SafeNetworkImage extends StatelessWidget {
       );
     }
 
+    final pixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final decodeWidth = width != null && width!.isFinite && width! > 0
+        ? (width! * pixelRatio).ceil().clamp(1, 1600)
+        : null;
+    final decodeHeight = height != null && height!.isFinite && height! > 0
+        ? (height! * pixelRatio).ceil().clamp(1, 1600)
+        : null;
     Widget image = CachedNetworkImage(
       imageUrl: imageUrl!,
       width: width,
       height: height,
       fit: fit,
-      fadeInDuration: const Duration(milliseconds: 350),
-      fadeOutDuration: const Duration(milliseconds: 150),
+      memCacheWidth: decodeWidth,
+      memCacheHeight: decodeWidth == null ? decodeHeight : null,
+      fadeInDuration: const Duration(milliseconds: 120),
+      fadeOutDuration: Duration.zero,
       placeholder: (context, url) => _buildLoadingPlaceholder(),
       errorWidget: (context, url, error) => Container(
         width: width,

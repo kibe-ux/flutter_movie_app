@@ -36,6 +36,7 @@ class RewardsService extends ChangeNotifier with WidgetsBindingObserver {
         _unitOverride = rewardedUnitId,
         _delay = delay ?? Future<void>.delayed {
     WidgetsBinding.instance.addObserver(this);
+    _access.addListener(_notify);
   }
 
   @override
@@ -64,6 +65,8 @@ class RewardsService extends ChangeNotifier with WidgetsBindingObserver {
   bool enabled = false;
   bool pending = false;
   bool loaded = false;
+  bool refreshing = false;
+  bool refreshFailed = false;
   int coins = 0;
   int coinsPerAd = 10;
   String? message;
@@ -88,6 +91,7 @@ class RewardsService extends ChangeNotifier with WidgetsBindingObserver {
     coins = 0;
     enabled = false;
     loaded = false;
+    refreshFailed = false;
     pending = false;
     offers = const [];
     message = null;
@@ -169,26 +173,38 @@ class RewardsService extends ChangeNotifier with WidgetsBindingObserver {
     loaded = true;
   }
 
-  Future<void> refresh() =>
-      _refreshing ??= _refresh().whenComplete(() => _refreshing = null);
+  Future<void> refresh() {
+    if (busy || _disposed) return Future<void>.value();
+    return _refreshing ??= _refresh().whenComplete(() => _refreshing = null);
+  }
+
   Future<void> _refresh() async {
     final uid = _uid;
     if (uid == null || _disposed) return;
+    refreshing = true;
+    _notify();
     try {
       final data = await _request('wallet', uid: uid);
+      if (busy) return;
       _wallet(data, uid);
+      refreshFailed = false;
       message = null;
     } catch (error) {
-      if (_uid == uid) message = _friendly(error);
+      if (_uid == uid) {
+        refreshFailed = true;
+        message = _friendly(error);
+      }
+    } finally {
+      refreshing = false;
+      _notify();
     }
-    _notify();
   }
 
   /// Lets members verify the native test ad without a live rewards backend.
   /// Demo completions never call the wallet/session/credit APIs.
   Future<void> watchTestAd({required bool Function() isActive}) async {
     final uid = _uid;
-    if (uid == null || busy || adFree || !testAds) return;
+    if (uid == null || busy || refreshing || adFree || !testAds) return;
     busy = true;
     activity = RewardsActivity.loadingAd;
     message = null;
@@ -217,7 +233,9 @@ class RewardsService extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> watch({required bool Function() isActive}) async {
     final uid = _uid;
-    if (uid == null || busy || !enabled || adFree || pending) return;
+    if (uid == null || busy || refreshing || !enabled || adFree || pending) {
+      return;
+    }
     busy = true;
     activity = RewardsActivity.loadingAd;
     message = null;
@@ -274,7 +292,9 @@ class RewardsService extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> redeem(RewardOffer offer) async {
     final uid = _uid;
-    if (uid == null || busy || coins < offer.coins) return;
+    if (uid == null || busy || refreshing || !loaded || coins < offer.coins) {
+      return;
+    }
     busy = true;
     activity = RewardsActivity.redeeming;
     message = null;
@@ -310,6 +330,7 @@ class RewardsService extends ChangeNotifier with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _disposed = true;
+    _access.removeListener(_notify);
     _client.close();
     super.dispose();
   }

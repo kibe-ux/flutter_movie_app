@@ -49,7 +49,8 @@ void main() {
 
       await tester.tap(find.text('Movies'));
       await tester.pumpAndSettle();
-      expect(requests.last.path, '/3/discover/movie');
+      expect(requests.where((uri) => uri.path == '/3/discover/movie'), hasLength(1));
+      expect(find.text('Search movies...'), findsOneWidget);
       expect(tester.widget<TextField>(find.byType(TextField)).controller!.text,
           isEmpty);
       expect(tester.takeException(), isNull);

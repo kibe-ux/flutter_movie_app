@@ -5,5 +5,9 @@
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:networkSecurityConfig="@xml/local_backend_network_security" />
+        android:networkSecurityConfig="@xml/local_backend_network_security">
+        <activity
+            android:name=".AdSdkProbeActivity"
+            android:exported="true" />
+    </application>
 </manifest>

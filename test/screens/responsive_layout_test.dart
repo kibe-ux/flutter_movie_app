@@ -121,7 +121,15 @@ void main() {
         }
         await tester.tap(find.text('My List'));
         await tester.pump();
-        expect(find.text('Your My List is Empty'), findsOneWidget);
+        await tester.pump();
+        await tester.scrollUntilVisible(
+            find.text('Your next movie night starts here'), 200,
+            scrollable: find
+                .descendant(
+                    of: find.byKey(const PageStorageKey('saved-titles')),
+                    matching: find.byType(Scrollable))
+                .first);
+        expect(find.text('Your next movie night starts here'), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
         await tester.pump();
@@ -169,7 +177,7 @@ void main() {
           for (var frame = 0; frame < 5; frame++) {
             await tester.pump(const Duration(milliseconds: 100));
           }
-          expect(requestedPaths, contains('/3/trending/movie/week'));
+          expect(requestedPaths, contains('/3/discover/movie'));
           expect(tester.takeException(), isNull);
           await tester.pumpWidget(const SizedBox());
           await tester.pump();

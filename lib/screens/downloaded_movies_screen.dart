@@ -1,3 +1,5 @@
+import '../utils/cinema_palette.dart';
+import '../widgets/cinema_app_bar_surface.dart';
 import 'package:flutter/material.dart';
 
 import '../services/movie_download_service.dart' show DownloadedMovie;
@@ -68,6 +70,12 @@ class _DownloadedMoviesScreenState extends State<DownloadedMoviesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        foregroundColor: CinemaPalette.ivory,
+        surfaceTintColor: Colors.transparent,
+        backgroundColor: CinemaPalette.background,
+        flexibleSpace: const CinemaAppBarSurface(),
         title: const Text('Downloaded Movies'),
       ),
       body: RefreshIndicator(

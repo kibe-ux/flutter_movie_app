@@ -1,4 +1,6 @@
+import '../widgets/cinema_app_bar_surface.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
@@ -18,6 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
   bool _isSignUp = false;
   bool _obscurePassword = true;
 
@@ -162,6 +165,73 @@ class _LoginScreenState extends State<LoginScreen> {
   //     }
   //   }
   // }
+  Future<void> _signInWithGoogle() async {
+    if (_isLoading) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _isLoading = true;
+      _isGoogleLoading = true;
+    });
+    try {
+      final result = await context.read<AuthService>().signInWithGoogle();
+      if (!mounted || result == null) return;
+      Navigator.of(context).pop(true);
+    } on FirebaseAuthException catch (error) {
+      assert(() {
+        debugPrint('Google sign-in Firebase error: ${error.code}');
+        return true;
+      }());
+      if (error.code == 'popup-closed-by-user' ||
+          error.code == 'cancelled-popup-request' ||
+          error.code == 'web-context-cancelled') {
+        return;
+      }
+      final message = switch (error.code) {
+        'network-request-failed' => 'Check your connection and try again.',
+        'account-exists-with-different-credential' =>
+          'An account already uses this email. Sign in with your existing method.',
+        'user-disabled' => 'This account has been disabled.',
+        _ => 'Google sign-in is unavailable right now. Please try again.',
+      };
+      _showGoogleError(message);
+    } on PlatformException catch (error) {
+      assert(() {
+        // Log status codes only; exception details can contain account data.
+        final status = RegExp(r'ApiException:\s*(\d+)')
+            .firstMatch(error.message ?? '')
+            ?.group(1);
+        debugPrint('Google sign-in platform error: ${error.code}'
+            '${status == null ? '' : ' (Google status $status)'}');
+        return true;
+      }());
+      if (error.code == 'sign_in_canceled' ||
+          error.code == 'sign_in_cancelled') {
+        return;
+      }
+      _showGoogleError(error.code == 'network_error'
+          ? 'Check your connection and try again.'
+          : 'Google sign-in is unavailable right now. Please try again.');
+    } catch (_) {
+      _showGoogleError(
+          'Google sign-in is unavailable right now. Please try again.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isGoogleLoading = false;
+        });
+      }
+    }
+  }
+
+  void _showGoogleError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      backgroundColor: CinemaPalette.wine,
+      content:
+          Text(message, style: const TextStyle(color: CinemaPalette.ivory)),
+    ));
+  }
 
   Future<void> _resetPassword() async {
     final email = _emailController.text.trim();
@@ -221,7 +291,11 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0A0A0A),
+        scrolledUnderElevation: 0,
+        foregroundColor: CinemaPalette.ivory,
+        surfaceTintColor: Colors.transparent,
+        flexibleSpace: const CinemaAppBarSurface(),
+        backgroundColor: CinemaPalette.background,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close, color: Colors.white),
@@ -375,7 +449,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     disabledBackgroundColor: Colors.grey[700],
                   ),
-                  child: _isLoading
+                  child: _isLoading && !_isGoogleLoading
                       ? const SizedBox(
                           height: 20,
                           width: 20,
@@ -443,6 +517,29 @@ class _LoginScreenState extends State<LoginScreen> {
                 //     ),
                 //   ),
                 // ),
+                OutlinedButton.icon(
+                  onPressed: _isLoading ? null : _signInWithGoogle,
+                  icon: _isGoogleLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: CinemaPalette.gold),
+                        )
+                      : const Icon(Icons.account_circle_outlined, size: 22),
+                  label: Text(_isGoogleLoading
+                      ? 'Connecting to Google...'
+                      : 'Continue with Google'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: CinemaPalette.ivory,
+                    backgroundColor: CinemaPalette.surface,
+                    side: const BorderSide(color: CinemaPalette.gold),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 24),
 
                 // Toggle Sign In/Sign Up
@@ -457,9 +554,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(color: Colors.grey[400]),
                     ),
                     TextButton(
-                      onPressed: () {
-                        setState(() => _isSignUp = !_isSignUp);
-                      },
+                      onPressed: _isLoading
+                          ? null
+                          : () {
+                              setState(() => _isSignUp = !_isSignUp);
+                            },
                       child: Text(
                         _isSignUp ? 'Sign In' : 'Sign Up',
                         style: const TextStyle(

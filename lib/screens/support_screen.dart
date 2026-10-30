@@ -16,7 +16,7 @@ class _SupportScreenState extends State<SupportScreen> {
   final Color _cardDark = CinemaPalette.wine;
   final Color _borderDark = CinemaPalette.gold.withValues(alpha: 0.18);
   final Color _accent = CinemaPalette.gold;
-  static const String _supportEmail = 'hezra664@gmail.com';
+  static const String _supportEmail = 'supportmoviehub@gmail.com';
 
   Future<void> _launchUrlHelper(Uri uri, String fallbackMessage) async {
     try {
@@ -55,10 +55,10 @@ class _SupportScreenState extends State<SupportScreen> {
       scheme: 'mailto',
       path: _supportEmail,
       queryParameters: {
-        'subject': subject.isNotEmpty ? subject : 'FLIXORA X Support Request',
+        'subject': subject.isNotEmpty ? subject : 'Movie Hub Support Request',
         'body': body.isNotEmpty
             ? body
-            : 'Hello FLIXORA Team,\n\nI need assistance with:'
+            : 'Hello Movie Hub Team,\n\nI need assistance with:'
       },
     );
     _launchUrlHelper(emailUri, 'Please email us directly at $_supportEmail');
@@ -209,7 +209,7 @@ class _SupportScreenState extends State<SupportScreen> {
                   onPressed: () {
                     if (descController.text.trim().isNotEmpty) {
                       _launchEmail(
-                        subject: '[$selectedCategory] Bug Report - FLIXORA X',
+                        subject: '[$selectedCategory] Bug Report - Movie Hub',
                         body:
                             'Category: $selectedCategory\n\nDescription:\n${descController.text.trim()}\n\nDevice: Mobile App',
                       );
@@ -431,22 +431,14 @@ class _SupportScreenState extends State<SupportScreen> {
         surfaceTintColor: Colors.transparent,
         flexibleSpace: const DecoratedBox(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                CinemaPalette.wine,
-                CinemaPalette.surface,
-                CinemaPalette.background,
-              ],
-            ),
+            gradient: CinemaPalette.appBarGradient,
           ),
         ),
         elevation: 0,
         title: const Text(
           'Support & Help',
           style: TextStyle(
-            color: CinemaPalette.ivory,
+            color: CinemaPalette.appBarText,
             fontSize: 20,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.5,
@@ -482,7 +474,7 @@ class _SupportScreenState extends State<SupportScreen> {
 
             _buildActionCard(
               title: 'Email Concierge',
-              subtitle: 'hezra664@gmail.com \u2014 opens your email app',
+              subtitle: '$_supportEmail \u2014 opens your email app',
               icon: Icons.alternate_email_rounded,
               badgeText: 'Priority',
               badgeColor: _accent,
@@ -559,7 +551,7 @@ class _SupportScreenState extends State<SupportScreen> {
             // Security & Privacy Note
             Center(
               child: Text(
-                'FLIXORA X Support \u2022 Support opens in your email app.\nPlease keep the app updated for the latest fixes and features.',
+                'Movie Hub Support \u2022 Support opens in your email app.\nPlease keep the app updated for the latest fixes and features.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: CinemaPalette.ivory.withValues(alpha: 0.35),

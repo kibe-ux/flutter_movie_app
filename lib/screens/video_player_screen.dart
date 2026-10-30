@@ -1,3 +1,5 @@
+import '../utils/cinema_palette.dart';
+import '../widgets/cinema_app_bar_surface.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -230,7 +232,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     try {
       await previousController?.dispose();
     } catch (error) {
-        if (mounted) {
+      if (mounted) {
         setState(() => _errorMessage = 'Failed to restart video: $error');
       }
       return;
@@ -270,7 +272,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       appBar: _isFullscreen
           ? null
           : AppBar(
-              backgroundColor: Colors.black,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              foregroundColor: CinemaPalette.ivory,
+              surfaceTintColor: Colors.transparent,
+              flexibleSpace: const CinemaAppBarSurface(),
+              backgroundColor: CinemaPalette.background,
               title: Text(_title),
             ),
       body: GestureDetector(

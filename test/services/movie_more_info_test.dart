@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moviehub_app/models/movie_more_info.dart';
 
 void main() {
-  test('featured videos are limited to three with official trailers first', () {
+  test('keeps more than five unique videos with official trailers first', () {
     final videos = MovieInfoVideo.featuredFromDetails({
       'videos': [
         {
@@ -40,14 +40,26 @@ void main() {
         },
         {
           'site': 'YouTube',
+          'key': 'aaaaaaaaaa5',
+          'name': 'Behind the scenes',
+          'type': 'Featurette'
+        },
+        {
+          'site': 'YouTube',
           'key': 'aaaaaaaaaa2',
           'name': 'Duplicate',
           'type': 'Trailer'
         },
       ]
     });
-    expect(videos.map((video) => video.name),
-        ['First official trailer', 'Second official trailer', 'Fan trailer']);
+    expect(videos.map((video) => video.name), [
+      'First official trailer',
+      'Second official trailer',
+      'Fan trailer',
+      'Teaser',
+      'Clip',
+      'Behind the scenes'
+    ]);
     expect(videos.first.embedUri.host, 'www.youtube.com');
     expect(videos.first.embedUri.path, startsWith('/embed/'));
     expect(videos.first.embedUri.queryParameters['origin'],

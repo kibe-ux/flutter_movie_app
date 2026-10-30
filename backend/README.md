@@ -63,6 +63,26 @@ Install `build/app/outputs/flutter-apk/app-release.apk`, sign in, then test a ne
 download on mobile data with the PC disconnected. Existing saved movies remain
 in the app's local storage when updating with the same application ID and key.
 
+## Cinema Rewards activation
+
+The rewards wallet uses Firestore through Firebase Admin, independently of the
+Neon PostgreSQL connection. The deployed function needs application-default
+credentials with access to the Firebase project's Firestore database. Token
+verification alone does not prove that Firestore access is configured.
+
+Deploy the current backend source to expose `/api/rewards/wallet`, `/session`,
+`/cancel`, `/redeem`, and `/ssv` under `/api/rewards`. Before enabling earning,
+configure the rewarded ad unit's server-side verification callback to
+`https://YOUR_BACKEND/api/rewards/ssv` in AdMob and verify database access.
+Set `ADMOB_REWARDED_UNIT_IDS` to the allowed live rewarded ad unit IDs and
+`ADMOB_REWARDS_ENABLED=true` in the backend environment, then deploy. The Neon
+configuration passes both settings to the function and defaults earning to off.
+
+Debug builds use Google test ads and never grant spendable coins. Live earning
+requires a release build with valid publisher ad unit IDs and
+`ADMOB_USE_TEST_ADS=false` in the Flutter environment. Only verified server
+callbacks add coins; client ad-completion callbacks do not.
+
 ## Connect a Neon database
 
 The backend uses the official `@neondatabase/serverless` driver over HTTPS.

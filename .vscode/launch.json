@@ -4,6 +4,16 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+        {
+            "name": "Movie Hub (Ad Inspector)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "debug",
+            "toolArgs": [
+                "--dart-define=ADMOB_TEST_DEVICE_IDS=${input:admobTestDeviceId}",
+                "--dart-define=ADMOB_OPEN_AD_INSPECTOR=true"
+            ]
+        },
     
         {
             "name": "flutter_application_1",
@@ -41,6 +51,14 @@
             "request": "launch",
             "type": "dart",
             "flutterMode": "release"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "admobTestDeviceId",
+            "type": "promptString",
+            "description": "AdMob test device ID from the phone's Google Ads log",
+            "default": "E08F4094730EE05B7BBEE9DE918C6CE1"
         }
     ]
 }

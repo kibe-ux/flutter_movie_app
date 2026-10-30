@@ -15,6 +15,8 @@ export default defineConfig({
         FILMS365_API_KEY: apiKey,
         FIREBASE_PROJECT_ID: projectId,
         NODE_ENV: "production",
+        ADMOB_REWARDS_ENABLED: process.env.ADMOB_REWARDS_ENABLED === "true" ? "true" : "false",
+        ADMOB_REWARDED_UNIT_IDS: process.env.ADMOB_REWARDED_UNIT_IDS?.trim() || "",
         ...(process.env.JWT_SECRET ? { JWT_SECRET: process.env.JWT_SECRET } : {}),
       },
     },

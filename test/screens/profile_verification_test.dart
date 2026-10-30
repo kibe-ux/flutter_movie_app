@@ -7,10 +7,12 @@ import 'package:moviehub_app/services/auth_service.dart';
 import 'package:moviehub_app/widgets/email_verification_notice.dart';
 
 class _User extends Fake implements User {
+  _User({this.name});
+  final String? name;
   @override
   String get email => 'viewer@example.com';
   @override
-  String? get displayName => null;
+  String? get displayName => name;
   @override
   String? get photoURL => null;
 }
@@ -20,9 +22,11 @@ class _Auth extends ChangeNotifier implements AuthService {
   bool remoteVerified = false;
   int reloads = 0;
   int emails = 0;
+  int updates = 0;
+  String? savedName;
 
   @override
-  User get currentUser => _User();
+  User get currentUser => _User(name: savedName);
   @override
   bool get isAuthenticated => true;
   @override
@@ -40,6 +44,13 @@ class _Auth extends ChangeNotifier implements AuthService {
   }
 
   @override
+  Future<void> updateProfile({String? displayName, String? photoURL}) async {
+    updates++;
+    if (displayName != null) savedName = displayName;
+    notifyListeners();
+  }
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
@@ -52,6 +63,30 @@ Future<void> _showProfile(WidgetTester tester, _Auth auth) async {
 }
 
 void main() {
+  for (final save in [true, false]) {
+    testWidgets(
+        'editing account then ${save ? 'saving' : 'cancelling'} closes safely',
+        (tester) async {
+      final auth = _Auth()..remoteVerified = true;
+      addTearDown(auth.dispose);
+      await _showProfile(tester, auth);
+      await tester.ensureVisible(find.text('Account Settings'));
+      await tester.tap(find.text('Account Settings'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Updated Viewer');
+      await tester.tap(find.text(save ? 'Save' : 'Cancel'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(tester.takeException(), isNull);
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(auth.updates, save ? 1 : 0);
+      expect(auth.savedName, save ? 'Updated Viewer' : null);
+      if (save) expect(find.text('Updated Viewer'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('opening profile refreshes a previously stale verification flag',
       (tester) async {
     final auth = _Auth()..remoteVerified = true;

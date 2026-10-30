@@ -31,15 +31,7 @@ class _ShareScreenState extends State<ShareScreen> {
         surfaceTintColor: Colors.transparent,
         flexibleSpace: const DecoratedBox(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                CinemaPalette.wine,
-                CinemaPalette.surface,
-                CinemaPalette.background,
-              ],
-            ),
+            gradient: CinemaPalette.appBarGradient,
           ),
         ),
         elevation: 0,

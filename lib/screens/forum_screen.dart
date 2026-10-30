@@ -613,17 +613,13 @@ class _ForumScreenState extends State<ForumScreen>
                 ).createShader(b),
                 child: const Text('Community',
                     style: TextStyle(
-                        color: CinemaPalette.ivory,
+                        color: CinemaPalette.appBarText,
                         fontSize: 26,
                         fontWeight: FontWeight.bold)),
               ),
               background: Container(
                 decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [CinemaPalette.wine, _obsidian],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
+                  gradient: CinemaPalette.appBarGradient,
                 ),
               ),
             ),

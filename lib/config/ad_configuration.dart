@@ -7,6 +7,8 @@ class AdConfiguration {
     required this.platform,
     this.isRelease = kReleaseMode,
     this.environment = const {},
+    this.testDeviceIdsValue =
+        const String.fromEnvironment('ADMOB_TEST_DEVICE_IDS'),
   });
 
   factory AdConfiguration.fromEnvironment() => AdConfiguration(
@@ -17,6 +19,16 @@ class AdConfiguration {
   final TargetPlatform platform;
   final bool isRelease;
   final Map<String, String> environment;
+  final String testDeviceIdsValue;
+
+  List<String> get testDeviceIds => isRelease
+      ? const []
+      : testDeviceIdsValue
+          .split(',')
+          .map((id) => id.trim().toUpperCase())
+          .where((id) => RegExp(r'^[A-F0-9]{32}$').hasMatch(id))
+          .toSet()
+          .toList();
   static const _demoPublisher = 'ca-app-pub-3940256099942544/';
   static final _unitPattern = RegExp(r'^ca-app-pub-\d{16}/\d{10}$');
 
@@ -31,7 +43,7 @@ class AdConfiguration {
 
   bool get _ios => platform == TargetPlatform.iOS;
   String get bannerId => useTestAds
-      ? '$_demoPublisher${_ios ? '2435281174' : '9214589741'}'
+      ? '$_demoPublisher${_ios ? '2934735716' : '6300978111'}'
       : _value('ADMOB_BANNER_ID');
   String get interstitialId => useTestAds
       ? '$_demoPublisher${_ios ? '4411468910' : '1033173712'}'

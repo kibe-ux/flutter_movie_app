@@ -44,10 +44,15 @@ void main() {
     var loads = requests.where((r) => r.method == 'loadBannerAd').toList();
     expect(loads, hasLength(1));
     expect(find.byType(AdWidget), findsNothing);
+    expect(tester.getSize(find.byType(MovieHubBannerAd)).height, 0);
     final id = (loads.single.arguments as Map)['adId'] as int;
     final ad = plugin.instanceManager.adFor(id) as BannerAd;
+    expect(ad.adUnitId, 'ca-app-pub-3940256099942544/6300978111');
+    expect(ad.size.width, 320);
+    expect(ad.size.height, 50);
     ad.listener.onAdFailedToLoad!(ad, LoadAdError(2, 'test', 'Offline', null));
     await tester.pump();
+    expect(tester.getSize(find.byType(MovieHubBannerAd)).height, 0);
     await tester.pump(const Duration(seconds: 29));
     expect(requests.where((r) => r.method == 'loadBannerAd'), hasLength(1));
     await tester.pump(const Duration(seconds: 1));

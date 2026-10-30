@@ -1,3 +1,5 @@
+import '../utils/cinema_palette.dart';
+import '../widgets/cinema_app_bar_surface.dart';
 import 'package:flutter/material.dart';
 import '../services/favorites_service.dart';
 import '../services/media_api_service.dart';
@@ -67,8 +69,13 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        foregroundColor: CinemaPalette.ivory,
+        surfaceTintColor: Colors.transparent,
+        flexibleSpace: const CinemaAppBarSurface(),
         title: const Text('My Favorites'),
-        backgroundColor: const Color(0xFF0A0A0A),
+        backgroundColor: CinemaPalette.background,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

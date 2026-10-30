@@ -1,3 +1,4 @@
+import '../widgets/cinema_app_bar_surface.dart';
 import 'package:flutter/material.dart';
 
 import 'support_screen.dart';
@@ -86,7 +87,9 @@ class _FAQsScreenState extends State<FAQsScreen> {
     return Scaffold(
       backgroundColor: CinemaPalette.background,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        flexibleSpace: const CinemaAppBarSurface(),
+        backgroundColor: CinemaPalette.background,
         foregroundColor: CinemaPalette.ivory,
         surfaceTintColor: Colors.transparent,
         elevation: 0,

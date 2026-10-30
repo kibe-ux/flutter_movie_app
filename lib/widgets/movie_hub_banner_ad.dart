@@ -27,6 +27,7 @@ class _MovieHubBannerAdState extends State<MovieHubBannerAd>
   bool _loaded = false;
   bool _loading = false;
   bool _foreground = true;
+  bool _tabActive = true;
 
   bool get _supported =>
       !kIsWeb &&
@@ -38,6 +39,21 @@ class _MovieHubBannerAdState extends State<MovieHubBannerAd>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     AdService().privacyChanges.addListener(_privacyChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final active = TickerMode.valuesOf(context).enabled;
+    if (_tabActive == active) return;
+    _tabActive = active;
+    if (!active) {
+      _retry?.cancel();
+    } else if (!_loaded && !_loading && _width > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_load(_generation));
+      });
+    }
   }
 
   void _privacyChanged() {
@@ -71,7 +87,10 @@ class _MovieHubBannerAdState extends State<MovieHubBannerAd>
   bool _current(int generation) => mounted && generation == _generation;
 
   void _scheduleRetry(int generation) {
-    if (!_current(generation) || !_foreground || AdService().adsSuppressed) {
+    if (!_current(generation) ||
+        !_foreground ||
+        !_tabActive ||
+        AdService().adsSuppressed) {
       return;
     }
     _retry?.cancel();
@@ -85,7 +104,7 @@ class _MovieHubBannerAdState extends State<MovieHubBannerAd>
   }
 
   Future<void> _load(int generation) async {
-    if (!_current(generation) || !_foreground) return;
+    if (!_current(generation) || !_foreground || !_tabActive) return;
     _retry?.cancel();
     _loading = true;
     final oldBanner = _banner;
@@ -106,8 +125,10 @@ class _MovieHubBannerAdState extends State<MovieHubBannerAd>
         _scheduleRetry(generation);
         return;
       }
-      final size =
-          await AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(
+      // Match Google's fixed-size demo unit with its standard banner size.
+      final size = ads.usesTestAds
+          ? AdSize.banner
+          : await AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(
               _width);
       if (!_current(generation)) return;
       if (size == null) throw StateError('Adaptive banner size unavailable');
@@ -177,22 +198,22 @@ class _MovieHubBannerAdState extends State<MovieHubBannerAd>
       }
       final banner = _banner;
       final size = _slotSize;
-      if (size == null) return const SizedBox.shrink();
       // Reserve the slot across loading/failure and keep clear, non-clickable
       // space between the creative and the app's controls on either side.
+      if (size == null || !_loaded || banner == null) {
+        return const SizedBox.shrink();
+      }
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 24),
         child: SizedBox(
           width: double.infinity,
           height: size.height.toDouble(),
           child: Center(
-            child: !_loaded || banner == null
-                ? const SizedBox.shrink()
-                : SizedBox(
-                    width: banner.size.width.toDouble(),
-                    height: banner.size.height.toDouble(),
-                    child: AdWidget(ad: banner),
-                  ),
+            child: SizedBox(
+              width: banner.size.width.toDouble(),
+              height: banner.size.height.toDouble(),
+              child: AdWidget(ad: banner),
+            ),
           ),
         ),
       );

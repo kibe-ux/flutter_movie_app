@@ -22,7 +22,9 @@ class MovieHubAppBar extends StatelessWidget implements PreferredSizeWidget {
         leadingWidth: 64,
         titleSpacing: 8,
         centerTitle: true,
-        flexibleSpace: const _ToolbarSurface(),
+        flexibleSpace: const DecoratedBox(
+          decoration: BoxDecoration(gradient: CinemaPalette.homeHeaderGradient),
+        ),
         leading: Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
           child: _ToolbarControl(
@@ -45,44 +47,6 @@ class MovieHubAppBar extends StatelessWidget implements PreferredSizeWidget {
       );
 }
 
-class _ToolbarSurface extends StatelessWidget {
-  const _ToolbarSurface();
-
-  @override
-  Widget build(BuildContext context) => Stack(
-        fit: StackFit.expand,
-        children: [
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  CinemaPalette.wine,
-                  CinemaPalette.surface,
-                  CinemaPalette.background,
-                ],
-              ),
-            ),
-          ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Container(
-              height: 1,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [
-                  Colors.transparent,
-                  Color(0x88E6BB83),
-                  Color(0x55E50914),
-                  Colors.transparent,
-                ]),
-              ),
-            ),
-          ),
-        ],
-      );
-}
-
 class _ToolbarControl extends StatelessWidget {
   const _ToolbarControl({required this.child});
   final Widget child;
@@ -90,8 +54,8 @@ class _ToolbarControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DecoratedBox(
         decoration: BoxDecoration(
-          color: const Color(0x0DE6BB83),
-          border: Border.all(color: const Color(0x26E6BB83)),
+          color: CinemaPalette.homeAccent.withValues(alpha: .05),
+          border: Border.all(color: CinemaPalette.homeAccent.withValues(alpha: .18)),
           borderRadius: BorderRadius.circular(15),
         ),
         child: SizedBox(width: 48, height: 48, child: child),
@@ -140,10 +104,10 @@ class _MovieHubWordmark extends StatelessWidget {
                     TextSpan(children: [
                       TextSpan(
                           text: 'MOVIE ',
-                          style: TextStyle(color: CinemaPalette.ivory)),
+                          style: TextStyle(color: Color(0xFFD9AA70))),
                       TextSpan(
                           text: 'HUB',
-                          style: TextStyle(color: CinemaPalette.gold)),
+                          style: TextStyle(color: CinemaPalette.appBarText)),
                     ]),
                     style: TextStyle(
                       fontSize: 19,
@@ -155,7 +119,7 @@ class _MovieHubWordmark extends StatelessWidget {
                   SizedBox(height: 4),
                   Text('DOWNLOADER',
                       style: TextStyle(
-                        color: CinemaPalette.muted,
+                        color: CinemaPalette.appBarText,
                         fontSize: 8,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 3.2,

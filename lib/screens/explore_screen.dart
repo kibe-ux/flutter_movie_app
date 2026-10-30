@@ -1,12 +1,11 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'movie_details_screen.dart';
 import '../utils/my_list.dart';
 import '../utils/cinema_palette.dart';
 import '../services/ad_service.dart';
+import '../services/catalogue_json_client.dart';
 import '../widgets/safe_network_image.dart';
 import '../widgets/movie_hub_banner_ad.dart';
 import '../utils/movie_download_availability.dart';
@@ -35,6 +34,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   int _requestGeneration = 0;
   Timer? _searchDebounce;
   final _searchController = TextEditingController();
+  final _catalogue = CatalogueJsonClient();
 
   bool get _isTv => _mediaType == 'tv';
 
@@ -45,18 +45,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Future<Map<String, dynamic>> _getData(String path,
-      [Map<String, String> parameters = const {}]) async {
+      {Map<String, String> parameters = const {}, bool refresh = false}) async {
     final uri = Uri.https('api.themoviedb.org', '/3/$path', {
       'api_key': apiKey,
       'language': 'en-US',
       ...parameters,
     });
-    final response = await http.get(uri).timeout(const Duration(seconds: 20));
-    if (response.statusCode != 200) throw Exception('Catalogue unavailable');
-    return json.decode(response.body) as Map<String, dynamic>;
+    return _catalogue.get(uri, refresh: refresh);
   }
 
-  Future<void> fetchGenres() async {
+  Future<void> fetchGenres({bool refresh = false}) async {
     _searchDebounce?.cancel();
     final generation = ++_requestGeneration;
     setState(() {
@@ -64,7 +62,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       _error = null;
     });
     try {
-      final data = await _getData('genre/$_mediaType/list');
+      final data = await _getData('genre/$_mediaType/list', refresh: refresh);
       if (!mounted || generation != _requestGeneration) return;
       setState(() {
         genres = [
@@ -78,9 +76,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
         isLoading = false;
       });
       if (searchQuery.isNotEmpty) {
-        await searchMovies(searchQuery);
+        await searchMovies(searchQuery, refresh: refresh);
       } else if (selectedGenreId != null) {
-        await fetchMoviesByGenre(selectedGenreId!);
+        await fetchMoviesByGenre(selectedGenreId!, refresh: refresh);
       }
     } catch (_) {
       if (!mounted || generation != _requestGeneration) return;
@@ -91,12 +89,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
   }
 
-  Future<void> fetchMoviesByGenre(String genreId) async {
+  Future<void> fetchMoviesByGenre(String genreId,
+      {bool refresh = false}) async {
     selectedGenreId = genreId;
-    await _loadTitles('discover/$_mediaType', {'with_genres': genreId});
+    await _loadTitles('discover/$_mediaType', {'with_genres': genreId},
+        refresh: refresh);
   }
 
-  Future<void> _loadTitles(String path, Map<String, String> parameters) async {
+  Future<void> _loadTitles(String path, Map<String, String> parameters,
+      {bool refresh = false}) async {
     final generation = ++_requestGeneration;
     final mediaType = _mediaType;
     setState(() {
@@ -105,7 +106,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
       _error = null;
     });
     try {
-      final data = await _getData(path, parameters);
+      final data =
+          await _getData(path, parameters: parameters, refresh: refresh);
       if (!mounted || generation != _requestGeneration) return;
       setState(() {
         movies = filterReleasedMovies(data['results'])
@@ -122,16 +124,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
   }
 
-  Future<void> searchMovies(String query) async {
+  Future<void> searchMovies(String query, {bool refresh = false}) async {
     if (query.isEmpty) {
       if (selectedGenreId != null) {
-        await fetchMoviesByGenre(selectedGenreId!);
+        await fetchMoviesByGenre(selectedGenreId!, refresh: refresh);
       } else {
-        await fetchGenres();
+        await fetchGenres(refresh: refresh);
       }
       return;
     }
-    await _loadTitles('search/$_mediaType', {'query': query});
+    await _loadTitles('search/$_mediaType', {'query': query}, refresh: refresh);
   }
 
   void _onSearchChanged(String value) {
@@ -371,6 +373,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                   MyList().contains(movieId)
                                       ? 'Added to My List'
                                       : 'Removed from My List',
+                                  style: const TextStyle(
+                                      color: CinemaPalette.ivory),
                                 ),
                                 backgroundColor: CinemaPalette.wine,
                                 duration: const Duration(seconds: 1),
@@ -496,21 +500,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
         elevation: 0,
         flexibleSpace: const DecoratedBox(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                CinemaPalette.wine,
-                CinemaPalette.surface,
-                CinemaPalette.background,
-              ],
-            ),
+            gradient: CinemaPalette.appBarGradient,
           ),
         ),
         title: const Text(
           'Explore',
           style: TextStyle(
-            color: CinemaPalette.ivory,
+            color: CinemaPalette.appBarText,
             fontSize: 22,
             fontWeight: FontWeight.bold,
           ),
@@ -523,7 +519,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: () async {
-                await fetchGenres();
+                await fetchGenres(refresh: true);
               },
               color: CinemaPalette.gold,
               backgroundColor: CinemaPalette.surface,
@@ -569,6 +565,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     ++_requestGeneration;
     _searchDebounce?.cancel();
     _searchController.dispose();
+    _catalogue.close();
     super.dispose();
   }
 }

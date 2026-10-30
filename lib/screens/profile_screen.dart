@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
+import '../utils/cinema_palette.dart';
 import '../widgets/safe_network_image.dart';
 import '../widgets/email_verification_notice.dart';
 import 'login_screen.dart';
@@ -66,15 +67,20 @@ class _ProfileScreenState extends State<ProfileScreen>
                 : 'Confirmation is still pending. Follow the link in your verification email, then check again.'
             : 'Profile refreshed';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
+          SnackBar(
+              backgroundColor: CinemaPalette.wine,
+              content: Text(message,
+                  style: const TextStyle(color: CinemaPalette.ivory))),
         );
       }
     } catch (_) {
       if (mounted && showErrors) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
+            backgroundColor: CinemaPalette.wine,
             content: Text(
-                'Could not refresh your account. Check your connection and try again.'),
+                'Could not refresh your account. Check your connection and try again.',
+                style: TextStyle(color: CinemaPalette.ivory)),
           ),
         );
       }
@@ -84,77 +90,16 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Future<void> _openAccountSettingsDialog(User user) async {
-    final displayNameController =
-        TextEditingController(text: user.displayName ?? '');
-    final photoUrlController = TextEditingController(text: user.photoURL ?? '');
-
-    final shouldSave = await showDialog<bool>(
+    final changes = await showDialog<_ProfileChanges>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: Colors.grey[900],
-        title: const Text(
-          'Account Settings',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: displayNameController,
-              textCapitalization: TextCapitalization.words,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                labelText: 'Display Name',
-                labelStyle: TextStyle(color: Colors.grey[300]),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Colors.grey[700]!),
-                ),
-                focusedBorder: const OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFFE50914)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: photoUrlController,
-              keyboardType: TextInputType.url,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                labelText: 'Photo URL (optional)',
-                labelStyle: TextStyle(color: Colors.grey[300]),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Colors.grey[700]!),
-                ),
-                focusedBorder: const OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFFE50914)),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE50914),
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Save'),
-          ),
-        ],
+      builder: (_) => _AccountSettingsDialog(
+        displayName: user.displayName ?? '',
+        photoUrl: user.photoURL ?? '',
       ),
     );
-
-    final displayNameInput = displayNameController.text.trim();
-    final photoUrlInput = photoUrlController.text.trim();
-    displayNameController.dispose();
-    photoUrlController.dispose();
-
-    if (shouldSave != true || !mounted) return;
+    if (changes == null || !mounted) return;
+    final displayNameInput = changes.displayName;
+    final photoUrlInput = changes.photoUrl;
 
     final currentDisplayName = (user.displayName ?? '').trim();
     final currentPhotoUrl = (user.photoURL ?? '').trim();
@@ -166,7 +111,10 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     if (displayNameUpdate == null && photoUrlUpdate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No changes to save')),
+        const SnackBar(
+            backgroundColor: CinemaPalette.wine,
+            content: Text('No changes to save',
+                style: TextStyle(color: CinemaPalette.ivory))),
       );
       return;
     }
@@ -179,7 +127,9 @@ class _ProfileScreenState extends State<ProfileScreen>
       if (!isValidWebUrl) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Photo URL must start with http:// or https://'),
+            backgroundColor: CinemaPalette.wine,
+            content: Text('Photo URL must start with http:// or https://',
+                style: TextStyle(color: CinemaPalette.ivory)),
           ),
         );
         return;
@@ -197,21 +147,29 @@ class _ProfileScreenState extends State<ProfileScreen>
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully')),
+          const SnackBar(
+              backgroundColor: CinemaPalette.wine,
+              content: Text('Profile updated successfully',
+                  style: TextStyle(color: CinemaPalette.ivory))),
         );
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.message ?? 'Failed to update profile.'),
+            backgroundColor: CinemaPalette.wine,
+            content: Text(e.message ?? 'Failed to update profile.',
+                style: const TextStyle(color: CinemaPalette.ivory)),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to update profile.')),
+          const SnackBar(
+              backgroundColor: CinemaPalette.wine,
+              content: Text('Failed to update profile.',
+                  style: TextStyle(color: CinemaPalette.ivory))),
         );
       }
     } finally {
@@ -230,7 +188,10 @@ class _ProfileScreenState extends State<ProfileScreen>
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Signed out successfully')),
+          const SnackBar(
+              backgroundColor: CinemaPalette.wine,
+              content: Text('Signed out successfully',
+                  style: TextStyle(color: CinemaPalette.ivory))),
         );
       }
     } on FirebaseAuthException catch (e) {
@@ -243,14 +204,19 @@ class _ProfileScreenState extends State<ProfileScreen>
           errorMessage = e.message ?? errorMessage;
         }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage)),
+          SnackBar(
+              backgroundColor: CinemaPalette.wine,
+              content: Text(errorMessage,
+                  style: const TextStyle(color: CinemaPalette.ivory))),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('An unexpected error occurred: ${e.toString()}')),
+              backgroundColor: CinemaPalette.wine,
+              content: Text('An unexpected error occurred: ${e.toString()}',
+                  style: const TextStyle(color: CinemaPalette.ivory))),
         );
       }
     } finally {
@@ -265,23 +231,24 @@ class _ProfileScreenState extends State<ProfileScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey[900],
+        backgroundColor: CinemaPalette.surface,
         title: const Text(
           'Delete Account',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: CinemaPalette.ivory),
         ),
         content: const Text(
           'Are you sure you want to delete your account? This action cannot be undone.',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: CinemaPalette.ivory),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
+            style: TextButton.styleFrom(foregroundColor: CinemaPalette.muted),
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: CinemaPalette.gold),
             child: const Text('Delete'),
           ),
         ],
@@ -297,7 +264,10 @@ class _ProfileScreenState extends State<ProfileScreen>
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Account deleted successfully')),
+          const SnackBar(
+              backgroundColor: CinemaPalette.wine,
+              content: Text('Account deleted successfully',
+                  style: TextStyle(color: CinemaPalette.ivory))),
         );
       }
     } on FirebaseAuthException catch (e) {
@@ -313,14 +283,19 @@ class _ProfileScreenState extends State<ProfileScreen>
           errorMessage = e.message ?? errorMessage;
         }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage)),
+          SnackBar(
+              backgroundColor: CinemaPalette.wine,
+              content: Text(errorMessage,
+                  style: const TextStyle(color: CinemaPalette.ivory))),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('An unexpected error occurred: ${e.toString()}')),
+              backgroundColor: CinemaPalette.wine,
+              content: Text('An unexpected error occurred: ${e.toString()}',
+                  style: const TextStyle(color: CinemaPalette.ivory))),
         );
       }
     } finally {
@@ -341,9 +316,10 @@ class _ProfileScreenState extends State<ProfileScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
+            backgroundColor: CinemaPalette.wine,
             content: Text(
-              'Verification email sent. Check your inbox and spam folder, follow the link, then return here.',
-            ),
+                'Verification email sent. Check your inbox and spam folder, follow the link, then return here.',
+                style: TextStyle(color: CinemaPalette.ivory)),
           ),
         );
       }
@@ -360,15 +336,20 @@ class _ProfileScreenState extends State<ProfileScreen>
               : 'Could not send the verification email. Please try again.';
         }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage)),
+          SnackBar(
+              backgroundColor: CinemaPalette.wine,
+              content: Text(errorMessage,
+                  style: const TextStyle(color: CinemaPalette.ivory))),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
+              backgroundColor: CinemaPalette.wine,
               content: Text(
-                  'Could not send the verification email. Please try again.')),
+                  'Could not send the verification email. Please try again.',
+                  style: TextStyle(color: CinemaPalette.ivory))),
         );
       }
     } finally {
@@ -385,7 +366,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     if (user == null) {
       return Scaffold(
-        backgroundColor: const Color(0xFF0A0A0A),
+        backgroundColor: CinemaPalette.background,
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
@@ -395,23 +376,23 @@ class _ProfileScreenState extends State<ProfileScreen>
                 const Icon(
                   Icons.account_circle_outlined,
                   size: 100,
-                  color: Color(0xFFE50914),
+                  color: CinemaPalette.gold,
                 ),
                 const SizedBox(height: 24),
                 const Text(
                   'Browsing as guest',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: CinemaPalette.ivory,
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text(
+                const Text(
                   'Enjoy browsing without an account. Sign in whenever you want to post, reply or like discussions in the community.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.grey[400],
+                    color: CinemaPalette.muted,
                     fontSize: 16,
                   ),
                 ),
@@ -425,8 +406,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE50914),
-                      foregroundColor: Colors.white,
+                      backgroundColor: CinemaPalette.gold,
+                      foregroundColor: CinemaPalette.background,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -449,12 +430,18 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: CinemaPalette.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0A0A0A),
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        flexibleSpace: const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: CinemaPalette.appBarGradient,
+          ),
+        ),
         title: const Text('Profile',
             style: TextStyle(fontWeight: FontWeight.w800)),
-        foregroundColor: Colors.white,
+        foregroundColor: CinemaPalette.ivory,
         elevation: 0,
         actions: [
           IconButton(
@@ -468,7 +455,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       ),
       body: RefreshIndicator(
         onRefresh: _refreshUserData,
-        color: const Color(0xFFE50914),
+        color: CinemaPalette.gold,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
@@ -479,10 +466,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                 width: double.infinity,
                 padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF171724),
+                  color: CinemaPalette.surface,
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: const Color(0xFF00E5FF).withValues(alpha: 0.18),
+                    color: CinemaPalette.gold.withValues(alpha: 0.18),
                   ),
                 ),
                 child: Column(
@@ -494,7 +481,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                       decoration: const BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: LinearGradient(
-                          colors: [Color(0xFF00E5FF), Color(0xFFFFD700)],
+                          colors: [CinemaPalette.wine, CinemaPalette.gold],
                         ),
                       ),
                       child: ClipOval(
@@ -506,14 +493,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                                 placeholderIconSize: 34,
                               )
                             : Container(
-                                color: const Color(0xFF252536),
+                                color: CinemaPalette.wine,
                                 alignment: Alignment.center,
                                 child: Text(
                                   user.displayName?.isNotEmpty == true
                                       ? user.displayName![0].toUpperCase()
                                       : user.email?[0].toUpperCase() ?? '?',
                                   style: const TextStyle(
-                                    color: Colors.white,
+                                    color: CinemaPalette.ivory,
                                     fontSize: 38,
                                     fontWeight: FontWeight.w800,
                                   ),
@@ -528,7 +515,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                       Text(
                         user.displayName!,
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: CinemaPalette.ivory,
                           fontSize: 23,
                           fontWeight: FontWeight.w800,
                         ),
@@ -536,7 +523,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     Text(
                       user.email ?? 'No email',
                       style: const TextStyle(
-                        color: Colors.white60,
+                        color: CinemaPalette.muted,
                         fontSize: 14,
                       ),
                     ),
@@ -556,20 +543,19 @@ class _ProfileScreenState extends State<ProfileScreen>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color:
-                              const Color(0xFF00E676).withValues(alpha: 0.12),
+                          color: CinemaPalette.gold.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: const Color(0xFF00E676)),
+                          border: Border.all(color: CinemaPalette.gold),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.verified_rounded,
-                                color: Color(0xFF00E676), size: 16),
+                                color: CinemaPalette.gold, size: 16),
                             SizedBox(width: 7),
                             Text('Email verified',
                                 style: TextStyle(
-                                    color: Color(0xFF00E676), fontSize: 12)),
+                                    color: CinemaPalette.gold, fontSize: 12)),
                           ],
                         ),
                       ),
@@ -583,7 +569,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 alignment: Alignment.centerLeft,
                 child: Text('PROFILE',
                     style: TextStyle(
-                        color: Color(0xFFFFD700),
+                        color: CinemaPalette.gold,
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 1.2)),
@@ -611,7 +597,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 alignment: Alignment.centerLeft,
                 child: Text('ACCOUNT',
                     style: TextStyle(
-                        color: Color(0xFFFFD700),
+                        color: CinemaPalette.gold,
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 1.2)),
@@ -624,8 +610,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                 child: ElevatedButton(
                   onPressed: _isBusy ? null : _signOut,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A1A27),
-                    foregroundColor: Colors.white,
+                    backgroundColor: CinemaPalette.surface,
+                    foregroundColor: CinemaPalette.ivory,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
@@ -635,7 +621,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: CinemaPalette.gold),
                         )
                       : const Text('Sign Out'),
                 ),
@@ -649,7 +636,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 child: TextButton(
                   onPressed: _isBusy ? null : _deleteAccount,
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.red,
+                    foregroundColor: CinemaPalette.gold,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                   child: const Text('Delete Account'),
@@ -669,36 +656,136 @@ class _ProfileScreenState extends State<ProfileScreen>
     bool isEnabled = true,
   }) {
     return Card(
-      color: const Color(0xFF171724),
+      color: CinemaPalette.surface,
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.07)),
+        side: BorderSide(color: CinemaPalette.ivory.withValues(alpha: 0.07)),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         leading: Container(
           padding: const EdgeInsets.all(9),
           decoration: BoxDecoration(
-            color: const Color(0xFF00E5FF).withValues(alpha: 0.12),
+            color: CinemaPalette.gold.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(11),
           ),
           child: Icon(icon,
-              color: isEnabled ? const Color(0xFF00E5FF) : Colors.grey),
+              color: isEnabled ? CinemaPalette.gold : CinemaPalette.muted),
         ),
         title: Text(
           title,
           style: TextStyle(
-              color: isEnabled ? Colors.white : Colors.grey,
+              color: isEnabled ? CinemaPalette.ivory : CinemaPalette.muted,
               fontWeight: FontWeight.w700),
         ),
         trailing: Icon(
           Icons.arrow_forward_ios_rounded,
           size: 15,
-          color: isEnabled ? Colors.grey : Colors.grey[700],
+          color: isEnabled ? CinemaPalette.muted : CinemaPalette.muted,
         ),
         onTap: isEnabled ? onTap : null,
       ),
     );
   }
+}
+
+typedef _ProfileChanges = ({String displayName, String photoUrl});
+
+class _AccountSettingsDialog extends StatefulWidget {
+  const _AccountSettingsDialog(
+      {required this.displayName, required this.photoUrl});
+
+  final String displayName;
+  final String photoUrl;
+
+  @override
+  State<_AccountSettingsDialog> createState() => _AccountSettingsDialogState();
+}
+
+class _AccountSettingsDialogState extends State<_AccountSettingsDialog> {
+  late final TextEditingController _displayNameController;
+  late final TextEditingController _photoUrlController;
+
+  @override
+  void initState() {
+    super.initState();
+    _displayNameController = TextEditingController(text: widget.displayName);
+    _photoUrlController = TextEditingController(text: widget.photoUrl);
+  }
+
+  @override
+  void dispose() {
+    _displayNameController.dispose();
+    _photoUrlController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        backgroundColor: CinemaPalette.surface,
+        title: const Text(
+          'Account Settings',
+          style: TextStyle(color: CinemaPalette.ivory),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _displayNameController,
+              cursorColor: CinemaPalette.gold,
+              textCapitalization: TextCapitalization.words,
+              style: const TextStyle(color: CinemaPalette.ivory),
+              decoration: const InputDecoration(
+                labelText: 'Display Name',
+                labelStyle: TextStyle(color: CinemaPalette.muted),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: CinemaPalette.muted),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: CinemaPalette.gold),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _photoUrlController,
+              cursorColor: CinemaPalette.gold,
+              keyboardType: TextInputType.url,
+              style: const TextStyle(color: CinemaPalette.ivory),
+              decoration: const InputDecoration(
+                labelText: 'Photo URL (optional)',
+                labelStyle: TextStyle(color: CinemaPalette.muted),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: CinemaPalette.muted),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: CinemaPalette.gold),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(foregroundColor: CinemaPalette.muted),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              FocusScope.of(context).unfocus();
+              Navigator.of(context).pop<_ProfileChanges>((
+                displayName: _displayNameController.text.trim(),
+                photoUrl: _photoUrlController.text.trim(),
+              ));
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: CinemaPalette.gold,
+              foregroundColor: CinemaPalette.background,
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      );
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import '../config/ad_configuration.dart';
 
 String adFailureDiagnostic(Object error) => error is LoadAdError
     ? 'code=${error.code} domain=${error.domain} message=${error.message}'
@@ -30,6 +31,7 @@ class GoogleInterstitialGateway implements InterstitialGateway {
     await MobileAds.instance.updateRequestConfiguration(RequestConfiguration(
       maxAdContentRating: MaxAdContentRating.t,
       tagForChildDirectedTreatment: TagForChildDirectedTreatment.no,
+      testDeviceIds: AdConfiguration.fromEnvironment().testDeviceIds,
     ));
     if (useTestAds) {
       await MobileAds.instance.initialize();

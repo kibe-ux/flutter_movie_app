@@ -1,3 +1,5 @@
+import '../utils/cinema_palette.dart';
+import '../widgets/cinema_app_bar_surface.dart';
 import 'package:flutter/material.dart';
 import '../services/watch_history_service.dart';
 import 'movie_details_screen.dart';
@@ -68,7 +70,10 @@ class _WatchHistoryScreenState extends State<WatchHistoryScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0A0A0A),
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        flexibleSpace: const CinemaAppBarSurface(),
+        backgroundColor: CinemaPalette.background,
         title: const Text('Watch History'),
         foregroundColor: Colors.white,
         elevation: 0,

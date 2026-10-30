@@ -1,3 +1,5 @@
+import '../utils/cinema_palette.dart';
+import '../widgets/cinema_app_bar_surface.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -105,7 +107,14 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
 
     if (_error != null || _movie == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Movie Details')),
+        appBar: AppBar(
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            foregroundColor: CinemaPalette.ivory,
+            surfaceTintColor: Colors.transparent,
+            backgroundColor: CinemaPalette.background,
+            flexibleSpace: const CinemaAppBarSurface(),
+            title: const Text('Movie Details')),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(20),
@@ -135,6 +144,12 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        foregroundColor: CinemaPalette.ivory,
+        surfaceTintColor: Colors.transparent,
+        backgroundColor: CinemaPalette.background,
+        flexibleSpace: const CinemaAppBarSurface(),
         title: Text(movie.title),
         actions: [
           IconButton(

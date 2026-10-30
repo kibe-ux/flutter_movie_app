@@ -7,6 +7,7 @@ import 'firebase_options.dart';
 import 'services/auth_service.dart';
 import 'services/rewards_service.dart';
 import 'services/ad_service.dart';
+import 'services/ad_diagnostics.dart';
 import 'services/crash_reporting_service.dart';
 import 'services/home_startup_service.dart';
 import 'screens/logo_screen.dart';
@@ -16,6 +17,7 @@ import 'screens/downloaded_movies_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/my_list_screen.dart';
 import 'utils/my_list.dart';
+import 'utils/cinema_palette.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,8 +42,10 @@ Future<void> _initializeApp() async {
   }
 
   // Initialize Ads and preload first interstitial
-  unawaited(
-      AdService().init().catchError((Object error, StackTrace stack) async {
+  unawaited(AdService()
+      .init()
+      .then((_) => AdDiagnostics.openOnRequest())
+      .catchError((Object error, StackTrace stack) async {
     debugPrint('Ads initialization failed: $error');
     await CrashReportingService.recordError(error, stack,
         reason: 'Ads initialization failed');
@@ -103,7 +107,7 @@ class MovieDownloadApp extends StatelessWidget {
             elevation: 0,
             centerTitle: true,
             titleTextStyle: TextStyle(
-              color: Colors.white,
+              color: CinemaPalette.appBarText,
               fontWeight: FontWeight.bold,
               fontSize: 22,
             ),

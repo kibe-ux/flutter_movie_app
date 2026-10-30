@@ -232,4 +232,28 @@ void main() {
     access.clear();
     expect(access.active, isFalse);
   });
+  test(
+      'wallet refresh preserves balance on failure and blocks overlapping actions',
+      () async {
+    handle = (_) => json(wallet(coins: 30));
+    await signIn();
+    final pending = Completer<http.Response>();
+    handle = (_) => pending.future;
+    final refresh = service.refresh();
+    expect(service.refreshing, isTrue);
+    expect(service.coins, 30);
+    await service.redeem(service.offers.single);
+    await service.watchTestAd(isActive: () => true);
+    expect(calls.where((request) => request.method == 'POST'), isEmpty);
+    expect(gateway.loads, 0);
+    pending.complete(json({'error': 'Please retry.'}, 503));
+    await refresh;
+    expect(service.refreshing, isFalse);
+    expect(service.refreshFailed, isTrue);
+    expect(service.coins, 30);
+    handle = (_) => json(wallet(coins: 40));
+    await service.refresh();
+    expect(service.refreshFailed, isFalse);
+    expect(service.coins, 40);
+  });
 }

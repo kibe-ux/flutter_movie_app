@@ -1,3 +1,4 @@
+import '../widgets/cinema_app_bar_surface.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -105,6 +106,12 @@ class _MovieListScreenState extends State<MovieListScreen> {
     return Scaffold(
       backgroundColor: CinemaPalette.background,
       appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        foregroundColor: CinemaPalette.ivory,
+        surfaceTintColor: Colors.transparent,
+        backgroundColor: CinemaPalette.background,
+        flexibleSpace: const CinemaAppBarSurface(),
         title: const Text('Movie Downloads'),
         actions: [
           IconButton(

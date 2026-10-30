@@ -1,13 +1,19 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService extends ChangeNotifier {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseAuth _auth;
+  final GoogleSignIn _googleSignIn;
+  late final StreamSubscription<User?> _authSubscription;
   User? _currentUser;
   bool _isLoading = true;
 
-  AuthService() {
-    _auth.authStateChanges().listen((user) {
+  AuthService({FirebaseAuth? auth, GoogleSignIn? googleSignIn})
+      : _auth = auth ?? FirebaseAuth.instance,
+        _googleSignIn = googleSignIn ?? GoogleSignIn(scopes: ['email']) {
+    _authSubscription = _auth.authStateChanges().listen((user) {
       _currentUser = user;
       _isLoading = false;
       notifyListeners();
@@ -20,9 +26,27 @@ class AuthService extends ChangeNotifier {
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  // Sign in with Google - Temporarily disabled due to API issues
+  // Exchange the Google account's tokens for a Firebase session.
   Future<UserCredential?> signInWithGoogle() async {
-    throw UnimplementedError('Google Sign-In temporarily disabled');
+    if (kIsWeb) {
+      return _auth.signInWithPopup(GoogleAuthProvider());
+    }
+    final account = await _googleSignIn.signIn();
+    if (account == null) return null;
+    final tokens = await account.authentication;
+    if (tokens.idToken == null || tokens.idToken!.isEmpty) {
+      throw FirebaseAuthException(code: 'missing-google-id-token');
+    }
+    return _auth.signInWithCredential(GoogleAuthProvider.credential(
+      accessToken: tokens.accessToken,
+      idToken: tokens.idToken,
+    ));
+  }
+
+  @override
+  void dispose() {
+    unawaited(_authSubscription.cancel());
+    super.dispose();
   }
 
   // Sign in with Email and Password
@@ -69,7 +93,16 @@ class AuthService extends ChangeNotifier {
   // Sign out
   Future<void> signOut() async {
     try {
-      await _auth.signOut();
+      try {
+        if (!kIsWeb &&
+            (defaultTargetPlatform == TargetPlatform.android ||
+                defaultTargetPlatform == TargetPlatform.iOS ||
+                defaultTargetPlatform == TargetPlatform.macOS)) {
+          await _googleSignIn.signOut();
+        }
+      } finally {
+        await _auth.signOut();
+      }
       notifyListeners();
     } catch (e) {
       debugPrint('Sign out error: $e');

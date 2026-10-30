@@ -1,4 +1,6 @@
 // lib/screens/full_category_screen.dart
+import '../utils/cinema_palette.dart';
+import '../widgets/cinema_app_bar_surface.dart';
 import 'package:flutter/material.dart';
 import '../config/home_categories.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -115,13 +117,18 @@ class _FullCategoryScreenState extends State<FullCategoryScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        foregroundColor: CinemaPalette.ivory,
+        surfaceTintColor: Colors.transparent,
+        flexibleSpace: const CinemaAppBarSurface(),
+        backgroundColor: CinemaPalette.background,
         title: Text(
           widget.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            color: Colors.white,
+            color: CinemaPalette.appBarText,
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),

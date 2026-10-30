@@ -39,6 +39,8 @@ void main() {
   Future<({RewardsService rewards, _Gateway gateway, List<String> calls})> show(
       WidgetTester tester,
       {bool guest = false,
+      bool unavailable = false,
+      bool Function()? isUnavailable,
       double width = 430,
       double textScale = 1,
       int coins = 30}) async {
@@ -50,6 +52,8 @@ void main() {
     final gateway = _Gateway();
     final calls = <String>[];
     final access = AdFreeAccess();
+    var walletCoins = coins;
+    var adFreeUntil = 0;
     final rewards = RewardsService(
         access: access,
         gateway: gateway,
@@ -58,10 +62,18 @@ void main() {
         rewardedUnitId: 'test-unit',
         client: MockClient((request) async {
           calls.add(request.url.path);
+          if (isUnavailable?.call() ?? unavailable) {
+            return http.Response(
+                '{"error":"Rewards temporarily unavailable"}', 503);
+          }
+          if (request.url.path.endsWith('/redeem')) {
+            walletCoins -= 30;
+            adFreeUntil = 3601000;
+          }
           return http.Response(
               jsonEncode({
-                'coins': coins,
-                'adFreeUntil': 0,
+                'coins': walletCoins,
+                'adFreeUntil': adFreeUntil,
                 'serverTime': 1000,
                 'enabled': true,
                 'pendingReward': false,
@@ -102,16 +114,34 @@ void main() {
     expect(state.gateway.loads, 0);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+  testWidgets('unavailable wallets still show disabled ad-free pass previews',
+      (tester) async {
+    final state = await show(tester, unavailable: true);
+    expect(find.text('YOUR COIN BALANCE'), findsOneWidget);
+    expect(find.text('Load my balance'), findsOneWidget);
+    expect(find.textContaining('Balance unavailable.'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('1 hour ad-free'), 200);
+    await tester.pumpAndSettle();
+    final preview = find.text('Connect to redeem').first;
+    await tester.ensureVisible(preview);
+    final button = tester.widget<OutlinedButton>(find
+        .ancestor(of: preview, matching: find.byType(OutlinedButton))
+        .first);
+    expect(button.onPressed, isNull);
+    expect(state.calls.where((path) => path.endsWith('/redeem')), isEmpty);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
   testWidgets(
       'small screens and large text retain readable balance and optional controls',
       (tester) async {
     final state = await show(tester, width: 320, textScale: 2, coins: 10);
     expect(find.text('10 / 30 coins toward a 1-hour pass'), findsOneWidget);
     expect(tester.takeException(), isNull);
-    await tester.scrollUntilVisible(find.text('Watch test ad'), 300);
+    await tester.scrollUntilVisible(find.text('20 more coins needed'), 300);
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    await tester.scrollUntilVisible(find.text('20 more coins needed'), 300);
+    await tester.scrollUntilVisible(find.text('Watch test ad'), -300);
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(state.gateway.loads, 0);
@@ -147,6 +177,43 @@ void main() {
     await tester.pumpAndSettle();
     expect(state.rewards.coins, 30);
     expect(state.calls.where((path) => path.endsWith('/redeem')), isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+  testWidgets('confirmed redemption updates balance and activates the pass',
+      (tester) async {
+    final state = await show(tester);
+    await tester.scrollUntilVisible(find.text('Redeem 30 coins'), 300);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Redeem 30 coins'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Redeem coins'));
+    await tester.pumpAndSettle();
+    expect(state.rewards.coins, 0);
+    expect(state.rewards.adFree, isTrue);
+    expect(state.calls.where((path) => path.endsWith('/redeem')).length, 1);
+    await tester.scrollUntilVisible(find.text('AD-FREE PASS ACTIVE'), -300);
+    await tester.pumpAndSettle();
+    expect(find.text('AD-FREE PASS ACTIVE'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    state.rewards.setUser(null);
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('wallet retry recovers the balance without leaving rewards',
+      (tester) async {
+    var offline = true;
+    final state = await show(tester, isUnavailable: () => offline);
+    await tester.scrollUntilVisible(find.text('Try again'), 200);
+    await tester.pumpAndSettle();
+    offline = false;
+    await tester.tap(find.text('Try again'));
+    await tester.pumpAndSettle();
+    expect(state.rewards.loaded, isTrue);
+    expect(state.rewards.refreshFailed, isFalse);
+    expect(state.rewards.coins, 30);
+    expect(find.text('Try again'), findsNothing);
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }

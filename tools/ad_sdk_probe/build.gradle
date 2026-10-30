@@ -1,0 +1,27 @@
+plugins {
+    id 'com.android.application' version '8.11.1'
+    id 'org.jetbrains.kotlin.android' version '2.2.20'
+}
+
+android {
+    namespace 'com.moviehub.adsprobe'
+    compileSdk 36
+    defaultConfig {
+        applicationId (findProperty('probePackage') ?: 'com.moviehub.adsprobe')
+        minSdk 24
+        targetSdk 36
+        versionCode 1
+        versionName '1.0'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+    kotlinOptions { jvmTarget = '11' }
+    // Reuse the debug-only activity; include no Flutter or catalogue sources.
+    sourceSets.main.java.srcDirs('../../android/app/src/debug/kotlin')
+}
+
+dependencies {
+    implementation "com.google.android.gms:play-services-ads:${findProperty('adSdkVersion') ?: '25.5.0'}"
+}

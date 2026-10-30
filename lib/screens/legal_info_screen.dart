@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../utils/cinema_palette.dart';
 
 enum LegalPageType { about, copyright, terms }
@@ -37,7 +39,7 @@ class LegalInfoScreen extends StatelessWidget {
         LegalPageType.copyright =>
           'How we respect intellectual-property rights and review reports.',
         LegalPageType.terms =>
-          'Please read these terms carefully before using FLIXORA X.',
+          'Please read these terms carefully before using Movie Hub.',
       };
 
   List<({String heading, String text})> get _sections => switch (type) {
@@ -77,29 +79,29 @@ class LegalInfoScreen extends StatelessWidget {
             (
               heading: 'Respect for rights holders',
               text:
-                  'We respect copyright and other intellectual-property rights. FLIXORA X does not claim ownership of movie titles, artwork, metadata, trademarks, or content referenced by third-party services.'
+                  'We respect copyright and other intellectual-property rights. Movie Hub does not claim ownership of movie titles, artwork, metadata, trademarks, or content referenced by third-party services.'
             ),
             (
               heading: 'No hosted content',
               text:
-                  'FLIXORA X does not host or deliver the files made available through external services. Any access to an external site is governed by that site and its policies.'
+                  'Movie Hub does not host or deliver the files made available through external services. Any access to an external site is governed by that site and its policies.'
             ),
             (
               heading: 'Copyright and DMCA notices',
               text:
-                  'If you are a rights holder or authorized agent and believe an item in the app raises a copyright concern, email hezra664@gmail.com. Include your name and contact details, the copyrighted work, the specific in-app item or link at issue, and a statement of your authority and good-faith belief. We will review the notice and, where appropriate, remove or disable the relevant reference. This contact is not represented as a registered DMCA designated agent.'
+                  'If you are a rights holder or authorized agent and believe an item in the app raises a copyright concern, email supportmoviehub@gmail.com. Include your name and contact details, the copyrighted work, the specific in-app item or link at issue, and a statement of your authority and good-faith belief. We will review the notice and, where appropriate, remove or disable the relevant reference. This contact is not represented as a registered DMCA designated agent.'
             ),
           ],
         LegalPageType.terms => [
             (
               heading: 'Content ownership',
               text:
-                  'Movie titles, artwork, metadata, trademarks, and other material referenced in FLIXORA X belong to their respective owners. FLIXORA X does not claim ownership of third-party content and does not host, store, upload, stream, or distribute media files or torrent files.'
+                  'Movie titles, artwork, metadata, trademarks, and other material referenced in Movie Hub belong to their respective owners. Movie Hub does not claim ownership of third-party content and does not host, store, upload, stream, or distribute media files or torrent files.'
             ),
             (
               heading: 'Copyright policy and notices',
               text:
-                  'We respect intellectual-property rights. Copyright or DMCA-style notices may be sent to hezra664@gmail.com with your contact details, identification of the work, the relevant in-app item or link, and a statement of authority and good-faith belief. We will review reports and may remove or disable references where appropriate.'
+                  'We respect intellectual-property rights. Copyright or DMCA-style notices may be sent to supportmoviehub@gmail.com with your contact details, identification of the work, the relevant in-app item or link, and a statement of authority and good-faith belief. We will review reports and may remove or disable references where appropriate.'
             ),
             (
               heading: 'User responsibility',
@@ -109,7 +111,7 @@ class LegalInfoScreen extends StatelessWidget {
             (
               heading: 'Limitation of liability',
               text:
-                  'To the fullest extent permitted by applicable law, FLIXORA X is provided without warranties of availability, accuracy, security, or fitness for a particular purpose. We are not responsible for third-party websites, content, services, downloads, or for losses arising from your use of them.'
+                  'To the fullest extent permitted by applicable law, Movie Hub is provided without warranties of availability, accuracy, security, or fitness for a particular purpose. We are not responsible for third-party websites, content, services, downloads, or for losses arising from your use of them.'
             ),
             (
               heading: 'Modification of terms',
@@ -137,15 +139,7 @@ class LegalInfoScreen extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         flexibleSpace: const DecoratedBox(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                CinemaPalette.wine,
-                CinemaPalette.surface,
-                CinemaPalette.background,
-              ],
-            ),
+            gradient: CinemaPalette.appBarGradient,
           ),
         ),
         elevation: 0,
@@ -252,9 +246,12 @@ class LegalInfoScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 14),
-                    SelectableText(section.text,
-                        style: const TextStyle(
-                            color: CinemaPalette.muted, height: 1.55)),
+                    if (section.text.contains('supportmoviehub@gmail.com'))
+                      _LegalContactText(text: section.text)
+                    else
+                      SelectableText(section.text,
+                          style: const TextStyle(
+                              color: CinemaPalette.muted, height: 1.55)),
                   ],
                 ),
               ),
@@ -275,6 +272,61 @@ class LegalInfoScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _LegalContactText extends StatefulWidget {
+  const _LegalContactText({required this.text});
+  final String text;
+
+  @override
+  State<_LegalContactText> createState() => _LegalContactTextState();
+}
+
+class _LegalContactTextState extends State<_LegalContactText> {
+  static const _email = 'supportmoviehub@gmail.com';
+  late final _emailTap = TapGestureRecognizer()..onTap = _openEmail;
+
+  Future<void> _openEmail() async {
+    try {
+      if (await launchUrl(Uri(scheme: 'mailto', path: _email))) return;
+    } catch (_) {
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      backgroundColor: CinemaPalette.wine,
+      content: Text('Could not open an email app. Please email $_email.',
+          style: TextStyle(color: CinemaPalette.ivory)),
+    ));
+  }
+
+  @override
+  void dispose() {
+    _emailTap.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = widget.text.split(_email);
+    return SelectableText.rich(
+      TextSpan(children: [
+        TextSpan(text: parts.first),
+        TextSpan(
+          text: _email,
+          style: const TextStyle(
+            color: CinemaPalette.gold,
+            decoration: TextDecoration.underline,
+            decorationColor: CinemaPalette.gold,
+            fontWeight: FontWeight.w600,
+          ),
+          recognizer: _emailTap,
+          mouseCursor: SystemMouseCursors.click,
+        ),
+        TextSpan(text: parts.last),
+      ]),
+      style: const TextStyle(color: CinemaPalette.muted, height: 1.55),
     );
   }
 }

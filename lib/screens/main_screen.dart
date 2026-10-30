@@ -17,6 +17,7 @@ import '../services/home_startup_service.dart';
 import '../utils/cinema_palette.dart';
 import '../widgets/movie_hub_app_bar.dart';
 import '../widgets/rate_app_dialog.dart';
+import '../widgets/retained_tab_view.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key, this.initialHomeData});
@@ -42,20 +43,19 @@ class _MainScreenState extends State<MainScreen> {
   final Color _surfaceColor = const Color(0xFF1A1A1A);
   final Color _onSurfaceColor = Colors.white;
 
-  late final List<Widget> _screens;
-
-  @override
-  void initState() {
-    super.initState();
-    _screens = [
-      HomeScreen(myListIds: const {}, initialData: widget.initialHomeData),
-      const ExploreScreen(myListIds: {}),
-      const SearchScreen(),
-      const ForumScreen(),
-    ];
-  }
+  Widget _buildScreen(BuildContext context, int index) => switch (index) {
+        0 =>
+          HomeScreen(myListIds: const {}, initialData: widget.initialHomeData),
+        // Refresh bookmark icons on return; the mounted State is retained.
+        // ignore: prefer_const_constructors
+        1 => ExploreScreen(myListIds: const {}),
+        // ignore: prefer_const_constructors
+        2 => SearchScreen(),
+        _ => const ForumScreen(),
+      };
 
   void _onItemTapped(int index) {
+    if (index == _selectedIndex) return;
     setState(() {
       _selectedIndex = index;
     });
@@ -100,29 +100,8 @@ class _MainScreenState extends State<MainScreen> {
       backgroundColor: _primaryColor,
       appBar: _selectedIndex == 0 ? _buildAppBar() : null,
       drawer: _buildNavigationDrawer(),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 280),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        transitionBuilder: (child, animation) {
-          final slideAnimation = Tween<Offset>(
-            begin: const Offset(0.025, 0),
-            end: Offset.zero,
-          ).animate(animation);
-
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: slideAnimation,
-              child: child,
-            ),
-          );
-        },
-        child: KeyedSubtree(
-          key: ValueKey(_selectedIndex),
-          child: _screens[_selectedIndex],
-        ),
-      ),
+      body: RetainedTabView(
+          index: _selectedIndex, itemCount: 4, itemBuilder: _buildScreen),
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
@@ -359,8 +338,8 @@ class _MainScreenState extends State<MainScreen> {
                           ),
                           Expanded(
                             child: _DrawerCatalogueCount(
-                              value: '10K+',
-                              label: 'SHOWS',
+                              value: '20K+',
+                              label: ' Tv SHOWS',
                               accentColor: _drawerAccent,
                               mutedColor: _drawerMuted,
                             ),

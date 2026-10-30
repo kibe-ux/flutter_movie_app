@@ -3,6 +3,29 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moviehub_app/config/ad_configuration.dart';
 
 void main() {
+  test('debug test device registration validates and deduplicates device IDs',
+      () {
+    final config = AdConfiguration(
+      platform: TargetPlatform.android,
+      isRelease: false,
+      testDeviceIdsValue:
+          ' aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,invalid,AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB ',
+    );
+    expect(config.testDeviceIds, [
+      'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+      'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+    ]);
+  });
+
+  test('release ignores developer test device registration', () {
+    final config = AdConfiguration(
+      platform: TargetPlatform.android,
+      isRelease: true,
+      testDeviceIdsValue: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+    );
+    expect(config.testDeviceIds, isEmpty);
+  });
+
   const live = {
     'ADMOB_USE_TEST_ADS': 'false',
     'ADMOB_BANNER_ID': 'ca-app-pub-1234567890123456/1111111111',
@@ -29,7 +52,7 @@ void main() {
         isRelease: true,
         environment: {...live, 'ADMOB_USE_TEST_ADS': 'true'});
     expect(config.useTestAds, isTrue);
-    expect(config.bannerId, 'ca-app-pub-3940256099942544/2435281174');
+    expect(config.bannerId, 'ca-app-pub-3940256099942544/2934735716');
     expect(config.rewardedId, 'ca-app-pub-3940256099942544/1712485313');
   });
   test('debug builds always use test inventory', () {
@@ -50,7 +73,7 @@ void main() {
           isRelease: true,
           environment: {...live, 'ADMOB_REWARDED_ID': value});
       expect(config.useTestAds, isTrue);
-      expect(config.bannerId, 'ca-app-pub-3940256099942544/9214589741');
+      expect(config.bannerId, 'ca-app-pub-3940256099942544/6300978111');
     }
   });
 }
