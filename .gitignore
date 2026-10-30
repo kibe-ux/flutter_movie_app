@@ -1,4 +1,4 @@
-﻿# ========== FIREBASE SECURITY ==========
+# ========== FIREBASE SECURITY ==========
 # Service Account Keys
 *.json
 !backend/package.json
@@ -40,6 +40,11 @@ SecureFirebaseKeys/
 # Generated crash logs and local verification reports
 hs_err_pid*.log
 replay_pid*.log
+firebase-debug.log
+flutter_*.log
+adb_logcat*.txt
+flutter_run*.txt
+*.bak
 /analysis*.txt
 /results.txt
 /reports/*.log

@@ -1,4 +1,5 @@
 {
     "window.title": "${activeEditorShort} - Movie Hub${separator}${rootName}",
-    "java.configuration.updateBuildConfiguration": "interactive"
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "python.terminal.useEnvFile": true
 }
