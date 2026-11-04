@@ -301,6 +301,35 @@ class WambeshaSources {
     return list;
   }
 
+  /// Finds the valid download URL matching a preferred quality label or falls back to first valid
+  String? urlForQuality(String? preferredLabel) {
+    if (preferredLabel != null && preferredLabel.isNotEmpty) {
+      for (final item in downloadQualities) {
+        if (item['label'] == preferredLabel) {
+          return item['url'];
+        }
+      }
+    }
+    final qualities = downloadQualities;
+    if (qualities.isNotEmpty) {
+      return qualities.first['url'];
+    }
+    try {
+      return requireUrl('file_holding');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool isUrlExpiredOrInvalid(String url) {
+    for (final s in sources) {
+      if (s['url'] == url) {
+        return !_valid(s);
+      }
+    }
+    return true;
+  }
+
   String requireUrl(String kind) {
     for (final source in sources) {
       if (source['kind'] == kind && _valid(source)) {
