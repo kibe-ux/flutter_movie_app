@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../utils/cinema_palette.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -14,7 +14,7 @@ class _SupportScreenState extends State<SupportScreen> {
   final Color _bgDark = CinemaPalette.background;
   final Color _surfaceDark = CinemaPalette.surface;
   final Color _cardDark = CinemaPalette.wine;
-  final Color _borderDark = CinemaPalette.gold.withValues(alpha: 0.18);
+  final Color _borderDark = CinemaPalette.gold.withOpacity(0.18);
   final Color _accent = CinemaPalette.gold;
   static const String _supportEmail = 'supportmoviehub@gmail.com';
 
@@ -102,7 +102,7 @@ class _SupportScreenState extends State<SupportScreen> {
                   width: 44,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: CinemaPalette.muted.withValues(alpha: 0.3),
+                    color: CinemaPalette.muted.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -113,7 +113,7 @@ class _SupportScreenState extends State<SupportScreen> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: CinemaPalette.gold.withValues(alpha: 0.15),
+                      color: CinemaPalette.gold.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(Icons.bug_report_rounded,
@@ -157,7 +157,7 @@ class _SupportScreenState extends State<SupportScreen> {
                     onSelected: (val) {
                       setModalState(() => selectedCategory = cat);
                     },
-                    selectedColor: _accent.withValues(alpha: 0.2),
+                    selectedColor: _accent.withOpacity(0.2),
                     backgroundColor: _cardDark,
                     side: BorderSide(color: isSelected ? _accent : _borderDark),
                     labelStyle: TextStyle(
@@ -278,7 +278,7 @@ class _SupportScreenState extends State<SupportScreen> {
                 width: 44,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: CinemaPalette.muted.withValues(alpha: 0.3),
+                  color: CinemaPalette.muted.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -289,7 +289,7 @@ class _SupportScreenState extends State<SupportScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: _accent.withValues(alpha: 0.15),
+                    color: _accent.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(Icons.movie_filter_rounded,
@@ -558,7 +558,7 @@ class _SupportScreenState extends State<SupportScreen> {
                 'Movie Hub Support \u2022 Support opens in your email app.\nPlease keep the app updated for the latest fixes and features.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: CinemaPalette.ivory.withValues(alpha: 0.35),
+                  color: CinemaPalette.ivory.withOpacity(0.35),
                   fontSize: 12,
                   height: 1.6,
                 ),
@@ -691,7 +691,7 @@ class _SupportScreenState extends State<SupportScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: badgeColor.withValues(alpha: 0.15),
+                            color: badgeColor.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -753,7 +753,7 @@ class _SupportScreenState extends State<SupportScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
+                  color: color.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: color, size: 22),
@@ -820,3 +820,4 @@ class _SupportScreenState extends State<SupportScreen> {
     );
   }
 }
+

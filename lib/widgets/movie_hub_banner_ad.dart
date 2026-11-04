@@ -44,7 +44,7 @@ class _MovieHubBannerAdState extends State<MovieHubBannerAd>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final active = TickerMode.valuesOf(context).enabled;
+    final active = TickerMode.of(context);
     if (_tabActive == active) return;
     _tabActive = active;
     if (!active) {

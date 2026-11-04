@@ -174,7 +174,7 @@ class _MovieWatchProvidersState extends State<MovieWatchProviders> {
                   children: [
                     DropdownButtonFormField<String>(
                       key: ValueKey(_region),
-                      initialValue: _region,
+                      value: _region,
                       decoration:
                           const InputDecoration(labelText: 'Country / region'),
                       items: [

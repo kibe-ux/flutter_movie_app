@@ -318,7 +318,7 @@ class _SearchScreenState extends State<SearchScreen>
         onDeleted: onDeleted,
         labelStyle: const TextStyle(color: CinemaPalette.ivory),
         backgroundColor: CinemaPalette.surface,
-        side: BorderSide(color: CinemaPalette.gold.withValues(alpha: .3)),
+        side: BorderSide(color: CinemaPalette.gold.withOpacity(.3)),
         deleteIconColor: CinemaPalette.gold,
       );
 
@@ -438,7 +438,7 @@ class _SearchScreenState extends State<SearchScreen>
       required List<DropdownMenuItem<String>> items,
       required ValueChanged<String?> onChanged}) {
     return DropdownButtonFormField<String>(
-      initialValue: value.isEmpty ? null : value,
+      value: value.isEmpty ? null : value,
       dropdownColor: CinemaPalette.surface,
       iconEnabledColor: CinemaPalette.gold,
       style: const TextStyle(color: CinemaPalette.ivory),
@@ -517,7 +517,7 @@ class _SearchScreenState extends State<SearchScreen>
                 color: CinemaPalette.surface,
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
-                    color: CinemaPalette.ivory.withValues(alpha: 0.05))),
+                    color: CinemaPalette.ivory.withOpacity(0.05))),
             child: Row(children: [
               SafeNetworkImage(
                   imageUrl: imageUrl,
@@ -534,7 +534,7 @@ class _SearchScreenState extends State<SearchScreen>
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                              color: tagColor.withValues(alpha: 0.16),
+                              color: tagColor.withOpacity(0.16),
                               borderRadius: BorderRadius.circular(6)),
                           child: Text(isMovie ? 'MOVIE' : 'TV SHOW',
                               style: TextStyle(
@@ -707,7 +707,7 @@ class _SearchScreenState extends State<SearchScreen>
                       colors: [CinemaPalette.gold, CinemaPalette.wine])
                   .createShader(bounds),
               child: Icon(icon,
-                  size: 82, color: CinemaPalette.ivory.withValues(alpha: .42))),
+                  size: 82, color: CinemaPalette.ivory.withOpacity(.42))),
           const SizedBox(height: 22),
           Text(title,
               textAlign: TextAlign.center,
@@ -798,18 +798,18 @@ class _SearchScreenState extends State<SearchScreen>
                     child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6),
                         decoration: BoxDecoration(
-                            color: CinemaPalette.surface.withValues(alpha: .82),
+                            color: CinemaPalette.surface.withOpacity(.82),
                             borderRadius: BorderRadius.circular(26),
                             border: Border.all(
                                 color: _searchFocusNode.hasFocus
-                                    ? CinemaPalette.gold.withValues(alpha: .7)
+                                    ? CinemaPalette.gold.withOpacity(.7)
                                     : CinemaPalette.ivory
-                                        .withValues(alpha: .12)),
+                                        .withOpacity(.12)),
                             boxShadow: _searchFocusNode.hasFocus
                                 ? [
                                     BoxShadow(
                                         color: CinemaPalette.gold
-                                            .withValues(alpha: .18),
+                                            .withOpacity(.18),
                                         blurRadius: 18)
                                   ]
                                 : null),
@@ -867,3 +867,4 @@ class _SearchScreenState extends State<SearchScreen>
     );
   }
 }
+

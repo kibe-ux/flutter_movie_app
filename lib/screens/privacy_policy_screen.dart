@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../utils/cinema_palette.dart';
 import '../widgets/ad_privacy_choices.dart';
@@ -178,7 +178,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
         height: 44,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: _accent.withValues(alpha: 0.08),
+          color: _accent.withOpacity(0.08),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(icon, color: _accent, size: 24),
@@ -194,7 +194,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
           colors: [_heroSurface, _cardSurface],
         ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _accent.withValues(alpha: 0.12)),
+        border: Border.all(color: _accent.withOpacity(0.12)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -227,7 +227,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: _cardSurface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _accent.withValues(alpha: 0.12)),
+        border: Border.all(color: _accent.withOpacity(0.12)),
       ),
       child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -255,7 +255,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: _cardSurface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: CinemaPalette.ivory.withValues(alpha: 0.08)),
+        border: Border.all(color: CinemaPalette.ivory.withOpacity(0.08)),
       ),
       child: ExpansionTile(
         key: PageStorageKey<String>(title),
@@ -303,7 +303,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: _cardSurface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _accent.withValues(alpha: 0.16)),
+        border: Border.all(color: _accent.withOpacity(0.16)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -349,7 +349,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
-                side: BorderSide(color: _accent.withValues(alpha: 0.65)),
+                side: BorderSide(color: _accent.withOpacity(0.65)),
               ),
               child: const Row(
                 children: [
@@ -368,3 +368,4 @@ class PrivacyPolicyScreen extends StatelessWidget {
     );
   }
 }
+

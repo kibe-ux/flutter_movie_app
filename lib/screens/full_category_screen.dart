@@ -1,4 +1,4 @@
-// lib/screens/full_category_screen.dart
+﻿// lib/screens/full_category_screen.dart
 import '../utils/cinema_palette.dart';
 import '../widgets/cinema_app_bar_surface.dart';
 import 'package:flutter/material.dart';
@@ -287,7 +287,7 @@ class _FullCategoryScreenState extends State<FullCategoryScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.6),
+                            color: Colors.black.withOpacity(0.6),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -310,3 +310,4 @@ class _FullCategoryScreenState extends State<FullCategoryScreen> {
     );
   }
 }
+

@@ -59,7 +59,7 @@ class _MovieTrailersState extends State<MovieTrailers> {
                       borderRadius: BorderRadius.circular(16),
                       side: BorderSide(
                           color: CinemaPalette.gold
-                              .withValues(alpha: active ? 0.8 : 0.18)),
+                              .withOpacity(active ? 0.8 : 0.18)),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: InkWell(

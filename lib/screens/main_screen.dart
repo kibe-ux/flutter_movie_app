@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';
 import 'home_screen.dart';
 import 'explore_screen.dart';
 import 'search_screen.dart';
@@ -16,7 +17,6 @@ import '../services/auth_service.dart';
 import '../services/home_startup_service.dart';
 import '../utils/cinema_palette.dart';
 import '../widgets/movie_hub_app_bar.dart';
-import '../widgets/rate_app_dialog.dart';
 import '../widgets/retained_tab_view.dart';
 
 class MainScreen extends StatefulWidget {
@@ -76,22 +76,18 @@ class _MainScreenState extends State<MainScreen> {
         MaterialPageRoute(builder: (context) => const PrivacyPolicyScreen()));
   }
 
-  Future<void> _showRateUsDialog() async {
-    final rating = await showDialog<int>(
-      context: context,
-      builder: (_) => const RateAppDialog(),
-    );
-    if (!mounted || rating == null) return;
-    _handleRating(rating);
-  }
-
-  void _handleRating(int rating) {
-    if (rating >= 4) {
-      _showSnackBar("Thanks for your $rating-star rating! \u{1F389}");
-    } else {
-      _showSnackBar("Thanks for your feedback! We'll improve. \u2B50");
-      _showSupportScreen();
+  Future<void> _openPlayStoreRating() async {
+    try {
+      await const MethodChannel('moviehub/store')
+          .invokeMethod<void>('openListing');
+      return;
+    } on PlatformException {
+      // The device has neither a usable Play Store nor a browser.
+    } on MissingPluginException {
+      // Google Play is only supported by the Android application.
     }
+    if (!mounted) return;
+    _showSnackBar('Could not open Google Play. Please try again.');
   }
 
   @override
@@ -418,7 +414,7 @@ class _MainScreenState extends State<MainScreen> {
         icon: Icons.star_rate_rounded,
         onTap: () {
           Navigator.pop(context);
-          _showRateUsDialog();
+          _openPlayStoreRating();
         },
       );
 
@@ -462,7 +458,7 @@ class _MainScreenState extends State<MainScreen> {
             height: 44,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: _drawerAccent.withValues(alpha: 0.08),
+              color: _drawerAccent.withOpacity(0.08),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: _drawerAccent, size: 24),
@@ -494,7 +490,7 @@ class _MainScreenState extends State<MainScreen> {
         ),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
+              color: Colors.black.withOpacity(0.4),
               blurRadius: 20,
               offset: const Offset(0, -5))
         ],
@@ -536,7 +532,7 @@ class _MainScreenState extends State<MainScreen> {
               icon,
               color: isSelected
                   ? CinemaPalette.background
-                  : _onSurfaceColor.withValues(alpha: 0.65),
+                  : _onSurfaceColor.withOpacity(0.65),
               size: 24,
             ),
           ),
@@ -548,7 +544,7 @@ class _MainScreenState extends State<MainScreen> {
             style: TextStyle(
               color: isSelected
                   ? activeColor
-                  : _onSurfaceColor.withValues(alpha: 0.65),
+                  : _onSurfaceColor.withOpacity(0.65),
               fontSize: 12,
               height: 1.3,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -630,3 +626,4 @@ class _DrawerCatalogueCount extends StatelessWidget {
         ],
       );
 }
+

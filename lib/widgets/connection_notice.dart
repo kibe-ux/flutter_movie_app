@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../utils/cinema_palette.dart';
 
@@ -56,7 +56,7 @@ class _ConnectionNoticeState extends State<ConnectionNotice> {
                           ),
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(
-                            color: CinemaPalette.gold.withValues(alpha: 0.18),
+                            color: CinemaPalette.gold.withOpacity(0.18),
                           ),
                         ),
                         child: Icon(
@@ -109,7 +109,7 @@ class _ConnectionNoticeState extends State<ConnectionNotice> {
                                 )
                               : const Icon(Icons.refresh_rounded, size: 20),
                           label: Text(
-                              _retrying ? 'Checking connection…' : 'Try again'),
+                              _retrying ? 'Checking connectionâ€¦' : 'Try again'),
                         ),
                       ),
                     ],
@@ -121,3 +121,4 @@ class _ConnectionNoticeState extends State<ConnectionNotice> {
         ),
       );
 }
+

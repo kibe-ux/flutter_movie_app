@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -216,7 +216,7 @@ class _ForumScreenState extends State<ForumScreen>
             builder: (ctx) => AlertDialog(
                   title: const Text('Block this user?'),
                   content: const Text(
-                      'Their posts and replies will be hidden in your signed-in feed. Likes and replies between you on each other’s posts will be blocked. You can unblock them from Blocked users.'),
+                      'Their posts and replies will be hidden in your signed-in feed. Likes and replies between you on each otherâ€™s posts will be blocked. You can unblock them from Blocked users.'),
                   actions: [
                     TextButton(
                         onPressed: () => Navigator.pop(ctx, false),
@@ -432,8 +432,7 @@ class _ForumScreenState extends State<ForumScreen>
                                       boxShadow: selected
                                           ? [
                                               BoxShadow(
-                                                color: _accent.withValues(
-                                                    alpha: 0.24),
+                                                color: _accent.withOpacity(0.24),
                                                 blurRadius: 14,
                                                 spreadRadius: 1,
                                               ),
@@ -841,10 +840,10 @@ class _ForumScreenState extends State<ForumScreen>
                     child: Container(
                       height: 52,
                       decoration: BoxDecoration(
-                        color: _surface.withValues(alpha: 0.72),
+                        color: _surface.withOpacity(0.72),
                         borderRadius: BorderRadius.circular(28),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.10),
+                          color: Colors.white.withOpacity(0.10),
                         ),
                       ),
                       child: TextField(
@@ -1002,7 +1001,7 @@ class _ForumScreenState extends State<ForumScreen>
               borderRadius: BorderRadius.circular(30),
               boxShadow: [
                 BoxShadow(
-                  color: _accent.withValues(alpha: 0.3),
+                  color: _accent.withOpacity(0.3),
                   blurRadius: 16,
                   offset: const Offset(0, 4),
                 ),
@@ -1323,11 +1322,11 @@ class _PostCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           border: liked
               ? null
-              : Border.all(color: Colors.white.withValues(alpha: 0.07)),
+              : Border.all(color: Colors.white.withOpacity(0.07)),
           boxShadow: liked
               ? [
                   BoxShadow(
-                    color: _accent.withValues(alpha: 0.12),
+                    color: _accent.withOpacity(0.12),
                     blurRadius: 20,
                     spreadRadius: 1,
                   ),
@@ -1371,10 +1370,10 @@ class _PostCard extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: _accent.withValues(alpha: 0.12),
+                      color: _accent.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(20),
                       border:
-                          Border.all(color: _accent.withValues(alpha: 0.25)),
+                          Border.all(color: _accent.withOpacity(0.25)),
                     ),
                     child: Text(category,
                         style: const TextStyle(
@@ -1598,7 +1597,7 @@ class _CommentTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1640,3 +1639,4 @@ class _CommentTile extends StatelessWidget {
     );
   }
 }
+

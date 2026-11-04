@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../widgets/auth_wrapper.dart';
@@ -185,10 +185,10 @@ class _SplashScreenState extends State<SplashScreen>
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withValues(alpha: 0.55),
+                  Colors.black.withOpacity(0.55),
                   Colors.transparent,
-                  Colors.black.withValues(alpha: 0.4),
-                  Colors.black.withValues(alpha: 0.92),
+                  Colors.black.withOpacity(0.4),
+                  Colors.black.withOpacity(0.92),
                 ],
                 stops: const [0.0, 0.35, 0.65, 1.0],
               ),
@@ -279,3 +279,4 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 }
+

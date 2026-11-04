@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import '../config/home_categories.dart';
 import '../utils/cinema_palette.dart';
 import 'package:flutter/material.dart';
@@ -256,7 +256,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content:
-          const Text('Couldn’t refresh. Your loaded movies are still here.'),
+          const Text('Couldnâ€™t refresh. Your loaded movies are still here.'),
       backgroundColor: CinemaPalette.surface,
       action: SnackBarAction(
         label: 'Retry',
@@ -389,7 +389,7 @@ class _HomeScreenState extends State<HomeScreen> {
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-              color: CinemaPalette.homeAccent.withValues(alpha: .18)),
+              color: CinemaPalette.homeAccent.withOpacity(.18)),
         ),
         child: Row(children: [
           for (final tab in _filterTabs)
@@ -498,7 +498,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!_isConnected) {
       return ConnectionNotice(
         offline: true,
-        title: 'You’re offline',
+        title: 'Youâ€™re offline',
         message:
             'Connect to Wi-Fi or mobile data to explore movies and shows, then try again.',
         onRetry: _retryConnection,
@@ -512,10 +512,10 @@ class _HomeScreenState extends State<HomeScreen> {
       return ConnectionNotice(
         title: _categoryErrors.isEmpty
             ? 'No movies available yet'
-            : 'Can’t load movies right now',
+            : 'Canâ€™t load movies right now',
         message: _categoryErrors.isEmpty
             ? 'Try again in a moment to refresh the catalog.'
-            : 'Movie Hub couldn’t reach the catalog. Check your connection or try again shortly.',
+            : 'Movie Hub couldnâ€™t reach the catalog. Check your connection or try again shortly.',
         onRetry: _retryConnection,
       );
     }
@@ -735,7 +735,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       },
                       child: CircleAvatar(
                         radius: 14,
-                        backgroundColor: Colors.black.withValues(alpha: 0.7),
+                        backgroundColor: Colors.black.withOpacity(0.7),
                         child: Icon(
                           isInMyList ? Icons.bookmark : Icons.bookmark_border,
                           size: 16,
@@ -785,3 +785,4 @@ class _HomeScreenState extends State<HomeScreen> {
         isActive: () => mounted && (ModalRoute.of(context)?.isCurrent ?? true));
   }
 }
+

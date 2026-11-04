@@ -176,24 +176,22 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> {
           const SizedBox(height: 12),
           const Text('Quality'),
           const SizedBox(height: 8),
-          RadioGroup<String>(
-            groupValue: selectedQuality,
-            onChanged: (value) {
-              if (value != null) setState(() => _selectedQuality = value);
-            },
-            child: Column(
-              children: movie.qualities.entries
-                  .map(
-                    (entry) => RadioListTile<String>(
-                      value: entry.key,
-                      title: Text(entry.key),
-                      subtitle: Text(entry.value.formattedSize),
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  )
-                  .toList(),
-            ),
+          Column(
+            children: movie.qualities.entries
+                .map(
+                  (entry) => RadioListTile<String>(
+                    value: entry.key,
+                    groupValue: selectedQuality,
+                    onChanged: (value) {
+                      if (value != null) setState(() => _selectedQuality = value);
+                    },
+                    title: Text(entry.key),
+                    subtitle: Text(entry.value.formattedSize),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                )
+                .toList(),
           ),
           const SizedBox(height: 8),
           if (qualityInfo != null)

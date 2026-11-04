@@ -134,7 +134,7 @@ class _RewardsScreenState extends State<RewardsScreen>
           borderRadius: BorderRadius.circular(22),
           border: Border.all(
               color: CinemaPalette.homeAccent
-                  .withValues(alpha: hero ? 0.30 : 0.12)),
+                  .withOpacity(hero ? 0.30 : 0.12)),
         ),
         child: Material(type: MaterialType.transparency, child: child),
       );
@@ -158,10 +158,10 @@ class _RewardsScreenState extends State<RewardsScreen>
   Widget _badge(IconData icon, String label) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
         decoration: BoxDecoration(
-          color: CinemaPalette.homeAccent.withValues(alpha: 0.08),
+          color: CinemaPalette.homeAccent.withOpacity(0.08),
           borderRadius: BorderRadius.circular(30),
           border: Border.all(
-              color: CinemaPalette.homeAccent.withValues(alpha: 0.18)),
+              color: CinemaPalette.homeAccent.withOpacity(0.18)),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(icon, color: CinemaPalette.homeAccent, size: 14),
@@ -193,7 +193,7 @@ class _RewardsScreenState extends State<RewardsScreen>
           border: Border.all(color: const Color(0xFFFFE9C8), width: 1.5),
           boxShadow: [
             BoxShadow(
-                color: CinemaPalette.homeAccent.withValues(alpha: 0.12),
+                color: CinemaPalette.homeAccent.withOpacity(0.12),
                 blurRadius: 24,
                 offset: const Offset(0, 6))
           ],
@@ -204,7 +204,7 @@ class _RewardsScreenState extends State<RewardsScreen>
           decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                  color: CinemaPalette.background.withValues(alpha: 0.18))),
+                  color: CinemaPalette.background.withOpacity(0.18))),
           child: const Icon(Icons.local_movies_outlined,
               color: Color(0xFF573717), size: 20),
         )),
@@ -368,7 +368,7 @@ class _RewardsScreenState extends State<RewardsScreen>
         Container(
             padding: const EdgeInsets.all(11),
             decoration: BoxDecoration(
-                color: CinemaPalette.homeAccent.withValues(alpha: 0.08),
+                color: CinemaPalette.homeAccent.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(14)),
             child: const Icon(Icons.play_circle_outline_rounded,
                 color: CinemaPalette.homeAccent)),
@@ -399,7 +399,7 @@ class _RewardsScreenState extends State<RewardsScreen>
           backgroundColor: CinemaPalette.homeAccent,
           foregroundColor: CinemaPalette.background,
           disabledBackgroundColor:
-              CinemaPalette.homeAccent.withValues(alpha: 0.10),
+              CinemaPalette.homeAccent.withOpacity(0.10),
           disabledForegroundColor: CinemaPalette.muted,
           minimumSize: const Size.fromHeight(44),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
@@ -457,7 +457,7 @@ class _RewardsScreenState extends State<RewardsScreen>
           disabledForegroundColor: CinemaPalette.muted,
           side: BorderSide(
               color: CinemaPalette.homeAccent
-                  .withValues(alpha: available ? .4 : .12)),
+                  .withOpacity(available ? .4 : .12)),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           minimumSize: const Size(0, 40),
           shape:
@@ -720,3 +720,4 @@ class _RewardsScreenState extends State<RewardsScreen>
     );
   }
 }
+

@@ -9,7 +9,6 @@ class MovieDownloadErrorNotice extends SnackBar {
       : super(
           content: Text(movieDownloadErrorMessage(error)),
           duration: const Duration(seconds: 6),
-          persist: false,
           showCloseIcon: true,
           action: onRetry == null
               ? null

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../utils/cinema_palette.dart';
@@ -158,10 +158,10 @@ class LegalInfoScreen extends StatelessWidget {
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: _accent.withValues(alpha: 0.32)),
+                border: Border.all(color: _accent.withOpacity(0.32)),
                 boxShadow: [
                   BoxShadow(
-                    color: _accent.withValues(alpha: 0.12),
+                    color: _accent.withOpacity(0.12),
                     blurRadius: 24,
                     offset: const Offset(0, 10),
                   ),
@@ -173,7 +173,7 @@ class LegalInfoScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: _accent.withValues(alpha: 0.14),
+                      color: _accent.withOpacity(0.14),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Icon(_icon, color: _accent, size: 30),
@@ -214,7 +214,7 @@ class LegalInfoScreen extends StatelessWidget {
                   color: CinemaPalette.surface,
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
-                      color: CinemaPalette.ivory.withValues(alpha: 0.08)),
+                      color: CinemaPalette.ivory.withOpacity(0.08)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,7 +226,7 @@ class LegalInfoScreen extends StatelessWidget {
                           height: 28,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: _accent.withValues(alpha: 0.12),
+                            color: _accent.withOpacity(0.12),
                             borderRadius: BorderRadius.circular(9),
                           ),
                           child: Text('${index + 1}',
@@ -259,7 +259,7 @@ class LegalInfoScreen extends StatelessWidget {
               margin: const EdgeInsets.only(top: 4),
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: CinemaPalette.ivory.withValues(alpha: 0.03),
+                color: CinemaPalette.ivory.withOpacity(0.03),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: const Text(
@@ -330,3 +330,4 @@ class _LegalContactTextState extends State<_LegalContactText> {
     );
   }
 }
+

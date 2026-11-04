@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../utils/cinema_palette.dart';
 import '../utils/my_list.dart';
 import 'movie_details_screen.dart';
@@ -147,7 +147,7 @@ class _MyListScreenState extends State<MyListScreen> {
     } catch (_) {
       if (mounted) {
         setState(() => _movies = previous);
-        _notice('Couldn’t remove this title. Please try again.');
+        _notice('Couldnâ€™t remove this title. Please try again.');
       }
     } finally {
       _removing.remove(id);
@@ -163,7 +163,7 @@ class _MyListScreenState extends State<MyListScreen> {
               title: const Text('Clear My List?',
                   style: TextStyle(color: CinemaPalette.ivory)),
               content: const Text(
-                  'Remove all saved titles? This won’t delete any downloaded movies.',
+                  'Remove all saved titles? This wonâ€™t delete any downloaded movies.',
                   style: TextStyle(color: CinemaPalette.muted, height: 1.5)),
               actions: [
                 TextButton(
@@ -187,7 +187,7 @@ class _MyListScreenState extends State<MyListScreen> {
       });
       _notice('My List cleared');
     } catch (_) {
-      if (mounted) _notice('Couldn’t clear your list. Please try again.');
+      if (mounted) _notice('Couldnâ€™t clear your list. Please try again.');
     } finally {
       if (mounted) setState(() => _clearing = false);
     }
@@ -211,7 +211,7 @@ class _MyListScreenState extends State<MyListScreen> {
                 color: CinemaPalette.surface,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                    color: CinemaPalette.homeAccent.withValues(alpha: .2))),
+                    color: CinemaPalette.homeAccent.withOpacity(.2))),
             child: Icon(
                 unavailable
                     ? Icons.cloud_off_rounded
@@ -237,7 +237,7 @@ class _MyListScreenState extends State<MyListScreen> {
           const SizedBox(height: 10),
           Text(
               unavailable
-                  ? 'We couldn’t load their details. Check your connection and try again.'
+                  ? 'We couldnâ€™t load their details. Check your connection and try again.'
                   : noMatches
                       ? 'Try another title or clear your search.'
                       : 'Tap the bookmark on a movie or show to save it for later.',
@@ -305,7 +305,7 @@ class _MyListScreenState extends State<MyListScreen> {
                   onPressed: _clearing ? null : () => _remove(movie),
                   style: IconButton.styleFrom(
                       backgroundColor:
-                          CinemaPalette.background.withValues(alpha: .9),
+                          CinemaPalette.background.withOpacity(.9),
                       foregroundColor: CinemaPalette.homeAccent),
                   icon: const Icon(Icons.bookmark_added_rounded, size: 21),
                 )),
@@ -320,7 +320,7 @@ class _MyListScreenState extends State<MyListScreen> {
               fontWeight: FontWeight.w600,
               height: 1.3)),
       const SizedBox(height: 5),
-      Text([type, if (year != null) year].join(' · '),
+      Text([type, if (year != null) year].join(' Â· '),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
@@ -463,7 +463,7 @@ class _MyListScreenState extends State<MyListScreen> {
                                                         CinemaPalette.ivory))),
                                         PopupMenuItem(
                                             value: _ListSort.title,
-                                            child: Text('Title A–Z',
+                                            child: Text('Title Aâ€“Z',
                                                 style: TextStyle(
                                                     color:
                                                         CinemaPalette.ivory))),
@@ -484,7 +484,7 @@ class _MyListScreenState extends State<MyListScreen> {
                                                         _sort ==
                                                                 _ListSort.newest
                                                             ? 'Recently saved'
-                                                            : 'Title A–Z',
+                                                            : 'Title Aâ€“Z',
                                                         style: const TextStyle(
                                                             color: CinemaPalette
                                                                 .appBarText,
@@ -501,7 +501,7 @@ class _MyListScreenState extends State<MyListScreen> {
                               if (_loadFailed && _movies.isNotEmpty) ...[
                                 const SizedBox(height: 12),
                                 const Text(
-                                    'Some titles couldn’t refresh. Your saved list is safe.',
+                                    'Some titles couldnâ€™t refresh. Your saved list is safe.',
                                     style: TextStyle(
                                         color: CinemaPalette.muted,
                                         height: 1.5)),
@@ -544,3 +544,4 @@ class _MyListScreenState extends State<MyListScreen> {
     );
   }
 }
+
