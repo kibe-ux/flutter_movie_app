@@ -13,6 +13,8 @@ class TvSeasonsSection extends StatefulWidget {
       required this.metadata,
       required this.onDownload,
       required this.onRefresh,
+      this.resolveOnDemand = false,
+      this.onPlay,
       this.service,
       this.downloadService,
       this.seriesTitle = 'TV Series',
@@ -24,6 +26,8 @@ class TvSeasonsSection extends StatefulWidget {
   final Future<Map<String, dynamic>?> metadata;
   final void Function(int season, Map<String, dynamic> episode) onDownload;
   final VoidCallback onRefresh;
+  final bool resolveOnDemand;
+  final void Function(int season, Map<String, dynamic> episode)? onPlay;
   final TvSeriesService? service;
   final DownloadService? downloadService;
 
@@ -200,7 +204,7 @@ class _TvSeasonsSectionState extends State<TvSeasonsSection> {
     final id = episodeDownloadId((episode['id'] as num).toInt());
     final task = downloads[id];
     final future = isFutureMovieRelease(episode['air_date']);
-    final available =
+    final available = widget.resolveOnDemand ||
         episodeDownloadMetadata(metadata, _selected!, number) != null;
     final downloading = task?.status == DownloadStatus.downloading;
     final completed = task?.status == DownloadStatus.completed;
@@ -210,10 +214,12 @@ class _TvSeasonsSectionState extends State<TvSeasonsSection> {
             ? '${(task!.progress * 100).round()}% · Pause'
             : completed
                 ? 'Downloaded'
-                : checking
+                : checking && !widget.resolveOnDemand
                     ? 'Checking availability…'
                     : available
-                        ? 'Download episode'
+                        ? widget.resolveOnDemand
+                            ? 'Find episode download'
+                            : 'Download episode'
                         : 'Download unavailable';
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -279,7 +285,9 @@ class _TvSeasonsSectionState extends State<TvSeasonsSection> {
                   LinearProgressIndicator(
                       value: task!.progress, color: CinemaPalette.gold),
                 TextButton.icon(
-                  onPressed: future || checking || completed
+                  onPressed: future ||
+                          (checking && !widget.resolveOnDemand) ||
+                          completed
                       ? null
                       : downloading
                           ? () => _downloads.pauseDownload(id)
@@ -295,6 +303,12 @@ class _TvSeasonsSectionState extends State<TvSeasonsSection> {
                       size: 20),
                   label: Text(label),
                 ),
+                if (widget.onPlay != null && !future)
+                  TextButton.icon(
+                    onPressed: () => widget.onPlay!(_selected!, episode),
+                    icon: const Icon(Icons.play_circle_outline),
+                    label: const Text('Watch episode'),
+                  ),
                 if (task?.errorMessage != null)
                   Text(task!.errorMessage!,
                       style: const TextStyle(color: Colors.orangeAccent)),

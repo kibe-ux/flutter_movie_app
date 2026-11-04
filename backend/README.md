@@ -1,5 +1,72 @@
 # Movie Download Backend
 
+## Wambesha search, playback and downloads
+
+Set `WAMBESHA_API_KEY` in `backend/.env` for local development. The key stays
+server-side; `neon.ts` supplies it through the moviehub function's private
+environment during deployment. Never add it to Flutter's `.env` asset.
+
+Flutter search uses these Firebase-authenticated GET routes:
+
+- `/api/wambesha/search?q=Arrival`
+- `/api/wambesha/titles?ids=mv_EXAMPLE,sr_EXAMPLE`
+- `/api/wambesha/titles/:titleRef`
+- `/api/wambesha/genres`
+- `/api/wambesha/lookup?tmdb_id=329865`
+- `/api/wambesha/titles/:titleRef/episodes?season=1&limit=50`
+- `/api/wambesha/titles/:titleRef/sources`
+
+Search fetches full records in a batch to map Wambesha IDs to TMDB IDs. Only
+movies and series with a positive TMDB ID appear, since existing details,
+bookmarks and downloads require that identity. Opening a result fetches its
+canonical TMDB details. Movie/episode downloads now select Wambesha `file_holding`
+URLs; Watch now/Watch episode select `playback_holding` URLs. The older
+`MovieDownloadService.requestSignedDownloadUrl` also resolves Wambesha sources
+instead of posting to `/api/download/request`. It accepts Wambesha movie IDs or
+numeric TMDB movie IDs; legacy local-file IDs are not equivalent identifiers.
+The quality argument is retained for caller compatibility, but the provider
+does not document a quality selector for this endpoint.
+
+Delivery sources can contain only `kind`, `url` and `host`; `expires_at` is
+optional. Flutter accepts HTTPS delivery URLs without expiry metadata and keeps
+its normal 30-second source cache. When an expiry is supplied, it must be valid
+and more than 30 seconds in the future. Use the complete URL returned by the
+API; a documentation URL ending in `...` is only a placeholder.
+
+Source requests occur only on explicit play/download actions, never per search
+tile or page render. Each process coalesces pending checks and reuses answers
+for up to 30 seconds per Firebase UID and title. Signed links must have over
+30 seconds remaining; cached replies expire before that margin. Empty replies
+are also briefly reused. Each user is limited to eight new source checks per
+minute per backend process; this is not a distributed quota across instances.
+Failed upstream requests are not automatically retried or cached. API errors
+are generic; source URLs, response bodies and credentials are not logged.
+Torrent listings and evidence are removed from client responses; `form=uri`
+and arbitrary source query parameters are rejected.
+
+Episode lookup matches season AND episode, following episode cursors before
+spending a verification on that episode. A missing file/playback source shows
+an availability message; it does not fall back to the other kind or FILMS365.
+Player Retry requests sources again (subject to the backend's short cache).
+The existing FILMS365 metadata routes remain for descriptive detail widgets.
+Account/key-management endpoints are not exposed. Provider
+401/403 responses become 502; only Firebase 401 responses refresh the app token.
+
+Deploy the backend before running the updated app against the hosted URL.
+Restart the local Node process after changing local environment settings.
+Focused checks: `node --test test/wambesha_test.js test/films365_proxy_test.js`
+from `backend`, plus Flutter's `test/services/wambesha_api_service_test.dart`
+and `test/services/wambesha_sources_test.dart`, `test/screens/search_screen_test.dart`,
+`test/screens/video_player_screen_test.dart`, and
+`test/screens/tv_seasons_section_test.dart` using the IDE Flutter SDK.
+
+Account deletion is implemented behind `ACCOUNT_DELETION_ENABLED=false` by default.
+See [the required rollout and verification steps](../docs/account-deletion-rollout.md)
+before enabling the endpoint or submitting its public deletion URL to Google Play.
+The deployed Neon retry function is `accountcleanup`, scheduled every five
+minutes. Use the staged rollout script from the repository root; ordinary
+deployments default both deletion flags to false.
+
 ## Setup
 
 1. Install dependencies:
@@ -14,6 +81,11 @@
    (for example, set `GOOGLE_APPLICATION_CREDENTIALS` to a service-account
    file outside source control, or use the hosting platform's workload identity).
    Never commit service-account credentials.
+   The existing Neon deployment instead uses `FIREBASE_SERVICE_ACCOUNT_JSON`
+   in its private hosted environment, with the dedicated account-cleanup
+   service account. Do not copy this credential into local `.env` or the app.
+   Both functions share `firebase_runtime.js`; malformed and cross-project
+   credentials fail closed. Omitted credential settings preserve the hosted value.
 4. Put movie files in `backend/movies/` using names like:
    - `Movie.Name.2023.1080p.mp4`
 5. Start server:

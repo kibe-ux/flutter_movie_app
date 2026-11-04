@@ -16,6 +16,8 @@ typedef Json = Map<String, dynamic>;
 
 class _User extends Fake implements User {
   @override
+  bool get isAnonymous => false;
+  @override
   String get uid => 'viewer';
 }
 
@@ -65,6 +67,11 @@ class _Snapshot extends Fake implements QuerySnapshot<Json> {
 }
 
 class _Forum extends Fake implements ForumService {
+  @override
+  Future<bool> acceptedGuidelines(String uid) async => true;
+  @override
+  Stream<QuerySnapshot<Json>> blockedUsers(String uid) =>
+      Stream.value(_Snapshot([]));
   int postCalls = 0;
   int replyCalls = 0;
   int loads = 0;
@@ -115,7 +122,9 @@ Future<void> _show(WidgetTester tester, _Forum forum, _Auth auth) async {
   addTearDown(auth.dispose);
   await tester.pumpWidget(ChangeNotifierProvider<AuthService>.value(
     value: auth,
-    child: MaterialApp(home: ForumScreen(service: forum)),
+    child: MaterialApp(
+        theme: ThemeData(splashFactory: InkRipple.splashFactory),
+        home: ForumScreen(service: forum)),
   ));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 400));
@@ -204,6 +213,42 @@ void main() {
     await tester.pump();
     expect(forum.replyCalls, 1);
     expect(find.text('Keep this reply'), findsOneWidget);
+  });
+
+  testWidgets('closing replies keeps the controller alive through dismissal',
+      (tester) async {
+    await _show(tester, _Forum(), _Auth());
+    await tester.tap(find.text('Shared discussion'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.enterText(
+        find.widgetWithText(TextField, 'Write a reply...'), 'A draft reply');
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pump();
+    // A metrics change can rebuild the outgoing sheet during its reverse
+    // transition, after Navigator.pop has completed but before unmounting.
+    tester.view.viewInsets = const FakeViewPadding(bottom: 100);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 1));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('another account post offers reporting and blocking',
+      (tester) async {
+    await _show(tester, _Forum(), _Auth());
+    await tester.tap(find.byTooltip('Content options'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Report post'), findsOneWidget);
+    expect(find.text('Report user'), findsOneWidget);
+    expect(find.text('Block user'), findsOneWidget);
+    await tester.tap(find.text('Report post'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Send report'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('feed errors are friendly and retry creates a fresh subscription',

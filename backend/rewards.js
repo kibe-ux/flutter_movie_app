@@ -57,6 +57,11 @@ function createSsvVerifier({ fetcher = fetch, now = Date.now } = {}) {
 function createRewards({ db, now = Date.now, units = () => [], enabled = () => false } = {}) {
   const database = () => typeof db === "function" ? db() : db;
   const account = (uid) => database().collection("reward_accounts").doc(uid);
+  async function requireActive(tx, uid) {
+    if ((await tx.get(database().collection('account_deletions').doc(uid))).exists) {
+      throw new RewardsError(403, 'This account is being deleted.');
+    }
+  }
   const configured = () => enabled() && units().length > 0;
   function requireEnabled() {
     if (!configured()) throw new RewardsError(503, "Cinema Rewards is being prepared. Please check back later.");
@@ -74,6 +79,7 @@ function createRewards({ db, now = Date.now, units = () => [], enabled = () => f
       const ref = account(uid);
       // One active session per account limits duplicate launches across devices.
       return database().runTransaction(async (tx) => {
+        await requireActive(tx, uid);
         const wallet = (await tx.get(ref)).data() || {};
         if ((wallet.adFreeUntil || 0) > now()) throw new RewardsError(409, "Your ad-free pass is already active.");
         const old = wallet.pendingSession;
@@ -87,6 +93,7 @@ function createRewards({ db, now = Date.now, units = () => [], enabled = () => f
     async cancel(uid, sessionId) {
       const ref = account(uid);
       await database().runTransaction(async (tx) => {
+        await requireActive(tx, uid);
         const wallet = (await tx.get(ref)).data() || {};
         if (wallet.pendingSession?.id === sessionId) {
           tx.set(ref, { pendingSession: null }, { merge: true });
@@ -104,6 +111,7 @@ function createRewards({ db, now = Date.now, units = () => [], enabled = () => f
       const receipt = database().collection("reward_receipts").doc(transactionId);
       const sessionRef = database().collection("reward_sessions").doc(sessionId);
       return database().runTransaction(async (tx) => {
+        await requireActive(tx, uid);
         const existing = await tx.get(receipt);
         if (existing.exists) return; // Provider retries never pay twice.
         const wallet = (await tx.get(ref)).data() || {};
@@ -130,6 +138,7 @@ function createRewards({ db, now = Date.now, units = () => [], enabled = () => f
       const ref = account(uid);
       const receipt = ref.collection("redemptions").doc(requestId);
       await database().runTransaction(async (tx) => {
+        await requireActive(tx, uid);
         const prior = await tx.get(receipt);
         if (prior.exists) return; // Retrying an uncertain HTTP result is safe.
         const wallet = (await tx.get(ref)).data() || {};

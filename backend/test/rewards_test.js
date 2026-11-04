@@ -33,6 +33,22 @@ function store() {
   };
 }
 const unit = "ca-app-pub-publisher/1234";
+test('deletion fence prevents new sessions, cancellations, redemptions and late SSV from recreating a wallet', async () => {
+  const { db, rewards, now } = setup();
+  const session = await rewards.session('viewer', unit);
+  db.documents.set('account_deletions/viewer', { status: 'pending' });
+  db.documents.delete('reward_accounts/viewer');
+  for (const action of [
+    () => rewards.session('viewer', unit),
+    () => rewards.cancel('viewer', session.id),
+    () => rewards.redeem('viewer', 'hour', 'valid_request_123456'),
+    () => rewards.credit(event(session, now())),
+  ]) await assert.rejects(action(), { status: 403 });
+  assert.equal(db.documents.has('reward_accounts/viewer'), false);
+  assert.equal(db.documents.has('reward_receipts/event_one'), false);
+  db.documents.set('account_deletions/viewer', { status: 'complete' });
+  await assert.rejects(rewards.credit(event(session, now())), { status: 403 });
+});
 test("reward routes reject guests and anonymous accounts before database access", async (t) => {
   const express = require("express");
   const app = express();

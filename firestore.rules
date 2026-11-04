@@ -1,0 +1,170 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function activeUid(uid) {
+      return !exists(/databases/$(database)/documents/account_deletions/$(uid));
+    }
+    function member() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && activeUid(request.auth.uid);
+    }
+    function moderator() {
+      return member() && request.auth.token.get('moderator', false) == true;
+    }
+    function contributor() {
+      return member() && get(/databases/$(database)/documents/forum_members/$(request.auth.uid)).data.termsVersion == 1;
+    }
+    function canInteract(uid) {
+      return !exists(/databases/$(database)/documents/forum_members/$(uid)/blocked/$(request.auth.uid))
+        && !exists(/databases/$(database)/documents/forum_members/$(request.auth.uid)/blocked/$(uid));
+    }
+    function text(value, maximum) {
+      return value is string && value.size() > 0 && value.size() <= maximum;
+    }
+    function photo(value) {
+      return value == null || (value is string && value.size() <= 2048
+        && (value == '' || value.matches('https?://.*')));
+    }
+    function openPost(data) {
+      return data.deleting == false && data.get('removed', false) == false
+        && activeUid(data.uid) && canInteract(data.uid);
+    }
+    function validLike() {
+      let before = resource.data.likedBy.toSet();
+      let after = request.resource.data.likedBy.toSet();
+      let uid = request.auth.uid;
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'likes'])
+        && request.resource.data.likedBy is list
+        && request.resource.data.likes is int
+        && request.resource.data.likes == request.resource.data.likedBy.size()
+        && after.size() == request.resource.data.likedBy.size()
+        && ((!(uid in before) && uid in after && after.difference(before) == [uid].toSet()
+              && before.difference(after).size() == 0)
+          || (uid in before && !(uid in after) && before.difference(after) == [uid].toSet()
+              && after.difference(before).size() == 0));
+    }
+    function validReplyCount(postId) {
+      let id = request.resource.data.lastCommentId;
+      let replyPath = /databases/$(database)/documents/forum_posts/$(postId)/comments/$(id);
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['commentCount', 'lastCommentId'])
+        && id is string && id.matches('[a-zA-Z0-9_-]{1,128}')
+        && request.resource.data.commentCount is int
+        && request.resource.data.commentCount == resource.data.commentCount + 1
+        && !exists(replyPath)
+        && getAfter(replyPath).data.uid == request.auth.uid;
+    }
+    match /forum_posts/{postId} {
+      // Discussions are public. Other collections have no client grants.
+      allow read: if true;
+      allow create: if contributor()
+        && postId.matches('[a-zA-Z0-9_-]{1,128}')
+        && request.resource.data.keys().hasAll(['uid', 'author', 'photoURL', 'title', 'content', 'category',
+          'timestamp', 'likes', 'likedBy', 'commentCount', 'lastCommentId', 'deleting'])
+        && request.resource.data.keys().hasOnly(['uid', 'author', 'photoURL', 'title', 'content', 'category',
+          'timestamp', 'likes', 'likedBy', 'commentCount', 'lastCommentId', 'deleting'])
+        && request.resource.data.uid == request.auth.uid
+        && text(request.resource.data.author, 100)
+        && photo(request.resource.data.photoURL)
+        && text(request.resource.data.title, 100)
+        && text(request.resource.data.content, 1000)
+        && request.resource.data.category in ['Recommendations', 'Reviews', 'Discussion', 'Questions', 'Off-topic']
+        && request.resource.data.timestamp == request.time
+        && request.resource.data.likes is int && request.resource.data.likes == 0
+        && request.resource.data.likedBy is list && request.resource.data.likedBy.size() == 0
+        && request.resource.data.commentCount is int && request.resource.data.commentCount == 0
+        && request.resource.data.lastCommentId == null
+        && request.resource.data.deleting == false;
+      allow update: if member() && (
+        (contributor() && openPost(resource.data) && (validLike() || validReplyCount(postId)))
+        || (resource.data.uid == request.auth.uid && resource.data.deleting == false
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deleting'])
+          && request.resource.data.deleting == true)
+      ) || (moderator()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['removed', 'title', 'content', 'author', 'photoURL', 'deleting', 'moderatedAt'])
+        && request.resource.data.removed == true && request.resource.data.deleting == true
+        && request.resource.data.title == 'Discussion removed'
+        && request.resource.data.content == 'This discussion was removed for violating community rules.'
+        && request.resource.data.author == 'Member' && request.resource.data.photoURL == null
+        && request.resource.data.moderatedAt == request.time);
+      allow delete: if member() && resource.data.uid == request.auth.uid && resource.data.deleting == true;
+      match /comments/{commentId} {
+        function parentPath() {
+          return /databases/$(database)/documents/forum_posts/$(postId);
+        }
+        allow read: if moderator() || (exists(parentPath()) && get(parentPath()).data.get('removed', false) == false);
+        allow create: if contributor()
+          && commentId.matches('[a-zA-Z0-9_-]{1,128}')
+          && request.resource.data.keys().hasAll(['uid', 'author', 'photoURL', 'content', 'timestamp'])
+          && request.resource.data.keys().hasOnly(['uid', 'author', 'photoURL', 'content', 'timestamp'])
+          && request.resource.data.uid == request.auth.uid
+          && text(request.resource.data.author, 100)
+          && photo(request.resource.data.photoURL)
+          && text(request.resource.data.content, 1000)
+          && request.resource.data.timestamp == request.time
+          && exists(parentPath()) && openPost(get(parentPath()).data)
+          && getAfter(parentPath()).data.deleting == false
+          && getAfter(parentPath()).data.lastCommentId == commentId
+          && getAfter(parentPath()).data.commentCount == get(parentPath()).data.commentCount + 1;
+        // Replies are immutable. Owners clean up only a deleting discussion.
+        allow delete: if member() && exists(parentPath())
+          && get(parentPath()).data.uid == request.auth.uid
+          && get(parentPath()).data.deleting == true;
+        allow update: if moderator()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['removed', 'content', 'author', 'photoURL', 'moderatedAt'])
+          && request.resource.data.removed == true
+          && request.resource.data.content == 'This reply was removed for violating community rules.'
+          && request.resource.data.author == 'Member' && request.resource.data.photoURL == null
+          && request.resource.data.moderatedAt == request.time;
+      }
+    }
+    match /forum_members/{uid} {
+      allow read: if member() && uid == request.auth.uid;
+      allow create, update: if member() && uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['termsVersion', 'acceptedAt'])
+        && request.resource.data.termsVersion == 1 && request.resource.data.acceptedAt == request.time;
+      match /blocked/{blockedUid} {
+        allow read: if member() && uid == request.auth.uid;
+        allow create, update: if member() && uid == request.auth.uid && blockedUid != uid
+          && activeUid(blockedUid) && exists(/databases/$(database)/documents/forum_members/$(blockedUid))
+          && request.resource.data.keys().hasAll(['uid', 'author', 'timestamp'])
+          && request.resource.data.keys().hasOnly(['uid', 'author', 'timestamp'])
+          && request.resource.data.uid == blockedUid && text(request.resource.data.author, 100)
+          && request.resource.data.timestamp == request.time;
+        allow delete: if member() && uid == request.auth.uid;
+      }
+    }
+    match /forum_reports/{reportId} {
+      function targetPath(data) {
+        return data.commentId == null
+          ? /databases/$(database)/documents/forum_posts/$(data.postId)
+          : /databases/$(database)/documents/forum_posts/$(data.postId)/comments/$(data.commentId);
+      }
+      allow read: if moderator();
+      allow create: if member()
+        && request.resource.data.keys().hasAll(['reporterUid', 'targetUid', 'targetType', 'postId', 'commentId', 'reason', 'details', 'timestamp', 'status'])
+        && request.resource.data.keys().hasOnly(['reporterUid', 'targetUid', 'targetType', 'postId', 'commentId', 'reason', 'details', 'timestamp', 'status'])
+        && request.resource.data.reporterUid == request.auth.uid
+        && request.resource.data.targetType in ['post', 'comment', 'user']
+        && request.resource.data.postId is string && request.resource.data.postId.matches('[a-zA-Z0-9_-]{1,128}')
+        && (request.resource.data.commentId == null || (request.resource.data.commentId is string && request.resource.data.commentId.matches('[a-zA-Z0-9_-]{1,128}')))
+        && (request.resource.data.targetType != 'post' || request.resource.data.commentId == null)
+        && (request.resource.data.targetType != 'comment' || request.resource.data.commentId != null)
+        && reportId == request.auth.uid + ':' + request.resource.data.targetType + ':' + request.resource.data.postId + ':' + (request.resource.data.commentId == null ? 'post' : request.resource.data.commentId)
+        && request.resource.data.reason in ['Harassment or hate', 'Sexual or harmful content', 'Spam or scam', 'Copyright or illegal content', 'Other']
+        && request.resource.data.details is string && request.resource.data.details.size() <= 1000
+        && request.resource.data.timestamp == request.time && request.resource.data.status == 'open'
+        && exists(targetPath(request.resource.data))
+        && request.resource.data.targetUid == get(targetPath(request.resource.data)).data.uid
+        && activeUid(request.resource.data.targetUid);
+      allow update: if moderator() && resource.data.status == 'open'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedAt', 'reviewedBy'])
+        && request.resource.data.reviewedBy == request.auth.uid && request.resource.data.reviewedAt == request.time
+        && (request.resource.data.status == 'dismissed'
+          || (request.resource.data.status == 'removed' && getAfter(targetPath(resource.data)).data.removed == true));
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

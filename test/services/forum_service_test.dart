@@ -13,6 +13,8 @@ class _Document extends Fake implements DocumentReference<Json> {
   @override
   final String path;
   @override
+  String get id => path.split('/').last;
+  @override
   CollectionReference<Json> collection(String name) =>
       _Collection('$path/$name');
 }
@@ -197,6 +199,7 @@ void main() {
     expect(db.writes.reply?['content'], 'Hello');
     expect(db.writes.reply?['uid'], 'viewer');
     expect(db.writes.updateData?['commentCount'], isA<FieldValue>());
+    expect(db.writes.updateData?['lastCommentId'], 'new');
     expect(db.writes.commits, 1);
   });
 

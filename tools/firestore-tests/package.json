@@ -1,0 +1,5 @@
+{
+  "name": "moviehub-firestore-security-tests",
+  "private": true,
+  "scripts": { "test": "node run_emulator.cjs" }
+}

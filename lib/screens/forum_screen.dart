@@ -1,11 +1,15 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/forum_service.dart';
+import '../widgets/forum_safety_widgets.dart';
+import 'forum_blocked_users_screen.dart';
+import 'forum_moderation_screen.dart';
 import '../utils/cinema_palette.dart';
 import 'login_screen.dart';
 
@@ -45,6 +49,56 @@ class _ForumScreenState extends State<ForumScreen>
   QuerySnapshot? _lastFilteredSnapshot;
   String? _lastFilteredQuery;
   List<QueryDocumentSnapshot> _filteredPosts = const [];
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _blockSubscription;
+  final _blocked = ValueNotifier<Set<String>>({});
+  String? _observedUid;
+  bool _blocksReady = true;
+  bool _blockError = false;
+  bool _isModerator = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final user = context.watch<AuthService>().currentUser;
+    final uid = user?.isAnonymous == false ? user!.uid : null;
+    if (uid == _observedUid) return;
+    _observedUid = uid;
+    _blockSubscription?.cancel();
+    _blocked.value = {};
+    _blocksReady = uid == null;
+    _blockError = false;
+    _isModerator = false;
+    _lastFilteredSnapshot = null;
+    if (uid == null) return;
+    _blockSubscription = _forum.blockedUsers(uid).listen((snapshot) {
+      if (!mounted || _observedUid != uid) return;
+      setState(() {
+        _blocksReady = true;
+        _blockError = false;
+        _blocked.value = snapshot.docs.map((doc) => doc.id).toSet();
+        _lastFilteredSnapshot = null;
+      });
+    }, onError: (Object error) {
+      if (mounted && _observedUid == uid) {
+        setState(() {
+          _blocksReady = false;
+          _blockError = true;
+        });
+      }
+    });
+    _loadModerator(user!);
+  }
+
+  Future<void> _loadModerator(User user) async {
+    try {
+      final result = await user.getIdTokenResult(true);
+      if (mounted && _observedUid == user.uid) {
+        setState(() => _isModerator = result.claims?['moderator'] == true);
+      }
+    } catch (_) {
+      /* Role checks fail closed; Firestore rules remain authoritative. */
+    }
+  }
 
   static const _categories = [
     'All',
@@ -73,6 +127,8 @@ class _ForumScreenState extends State<ForumScreen>
     _titleController.dispose();
     _contentController.dispose();
     _searchController.dispose();
+    _blockSubscription?.cancel();
+    _blocked.dispose();
     super.dispose();
   }
 
@@ -87,10 +143,12 @@ class _ForumScreenState extends State<ForumScreen>
   }
 
   List<QueryDocumentSnapshot> _filterPosts(List<QueryDocumentSnapshot> docs) {
-    if (_searchQuery.isEmpty) return docs;
     final query = _searchQuery;
     return docs.where((doc) {
       final data = doc.data() as Map<String, dynamic>;
+      if (data['removed'] == true || _blocked.value.contains(data['uid'])) {
+        return false;
+      }
       final title = (data['title'] ?? '').toString().toLowerCase();
       final content = (data['content'] ?? '').toString().toLowerCase();
       return title.contains(query) || content.contains(query);
@@ -107,9 +165,10 @@ class _ForumScreenState extends State<ForumScreen>
     return _cachedPostsStream = _forum.posts(_selectedCategory);
   }
 
-  Future<String?> _ensureSignedIn() async {
-    final uid = context.read<AuthService>().currentUser?.uid;
-    if (uid != null) return uid;
+  Future<String?> _ensureSignedIn({bool contribute = true}) async {
+    final user = context.read<AuthService>().currentUser;
+    final uid = user?.isAnonymous == false ? user?.uid : null;
+    if (uid != null) return !contribute || await _ensureTerms(uid) ? uid : null;
     final signedIn = await Navigator.of(context).push<bool>(MaterialPageRoute(
       builder: (_) => const LoginScreen(
         reason:
@@ -117,7 +176,90 @@ class _ForumScreenState extends State<ForumScreen>
       ),
     ));
     if (!mounted || signedIn != true) return null;
-    return context.read<AuthService>().currentUser?.uid;
+    final signedInUser = context.read<AuthService>().currentUser;
+    if (signedInUser == null || signedInUser.isAnonymous) return null;
+    return !contribute || await _ensureTerms(signedInUser.uid)
+        ? signedInUser.uid
+        : null;
+  }
+
+  Future<bool> _ensureTerms(String uid) async {
+    try {
+      if (await _forum.acceptedGuidelines(uid)) return mounted;
+      if (!mounted || !await showCommunityTerms(context, accepting: true)) {
+        return false;
+      }
+      if (!mounted || context.read<AuthService>().currentUser?.uid != uid) {
+        return false;
+      }
+      await _forum.acceptGuidelines(uid);
+      return mounted;
+    } catch (_) {
+      if (mounted) {
+        _snack(
+            'Could not confirm community rules. Check your connection and try again.');
+      }
+      return false;
+    }
+  }
+
+  Future<void> _safety(String action, Map<String, dynamic> data, String postId,
+      {String? commentId}) async {
+    final uid = await _ensureSignedIn(contribute: false);
+    if (uid == null || !mounted) return;
+    final targetUid = data['uid'] as String?;
+    if (targetUid == null || targetUid == uid) return;
+    try {
+      if (action == 'block') {
+        final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+                  title: const Text('Block this user?'),
+                  content: const Text(
+                      'Their posts and replies will be hidden in your signed-in feed. Likes and replies between you on each other’s posts will be blocked. You can unblock them from Blocked users.'),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancel')),
+                    FilledButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Block user'))
+                  ],
+                ));
+        if (confirmed != true || !mounted) return;
+        await _forum.blockUser(
+            uid, targetUid, data['author'] as String? ?? 'Member');
+        if (mounted) _snack('User blocked.');
+      } else {
+        final input = await showDialog<ForumReportInput>(
+            context: context,
+            builder: (_) => ForumReportDialog(
+                title: action == 'user'
+                    ? 'Report user'
+                    : commentId == null
+                        ? 'Report post'
+                        : 'Report reply'));
+        if (input == null || !mounted) return;
+        await _forum.report(
+            uid: uid,
+            targetUid: targetUid,
+            targetType: action == 'user'
+                ? 'user'
+                : commentId == null
+                    ? 'post'
+                    : 'comment',
+            postId: postId,
+            commentId: commentId,
+            reason: input.reason,
+            details: input.details);
+        if (mounted) _snack('Report sent to the moderation team.');
+      }
+    } catch (_) {
+      if (mounted) {
+        _snack(
+            'Could not complete this action. A report may already have been submitted for this content. Please try again or contact support.');
+      }
+    }
   }
 
   Future<void> _createPost(
@@ -179,7 +321,9 @@ class _ForumScreenState extends State<ForumScreen>
 
   // -- Create Post Sheet -----------------------------------------------------
   Future<void> _showCreatePostSheet() async {
-    if (_posting || await _ensureSignedIn() == null || !mounted) return;
+    if (_posting) return;
+    final uid = await _ensureSignedIn();
+    if (uid == null || !mounted) return;
     String selectedCategory = _categories[1];
     _titleController.clear();
     _contentController.clear();
@@ -401,7 +545,6 @@ class _ForumScreenState extends State<ForumScreen>
 
   // -- Comments Sheet --------------------------------------------------------
   void _openCommentsSheet(Map<String, dynamic> data, String postId) {
-    final commentCtrl = TextEditingController();
     bool sending = false;
     bool sheetOpen = true;
     final commentsStream = _forum.comments(postId);
@@ -409,185 +552,215 @@ class _ForumScreenState extends State<ForumScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.75,
-        maxChildSize: 0.95,
-        builder: (_, scrollCtrl) => Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          ),
-          child: Container(
-            decoration: const BoxDecoration(
-              color: _surface,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      builder: (ctx) => _ForumReplyController(
+        builder: (commentCtrl) => DraggableScrollableSheet(
+          initialChildSize: 0.75,
+          maxChildSize: 0.95,
+          builder: (_, scrollCtrl) => Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom,
             ),
-            child: Column(
-              children: [
-                Container(
-                  margin: const EdgeInsets.only(top: 12),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                      color: Colors.white24,
-                      borderRadius: BorderRadius.circular(2)),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.comment_rounded,
-                          color: _accent, size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(data['title'] ?? '',
+            child: Container(
+              decoration: const BoxDecoration(
+                color: _surface,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(2)),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.comment_rounded,
+                            color: _accent, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(data['title'] ?? '',
+                              style: const TextStyle(
+                                  color: _onSurface,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close,
+                              color: CinemaPalette.muted),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(color: Colors.white12),
+                  Expanded(
+                    child: ValueListenableBuilder<Set<String>>(
+                        valueListenable: _blocked,
+                        builder: (context, blocked, _) =>
+                            StreamBuilder<QuerySnapshot>(
+                              stream: commentsStream,
+                              builder: (ctx, snap) {
+                                if (snap.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return _buildCommentSkeletons();
+                                }
+                                  if (snap.hasError) {
+                                  return _buildError(snap.error);
+                                  }
+                                if (!_blocksReady) {
+                                  return const Center(
+                                      child: Text(
+                                          'Waiting for your blocked-user settings.'));
+                                }
+                                final docs = (snap.data?.docs ?? [])
+                                    .where((doc) => !blocked.contains(
+                                        (doc.data()
+                                            as Map<String, dynamic>)['uid']))
+                                    .toList();
+                                if (docs.isEmpty) {
+                                  return const Center(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.chat_bubble_outline,
+                                            size: 56, color: Colors.white24),
+                                        SizedBox(height: 12),
+                                        Text('No comments yet',
+                                            style: TextStyle(
+                                                color: CinemaPalette.muted,
+                                                fontSize: 16)),
+                                        SizedBox(height: 4),
+                                        Text('Be the first to reply!',
+                                            style: TextStyle(
+                                                color: Colors.white24,
+                                                fontSize: 13)),
+                                      ],
+                                    ),
+                                  );
+                                }
+                                return ListView.builder(
+                                  controller: scrollCtrl,
+                                  physics: const BouncingScrollPhysics(),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 8),
+                                  itemCount: docs.length,
+                                  itemBuilder: (_, i) {
+                                    final c =
+                                        docs[i].data() as Map<String, dynamic>;
+                                    return _CommentTile(
+                                        data: c,
+                                        safetyMenu: c['removed'] == true ||
+                                                c['uid'] == _observedUid
+                                            ? null
+                                            : ForumSafetyMenu(
+                                                reply: true,
+                                                onSelected: (action) => _safety(
+                                                    action, c, postId,
+                                                    commentId: docs[i].id)));
+                                  },
+                                );
+                              },
+                            )),
+                  ),
+                  // Comment input bar
+                  Container(
+                    padding: const EdgeInsets.only(
+                      left: 16,
+                      right: 8,
+                      top: 12,
+                      bottom: 12,
+                    ),
+                    decoration: const BoxDecoration(
+                      color: _card,
+                      border: Border(top: BorderSide(color: Colors.white12)),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: commentCtrl,
                             style: const TextStyle(
-                                color: _onSurface,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                      IconButton(
-                        icon:
-                            const Icon(Icons.close, color: CinemaPalette.muted),
-                        onPressed: () => Navigator.pop(ctx),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(color: Colors.white12),
-                Expanded(
-                  child: StreamBuilder<QuerySnapshot>(
-                    stream: commentsStream,
-                    builder: (ctx, snap) {
-                      if (snap.connectionState == ConnectionState.waiting) {
-                        return _buildCommentSkeletons();
-                      }
-                      if (snap.hasError) return _buildError(snap.error);
-                      final docs = snap.data?.docs ?? [];
-                      if (docs.isEmpty) {
-                        return const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.chat_bubble_outline,
-                                  size: 56, color: Colors.white24),
-                              SizedBox(height: 12),
-                              Text('No comments yet',
-                                  style: TextStyle(
-                                      color: CinemaPalette.muted,
-                                      fontSize: 16)),
-                              SizedBox(height: 4),
-                              Text('Be the first to reply!',
-                                  style: TextStyle(
-                                      color: Colors.white24, fontSize: 13)),
-                            ],
-                          ),
-                        );
-                      }
-                      return ListView.builder(
-                        controller: scrollCtrl,
-                        physics: const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
-                        itemCount: docs.length,
-                        itemBuilder: (_, i) {
-                          final c = docs[i].data() as Map<String, dynamic>;
-                          return _CommentTile(data: c);
-                        },
-                      );
-                    },
-                  ),
-                ),
-                // Comment input bar
-                Container(
-                  padding: const EdgeInsets.only(
-                    left: 16,
-                    right: 8,
-                    top: 12,
-                    bottom: 12,
-                  ),
-                  decoration: const BoxDecoration(
-                    color: _card,
-                    border: Border(top: BorderSide(color: Colors.white12)),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: commentCtrl,
-                          style:
-                              const TextStyle(color: _onSurface, fontSize: 14),
-                          decoration: InputDecoration(
-                            hintText: 'Write a reply...',
-                            hintStyle:
-                                const TextStyle(color: CinemaPalette.muted),
-                            filled: true,
-                            fillColor: _surface,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              borderSide: BorderSide.none,
+                                color: _onSurface, fontSize: 14),
+                            decoration: InputDecoration(
+                              hintText: 'Write a reply...',
+                              hintStyle:
+                                  const TextStyle(color: CinemaPalette.muted),
+                              filled: true,
+                              fillColor: _surface,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(24),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 10),
                             ),
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 10),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: () async {
-                          if (sending) return;
-                          final text = commentCtrl.text.trim();
-                          if (text.isEmpty) return;
-                          final uid = await _ensureSignedIn();
-                          if (uid == null || !sheetOpen || !mounted) return;
-                          if (text.length > 1000) {
-                            _snack('Keep replies within 1,000 characters.');
-                            return;
-                          }
-                          final auth = context.read<AuthService>();
-                          sending = true;
-                          try {
-                            await _forum.addComment(
-                              postId: postId,
-                              uid: uid,
-                              author: auth.displayName ??
-                                  auth.email?.split('@').first ??
-                                  'Member',
-                              photoURL: auth.photoURL,
-                              content: text,
-                            );
-                            if (sheetOpen && commentCtrl.text.trim() == text) {
-                              commentCtrl.clear();
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () async {
+                            if (sending) return;
+                            final text = commentCtrl.text.trim();
+                            if (text.isEmpty) return;
+                            final uid = await _ensureSignedIn();
+                            if (uid == null || !sheetOpen || !mounted) return;
+                            if (text.length > 1000) {
+                              _snack('Keep replies within 1,000 characters.');
+                              return;
                             }
-                          } catch (error) {
-                            if (mounted) _snack(_forumError(error));
-                          } finally {
-                            sending = false;
-                          }
-                        },
-                        child: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(colors: [_accent, _gold]),
-                            shape: BoxShape.circle,
+                            final auth = context.read<AuthService>();
+                            sending = true;
+                            try {
+                              await _forum.addComment(
+                                postId: postId,
+                                uid: uid,
+                                author: auth.displayName ??
+                                    auth.email?.split('@').first ??
+                                    'Member',
+                                photoURL: auth.photoURL,
+                                content: text,
+                              );
+                              if (sheetOpen &&
+                                  commentCtrl.text.trim() == text) {
+                                commentCtrl.clear();
+                              }
+                            } catch (error) {
+                              if (mounted) _snack(_forumError(error));
+                            } finally {
+                              sending = false;
+                            }
+                          },
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: const BoxDecoration(
+                              gradient:
+                                  LinearGradient(colors: [_accent, _gold]),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.send_rounded,
+                                color: CinemaPalette.background, size: 20),
                           ),
-                          child: const Icon(Icons.send_rounded,
-                              color: CinemaPalette.background, size: 20),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
     ).whenComplete(() {
       sheetOpen = false;
-      commentCtrl.dispose();
     });
   }
 
@@ -624,6 +797,32 @@ class _ForumScreenState extends State<ForumScreen>
               ),
             ),
             actions: [
+              IconButton(
+                  tooltip: 'Community rules',
+                  icon: const Icon(Icons.policy_outlined),
+                  onPressed: () => showCommunityTerms(context)),
+              IconButton(
+                  tooltip: 'Blocked users',
+                  icon: const Icon(Icons.person_off_outlined),
+                  onPressed: () async {
+                    final uid = await _ensureSignedIn(contribute: false);
+                    if (uid != null && context.mounted) {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => ForumBlockedUsersScreen(
+                                  uid: uid, service: _forum)));
+                    }
+                  }),
+              if (_isModerator)
+                IconButton(
+                    tooltip: 'Moderation reports',
+                    icon: const Icon(Icons.admin_panel_settings_outlined),
+                    onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => ForumModerationScreen(
+                                service: _forum, uid: currentUid)))),
               IconButton(
                 icon: const Icon(Icons.add_circle_rounded,
                     color: _accent, size: 28),
@@ -738,6 +937,11 @@ class _ForumScreenState extends State<ForumScreen>
         body: StreamBuilder<QuerySnapshot>(
           stream: _postsStream,
           builder: (ctx, snap) {
+            if (_blockError) {
+              return _buildError(StateError(
+                  'Could not load your blocked-user settings. Reopen the forum to retry.'));
+            }
+            if (!_blocksReady) return _buildPostSkeletons();
             if (snap.connectionState == ConnectionState.waiting) {
               return _buildPostSkeletons();
             }
@@ -768,6 +972,12 @@ class _ForumScreenState extends State<ForumScreen>
                   postId: doc.id,
                   data: data,
                   currentUid: currentUid,
+                  safetyMenu: data['uid'] == currentUid
+                      ? null
+                      : ForumSafetyMenu(
+                          reply: false,
+                          onSelected: (action) =>
+                              _safety(action, data, doc.id)),
                   onLike: () => _toggleLike(doc.id),
                   onComment: () => _openCommentsSheet(data, doc.id),
                   onDelete: data['uid'] == currentUid
@@ -1072,6 +1282,7 @@ class _PostCard extends StatelessWidget {
   final VoidCallback onLike;
   final VoidCallback onComment;
   final VoidCallback? onDelete;
+  final Widget? safetyMenu;
 
   const _PostCard({
     required this.postId,
@@ -1080,6 +1291,7 @@ class _PostCard extends StatelessWidget {
     required this.onLike,
     required this.onComment,
     this.onDelete,
+    this.safetyMenu,
   });
 
   @override
@@ -1171,6 +1383,7 @@ class _PostCard extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.5)),
                   ),
+                  if (safetyMenu != null) safetyMenu!,
                   if (onDelete != null) ...[
                     const SizedBox(width: 4),
                     GestureDetector(
@@ -1346,9 +1559,33 @@ class _PostCard extends StatelessWidget {
 }
 
 // --- Comment Tile ----------------------------------------------------------
+// The route can rebuild while its exit animation runs, after the modal's
+// returned Future completes. Dispose its controller only when it unmounts.
+class _ForumReplyController extends StatefulWidget {
+  const _ForumReplyController({required this.builder});
+  final Widget Function(TextEditingController controller) builder;
+
+  @override
+  State<_ForumReplyController> createState() => _ForumReplyControllerState();
+}
+
+class _ForumReplyControllerState extends State<_ForumReplyController> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(_controller);
+}
+
 class _CommentTile extends StatelessWidget {
   final Map<String, dynamic> data;
-  const _CommentTile({required this.data});
+  final Widget? safetyMenu;
+  const _CommentTile({required this.data, this.safetyMenu});
 
   @override
   Widget build(BuildContext context) {
@@ -1390,6 +1627,8 @@ class _CommentTile extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 4),
+                if (safetyMenu != null)
+                  Align(alignment: Alignment.centerRight, child: safetyMenu),
                 Text((data['content'] ?? '').toString(),
                     style: const TextStyle(
                         color: CinemaPalette.muted, fontSize: 13, height: 1.4)),

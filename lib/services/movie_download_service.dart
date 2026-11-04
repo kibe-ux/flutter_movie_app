@@ -12,6 +12,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../models/download_task.dart';
 import '../models/movie.dart';
 import 'http_diagnostics.dart';
+import 'wambesha_api_service.dart';
 
 class DownloadedMovie {
   const DownloadedMovie({
@@ -30,7 +31,10 @@ class DownloadedMovie {
 }
 
 class MovieDownloadService {
-  MovieDownloadService._internal();
+  MovieDownloadService._internal({WambeshaApiService? sourceService})
+      : _sourceService = sourceService ?? WambeshaApiService();
+  MovieDownloadService.forTesting({required WambeshaApiService sourceService})
+      : this._internal(sourceService: sourceService);
   static final MovieDownloadService _instance =
       MovieDownloadService._internal();
   factory MovieDownloadService() => _instance;
@@ -40,6 +44,7 @@ class MovieDownloadService {
   final Map<String, DownloadTask> _tasks = {};
   final Map<String, _ActiveDownload> _activeDownloads = {};
   final http.Client _apiClient = http.Client();
+  final WambeshaApiService _sourceService;
 
   Stream<Map<String, DownloadTask>> get downloadTasksStream =>
       _downloadController.stream;
@@ -82,21 +87,29 @@ class MovieDownloadService {
   Future<String> requestSignedDownloadUrl({
     required String movieId,
     required String quality,
+    bool refresh = false,
   }) async {
-    final response = await _withRetry(
-      () async => _apiClient.post(
-        Uri.parse('$_baseUrl/api/download/request'),
-        headers: await _authHeaders(json: true),
-        body: jsonEncode({'movieId': movieId, 'quality': quality}),
-      ),
-    );
-    _ensureSuccess(response, endpoint: '/api/download/request');
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-    final url = decoded['downloadUrl'] as String?;
-    if (url == null || url.isEmpty) {
-      throw Exception('Invalid signed download URL from server.');
+    // Wambesha does not publish a quality selector for /sources. Never send
+    // invented quality parameters or retry this metered operation automatically.
+    return (await _movieSources(movieId, refresh: refresh))
+        .requireUrl('file_holding');
+  }
+
+  Future<String> requestPlaybackUrl(
+          {required String movieId, bool refresh = false}) async =>
+      (await _movieSources(movieId, refresh: refresh))
+          .requirePlaybackUrl();
+
+  Future<WambeshaSources> _movieSources(String id, {bool refresh = false}) {
+    if (id.startsWith('mv_')) {
+      return _sourceService.sources(id, refresh: refresh);
     }
-    return url;
+    final tmdbId = int.tryParse(id);
+    if (tmdbId == null || tmdbId < 1) {
+      throw const WambeshaSourceUnavailable(
+          'This movie has no supported catalogue identifier.');
+    }
+    return _sourceService.movieSources(tmdbId: tmdbId, refresh: refresh);
   }
 
   DownloadTask? getTask(String movieId, String quality) {
@@ -237,6 +250,7 @@ class MovieDownloadService {
       unawaited(_stopActiveDownload(taskId));
     }
     _apiClient.close();
+    _sourceService.dispose();
     _downloadController.close();
   }
 
@@ -261,7 +275,11 @@ class MovieDownloadService {
 
       _tasks[taskId] = current.copyWith(
         status: DownloadTaskStatus.failed,
-        errorMessage: error.toString(),
+        errorMessage: error is WambeshaSourceUnavailable
+            ? error.message
+            : error is WambeshaRequestException
+                ? error.message
+                : 'The download failed. Please retry to request a fresh link.',
       );
       _emitTasks();
     }
@@ -354,7 +372,7 @@ class MovieDownloadService {
 
         _tasks[taskId] = current.copyWith(
           status: DownloadTaskStatus.failed,
-          errorMessage: error.toString(),
+          errorMessage: 'The download was interrupted. Please retry.',
         );
         _emitTasks();
       },

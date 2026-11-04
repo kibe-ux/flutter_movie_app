@@ -13,12 +13,14 @@ import '../utils/cinema_palette.dart';
 import '../utils/movie_download_availability.dart';
 import '../services/ad_service.dart';
 import '../services/cache_service.dart';
+import '../services/wambesha_api_service.dart';
 import '../widgets/safe_network_image.dart';
 
 final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  const SearchScreen({super.key, this.searchService});
+  final WambeshaApiService? searchService;
   @override
   State<SearchScreen> createState() => _SearchScreenState();
 }
@@ -30,6 +32,8 @@ class _SearchScreenState extends State<SearchScreen>
   late final AnimationController _shimmerController;
   List<Map<String, dynamic>> _searchResults = [];
   bool _isSearching = false;
+  late final WambeshaApiService _searchService;
+  bool _openingTitle = false;
   String _searchQuery = '';
   List<String> _searchHistory = [];
   String _selectedGenre = '';
@@ -54,6 +58,7 @@ class _SearchScreenState extends State<SearchScreen>
   @override
   void initState() {
     super.initState();
+    _searchService = widget.searchService ?? WambeshaApiService();
     _shimmerController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -70,6 +75,7 @@ class _SearchScreenState extends State<SearchScreen>
     _searchController.dispose();
     _searchFocusNode.dispose();
     _shimmerController.dispose();
+    if (widget.searchService == null) _searchService.dispose();
     super.dispose();
   }
 
@@ -87,28 +93,20 @@ class _SearchScreenState extends State<SearchScreen>
   }
 
   Future<void> _loadGenres() async {
-    await Future.wait(['movie', 'tv'].map((type) async {
-      try {
-        final cacheKey = '${type}_genres';
-        final cached =
-            CacheService.getMemCache<List<Map<String, dynamic>>>(cacheKey);
-        if (cached != null) {
-          if (mounted) setState(() => _genresByType[type] = cached);
-          return;
-        }
-        final uri = Uri.parse('${AppTheme.baseUrl}/genre/$type/list')
-            .replace(queryParameters: {'api_key': apiKey, 'language': 'en-US'});
-        final response = await http.get(uri).timeout(AppTheme.apiTimeout);
-        if (response.statusCode != 200) return;
-        final genres = List<Map<String, dynamic>>.from(
-            json.decode(response.body)['genres'] ?? []);
-        CacheService.setMemCache(cacheKey, genres,
-            ttl: const Duration(days: 7));
-        if (mounted) setState(() => _genresByType[type] = genres);
-      } catch (_) {
-        debugPrint('Search genres unavailable for $type');
-      }
-    }));
+    try {
+      const cacheKey = 'wambesha_genres';
+      var genres =
+          CacheService.getMemCache<List<Map<String, dynamic>>>(cacheKey);
+      genres ??= await _searchService.genres();
+      CacheService.setMemCache(cacheKey, genres, ttl: const Duration(days: 7));
+      if (!mounted) return;
+      setState(() {
+        _genresByType['movie'] = genres!;
+        _genresByType['tv'] = genres;
+      });
+    } catch (_) {
+      debugPrint('Search genres unavailable');
+    }
   }
 
   void _onSearchChanged(String query) {
@@ -146,7 +144,7 @@ class _SearchScreenState extends State<SearchScreen>
   Future<void> _performSearch(String query) async {
     _debounce?.cancel();
     final sanitizedQuery = query.trim();
-    if (sanitizedQuery.isEmpty) {
+    if (sanitizedQuery.length < 2) {
       _resetSearch();
       return;
     }
@@ -162,8 +160,8 @@ class _SearchScreenState extends State<SearchScreen>
       _searchResults = [];
     });
     try {
-        // Only show movies / TV shows that have already been released so we
-        // don't surface content that users cannot yet download or watch.
+      // Only show movies / TV shows that have already been released so we
+      // don't surface content that users cannot yet download or watch.
 
       // Add to search history
       if (_selectedGenre.isNotEmpty &&
@@ -174,22 +172,16 @@ class _SearchScreenState extends State<SearchScreen>
           throw StateError('Genre metadata unavailable');
         }
       }
-      final pages = await Future.wait(types.map((type) async {
-        final response = await http
-            .get(_buildSearchUri(type, sanitizedQuery))
-            .timeout(AppTheme.apiTimeout);
-        if (response.statusCode != 200) throw StateError('Search unavailable');
-        final raw =
-            json.decode(response.body)['results'] as List<dynamic>? ?? [];
-        return raw
-            .cast<Map<String, dynamic>>()
-            .map((item) => {...item, 'media_type': type})
-            .toList();
-      }));
+      final page = await _searchService.search(sanitizedQuery);
       if (!mounted || requestToken != _requestToken) return;
       final seen = <String>{};
-      final results = filterReleasedMovies(pages.expand((page) => page))
+      final results = filterReleasedMovies(page)
+          .where((item) => types.contains(item['media_type']))
           .where((item) => seen.add('${item['media_type']}:${item['id']}'))
+          .where((item) =>
+              item['catalogue_status'] != 'upcoming' &&
+              item['catalogue_status'] != 'announced' &&
+              !(item['year'] is int && item['year'] > DateTime.now().year))
           .where(_matchesFilters)
           .toList();
       final normalizedQuery = sanitizedQuery.toLowerCase();
@@ -225,7 +217,9 @@ class _SearchScreenState extends State<SearchScreen>
         _shimmerController.stop();
         _searchError = error is TimeoutException
             ? 'Search timed out. Please try again.'
-            : 'Unable to load results. Check your connection and try again.';
+            : error is WambeshaRequestException
+                ? error.message
+                : 'Unable to load results. Check your connection and try again.';
       });
     }
   }
@@ -242,18 +236,6 @@ class _SearchScreenState extends State<SearchScreen>
         .map((genre) => genre['id'])
         .toSet();
     return (item['genre_ids'] as List? ?? []).any(ids.contains);
-  }
-
-  Uri _buildSearchUri(String type, String query) {
-    return Uri.parse('${AppTheme.baseUrl}/search/$type')
-        .replace(queryParameters: {
-      'api_key': apiKey,
-      'query': query,
-      'language': 'en-US',
-      'include_adult': 'false',
-      if (_selectedYear.isNotEmpty)
-        (type == 'movie' ? 'year' : 'first_air_date_year'): _selectedYear,
-    });
   }
 
   void _setSearchType(String type) {
@@ -479,9 +461,43 @@ class _SearchScreenState extends State<SearchScreen>
     );
   }
 
+  Future<void> _openTitle(Map<String, dynamic> item) async {
+    if (_openingTitle) return;
+    _openingTitle = true;
+    try {
+      // Details still uses TMDB artwork, seasons and identifiers. Fetch its
+      // canonical record instead of handing it Wambesha artwork paths.
+      final uri =
+          Uri.parse('${AppTheme.baseUrl}/${item['media_type']}/${item['id']}')
+              .replace(
+                  queryParameters: {'api_key': apiKey, 'language': 'en-US'});
+      final response = await http.get(uri).timeout(AppTheme.apiTimeout);
+      if (response.statusCode != 200) throw StateError('Title unavailable');
+      final movie = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+      if (movie['id'] != item['id']) throw StateError('Title mismatch');
+      movie['media_type'] = item['media_type'];
+      movie['wambesha_id'] = item['wambesha_id'];
+      if (!mounted || !(ModalRoute.of(context)?.isCurrent ?? false)) return;
+      AdService().onMoviePosterTap(
+        () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => MovieDetailsScreen(movie: movie))),
+        isActive: () => mounted && (ModalRoute.of(context)?.isCurrent ?? false),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Unable to open this title. Please try again.')));
+    } finally {
+      _openingTitle = false;
+    }
+  }
+
   Widget _buildSearchResultItem(Map<String, dynamic> item) {
     final posterPath = item['poster_path'] ?? item['backdrop_path'];
-    final imageUrl = posterPath != null ? '$imageBase$posterPath' : null;
+    final imageUrl = item['poster_url'] as String? ??
+        (posterPath != null ? '$imageBase$posterPath' : null);
     final title = item['title'] ?? item['name'] ?? 'Unknown Title';
     final overview = item['overview'] ?? 'No description available';
     final isInMyList = MyList().contains(item['id']); // UPDATED
@@ -493,15 +509,7 @@ class _SearchScreenState extends State<SearchScreen>
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
-          onTap: () => AdService().onMoviePosterTap(
-              () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => MovieDetailsScreen(movie: item))),
-              isActive: () =>
-                  mounted &&
-                  context.mounted &&
-                  (ModalRoute.of(context)?.isCurrent ?? true)),
+          onTap: () => _openTitle(item),
           child: Ink(
             height: 144,
             padding: const EdgeInsets.all(12),
@@ -597,7 +605,9 @@ class _SearchScreenState extends State<SearchScreen>
 
   String _getYear(Map<String, dynamic> item) {
     final date = item['release_date'] ?? item['first_air_date'];
-    if (date == null || date.isEmpty) return '\u2014';
+    if (date == null || date.isEmpty) {
+      return item['year']?.toString() ?? '\u2014';
+    }
     try {
       return DateTime.parse(date).year.toString();
     } catch (_) {

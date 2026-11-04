@@ -46,12 +46,12 @@ dependencies:
   google_sign_in: ^6.2.1
 
   # Ads & Env
-  google_mobile_ads: ^9.2.0
+  google_mobile_ads: ^5.3.1
   flutter_dotenv: ^5.1.0
 
   # Video
   video_player: ^2.8.2
-  webview_flutter: 4.14.1
+  webview_flutter: ^4.10.0
   shimmer: ^3.0.0
 
 dev_dependencies:

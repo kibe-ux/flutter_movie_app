@@ -15,7 +15,10 @@ import '../utils/movie_download_availability.dart';
 import '../utils/movie_download_error.dart';
 import '../services/ad_service.dart';
 import '../services/download_service.dart';
-import '../services/films365_api_service.dart';
+import '../services/movie_download_service.dart';
+import '../services/wambesha_api_service.dart';
+import 'video_player_screen.dart';
+import '../services/tmdb_details_service.dart';
 
 import '../services/favorites_service.dart';
 import 'share_screen.dart';
@@ -42,14 +45,18 @@ class MovieDetailsScreen extends StatefulWidget {
 
 class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     with WidgetsBindingObserver {
-  static final _sharedInfoService = Films365ApiService();
   List<Map<String, dynamic>> similarMovies = [];
   bool isLoadingSimilar = true;
   late DownloadService _downloadService;
-  late final Films365ApiService _films365ApiService;
-  late Future<Map<String, dynamic>?> _films365Metadata;
+  late Future<Map<String, dynamic>?> _tmdbDetails;
   bool _isFavorite = false;
   bool _resolvingDownload = false;
+  final _sourceService = WambeshaApiService();
+  final _movieFiles = MovieDownloadService();
+  final _detailsService = TmdbDetailsService();
+  String get _movieSourceId => widget.movie['wambesha_id'] is String
+      ? widget.movie['wambesha_id'] as String
+      : '${widget.movie['id']}';
   bool get _isTv => isTvSeries(widget.movie);
   String get _mediaType => _isTv ? 'tv' : 'movie';
 
@@ -59,50 +66,27 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     _downloadService = DownloadService();
     WidgetsBinding.instance.addObserver(this);
     _refreshSavedDownload();
-    _films365ApiService = _sharedInfoService;
-    _films365Metadata = _loadFilms365Metadata();
+    _tmdbDetails = _loadTmdbDetails();
     fetchSimilarMovies();
     _checkIfFavorite();
   }
 
-  Future<Map<String, dynamic>?> _loadFilms365Metadata({
-    bool reportErrors = false,
-    bool forDownload = false,
-    bool refresh = false,
-  }) async {
-    try {
-      final rawTmdbId = widget.movie['id'];
-      if (rawTmdbId is! num) return null;
-      final tmdbId = rawTmdbId.toInt();
-      if (tmdbId < 1) return null;
-
-      final rawTitle = widget.movie['title'] ?? widget.movie['name'];
-      final metadata = await _films365ApiService.findUuidByTmdbId(
-        tmdbId: tmdbId,
-        type: _mediaType,
-        metadataOnly: !forDownload,
-        refresh: refresh,
-        title: rawTitle is String ? rawTitle : null,
-        alternativeTitles: [
-          for (final value in [
-            widget.movie['original_title'],
-            widget.movie['original_name']
-          ])
-            if (value is String) value,
-        ],
-        providerId: widget.movie['films365_id'] is String
-            ? widget.movie['films365_id'] as String
-            : null,
-      );
-      return metadata;
-    } catch (_) {
-      if (reportErrors) rethrow;
-      return null;
-    }
+  Future<Map<String, dynamic>?> _loadTmdbDetails({bool refresh = false}) async {
+    final rawTmdbId = widget.movie['id'];
+    if (rawTmdbId is! num) return null;
+    final tmdbId = rawTmdbId.toInt();
+    if (tmdbId < 1) return null;
+    return _detailsService.fetchDetails(
+      tmdbId: tmdbId,
+      mediaType: _mediaType,
+      refresh: refresh,
+    );
   }
 
   @override
   void dispose() {
+    _sourceService.dispose();
+    _detailsService.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -298,7 +282,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                           colors: [
-                            CinemaPalette.background.withValues(alpha: 0.32),
+                            CinemaPalette.background.withOpacity(0.32),
                             Colors.transparent,
                           ],
                         ),
@@ -314,7 +298,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                 icon: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                      color: CinemaPalette.background.withValues(alpha: 0.75),
+                      color: CinemaPalette.background.withOpacity(0.75),
                       shape: BoxShape.circle),
                   child: const Icon(Icons.arrow_back_rounded,
                       color: CinemaPalette.ivory, size: 20),
@@ -326,7 +310,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                   icon: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: CinemaPalette.background.withValues(alpha: 0.75),
+                      color: CinemaPalette.background.withOpacity(0.75),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -345,7 +329,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                   icon: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: CinemaPalette.background.withValues(alpha: 0.75),
+                      color: CinemaPalette.background.withOpacity(0.75),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -367,7 +351,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                   icon: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: CinemaPalette.background.withValues(alpha: 0.75),
+                      color: CinemaPalette.background.withOpacity(0.75),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -403,14 +387,14 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     FutureBuilder<Map<String, dynamic>?>(
-                      future: _films365Metadata,
+                      future: _tmdbDetails,
                       builder: (ctx, snap) => _buildHeaderSection(
                         posterUrl,
                         movie,
                         rating,
                         year,
                         duration,
-                        films365Details: snap.data,
+                        tmdbDetails: snap.data,
                       ),
                     ),
                     const SizedBox(height: 32),
@@ -422,10 +406,10 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                       MovieMoreInfo(
                         movieId: (movie['id'] as num).toInt(),
                         mediaType: _mediaType,
-                        metadata: _films365Metadata,
+                        metadata: _tmdbDetails,
                         onRetry: () => setState(() {
-                          _films365Metadata =
-                              _loadFilms365Metadata(refresh: true);
+                          _tmdbDetails =
+                              _loadTmdbDetails(refresh: true);
                         }),
                       ),
                     const SizedBox(height: 24),
@@ -457,9 +441,9 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     double rating,
     String year,
     String duration, {
-    Map<String, dynamic>? films365Details,
+    Map<String, dynamic>? tmdbDetails,
   }) {
-    final details = films365Details ?? const <String, dynamic>{};
+    final details = tmdbDetails ?? const <String, dynamic>{};
     final posterWidth = MediaQuery.sizeOf(context).width < 400 ? 88.0 : 124.0;
     final detailsRuntime = details['runtime'];
     final movieRuntime = _formatRuntime(movie['runtime']);
@@ -791,13 +775,42 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
         seriesId: (movie['id'] as num).toInt(),
         seriesTitle: movie['title'] ?? movie['name'] ?? 'TV Series',
         posterPath: movie['poster_path'],
-        metadata: _films365Metadata,
+        metadata: _tmdbDetails,
         onDownload: _startEpisodeDownload,
+        onPlay: _playEpisode,
+        resolveOnDemand: true,
         onRefresh: () => setState(
-            () => _films365Metadata = _loadFilms365Metadata(refresh: true)),
+            () => _tmdbDetails = _loadTmdbDetails(refresh: true)),
       );
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      OutlinedButton.icon(
+        onPressed: () async {
+          final rawId = movie['id'];
+          final movieId = rawId is num ? rawId.toInt() : null;
+          String? localPath;
+          if (movieId != null) {
+            localPath = await _downloadService.getDownloadedFilePath(movieId);
+          }
+          if (!mounted) return;
+          final title = movie['title'] ?? movie['name'] ?? 'Movie';
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => VideoPlayerScreen(
+                    title: title,
+                    localFilePath: localPath,
+                    videoUrlProvider: localPath != null
+                        ? null
+                        : (refresh) => _movieFiles.requestPlaybackUrl(
+                            movieId: _movieSourceId, refresh: refresh),
+                    onGoToDownload: () => _startDownload(movie)),
+              ));
+        },
+        icon: const Icon(Icons.play_circle_outline),
+        label: const Text('Watch now'),
+      ),
+      const SizedBox(height: 12),
       Text('SAVE OFFLINE',
           style: TextStyle(
               color: CinemaPalette.muted,
@@ -894,11 +907,42 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
         backgroundColor: isPrimary ? CinemaPalette.gold : CinemaPalette.surface,
         side: isPrimary
             ? BorderSide.none
-            : BorderSide(color: buttonColor.withValues(alpha: 0.7)),
+            : BorderSide(color: buttonColor.withOpacity(0.7)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         minimumSize: const Size.fromHeight(54),
       ),
     );
+  }
+
+  Future<WambeshaSources> _resolveEpisodeSources(int season, int episode,
+          {bool refresh = false}) =>
+      _sourceService.episodeSources(
+        seriesTmdbId: (widget.movie['id'] as num).toInt(),
+        seriesRef: widget.movie['wambesha_id'] as String?,
+        season: season,
+        episode: episode,
+        refresh: refresh,
+      );
+
+  Future<void> _playEpisode(int season, Map<String, dynamic> episode) async {
+    if (isFutureMovieRelease(episode['air_date'])) return;
+    final episodeNumber = (episode['episode_number'] as num).toInt();
+    final seriesTitle =
+        widget.movie['title'] ?? widget.movie['name'] ?? 'TV Series';
+    final code =
+        'S${season.toString().padLeft(2, '0')}E${episodeNumber.toString().padLeft(2, '0')}';
+    final title = '$seriesTitle $code';
+    await Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => VideoPlayerScreen(
+                title: title,
+                videoUrlProvider: (refresh) async =>
+                    (await _resolveEpisodeSources(
+                            season, episodeNumber,
+                            refresh: refresh))
+                        .requirePlaybackUrl(),
+                onGoToDownload: () => _startEpisodeDownload(season, episode))));
   }
 
   Future<void> _startEpisodeDownload(
@@ -906,21 +950,14 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     if (_resolvingDownload || isFutureMovieRelease(episode['air_date'])) return;
     setState(() => _resolvingDownload = true);
     try {
-      // Refresh expiring links and match both numbers; never use a series URL.
-      final details =
-          await _loadFilms365Metadata(reportErrors: true, forDownload: true);
       final number = (episode['episode_number'] as num).toInt();
-      final metadata = episodeDownloadMetadata(details, season, number);
+      final sources = await _resolveEpisodeSources(season, number);
+      final metadata = {'downloadUrl': sources.requireUrl('file_holding')};
       if (!mounted) return;
-      if (metadata == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text(
-                'A download is not currently available for this episode.')));
-        return;
-      }
       final action = await _showDownloadOptions(context, metadata);
       if (!mounted || action == null) return;
-      final url = metadata['downloadUrl'] as String;
+      final url = (await _sourceService.sources(sources.id!))
+          .requireUrl('file_holding');
       if (action == 'copy') {
         await _copyDownloadLink(url);
         return;
@@ -938,8 +975,10 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
         movieTitle:
             '${widget.movie['title'] ?? widget.movie['name']} $code - ${episode['name'] ?? 'Episode $number'}',
         posterPath: widget.movie['poster_path'],
-        downloadUrl: url,
+        downloadUrl: (await _sourceService.sources(sources.id!))
+            .requireUrl('file_holding'),
       ));
+      if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Downloading $code')));
     } catch (error) {
@@ -966,61 +1005,22 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
         throw StateError('Movie is missing a valid TMDB ID.');
       }
 
-      // Share the page's pending/successful lookup. Retry old, missing or failed
-      // links instead of discarding a freshly resolved link on every tap.
-      downloadStage = 'authentication-and-details';
-      final previousMetadata = _films365Metadata;
-      final metadataFuture = () async {
-        if (!refreshMetadata) {
-          try {
-            final metadata = await previousMetadata;
-            if (hasRecentMovieDownloadLink(metadata)) return metadata;
-          } catch (_) {
-            // A failed page lookup can be retried by the download action.
-          }
-        }
-        return _loadFilms365Metadata(reportErrors: true, forDownload: true);
-      }();
-      setState(() {
-        _films365Metadata = metadataFuture;
-      });
-      final metadata = await metadataFuture;
-      if (metadata == null) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'This movie could not be matched in the download catalogue.'),
-            showCloseIcon: true,
-          ),
-        );
-        return;
-      }
-      final downloadUrl = metadata['downloadUrl'];
-      if (!hasMovieDownloadLink(metadata)) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                  'The movie provider returned no downloadable file for this movie.'),
-              showCloseIcon: true,
-            ),
-          );
-        }
-        return;
-      }
-      final resolvedUrl = (downloadUrl as String).trim();
+      downloadStage = 'wambesha-sources';
+      final sources = await _sourceService.movieSources(
+          tmdbId: tmdbId, titleRef: _movieSourceId, refresh: refreshMetadata);
+      final downloadUrl = sources.requireUrl('file_holding');
+      final metadata = {'downloadUrl': downloadUrl};
 
       if (!mounted) return;
       downloadStage = 'download-options';
       final action = await _showDownloadOptions(context, metadata);
       if (!mounted || action == null) return;
       if (action == 'copy') {
-        await _copyDownloadLink(resolvedUrl);
+        await _copyDownloadLink(downloadUrl);
         return;
       }
       if (action == 'browser') {
-        await _openDownloadLink(resolvedUrl);
+        await _openDownloadLink(downloadUrl);
         return;
       }
       downloadStage = 'download-ad';
@@ -1031,7 +1031,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
           movieId: tmdbId,
           movieTitle: movie['title'] ?? 'Unknown',
           posterPath: movie['poster_path'],
-          downloadUrl: resolvedUrl,
+          downloadUrl: downloadUrl,
         ),
       );
 

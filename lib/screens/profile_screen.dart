@@ -227,6 +227,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Future<void> _deleteAccount() async {
+    if (_isBusy) return;
     final authService = context.read<AuthService>();
     final confirmed = await showDialog<bool>(
       context: context,
@@ -237,7 +238,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           style: TextStyle(color: CinemaPalette.ivory),
         ),
         content: const Text(
-          'Are you sure you want to delete your account? This action cannot be undone.',
+          'Permanently delete your account, forum posts and replies, likes, reward coins and ad-free passes? Replies from others on your posts will also be removed. You will verify your identity before deletion. This cannot be undone.',
           style: TextStyle(color: CinemaPalette.ivory),
         ),
         actions: [
@@ -255,25 +256,49 @@ class _ProfileScreenState extends State<ProfileScreen>
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
+
+    String? password;
+    final providers = authService.currentUser?.providerData
+            .map((provider) => provider.providerId)
+            .toSet() ??
+        <String>{};
+    if (providers.contains('password') && !providers.contains('google.com')) {
+      password = await showDialog<String>(
+        context: context,
+        builder: (_) => const _DeletionPasswordDialog(),
+      );
+      if (password == null || !mounted) return;
+    }
 
     setState(() => _isLoading = true);
 
     try {
-      await authService.deleteAccount();
+      await authService.reauthenticateForDeletion(password: password);
+      final completed = await authService.deleteAccount();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
               backgroundColor: CinemaPalette.wine,
-              content: Text('Account deleted successfully',
-                  style: TextStyle(color: CinemaPalette.ivory))),
+              content: Text(
+                  completed
+                      ? 'Your account and server data have been deleted.'
+                      : 'Your deletion request is saved. Cleanup will continue automatically.',
+                  style: const TextStyle(color: CinemaPalette.ivory))),
         );
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         String errorMessage = 'Error deleting account.';
-        if (e.code == 'requires-recent-login') {
+        if (e.code == 'cancelled') {
+          errorMessage =
+              'Identity verification was cancelled. Your account was not deleted.';
+        } else if (e.code == 'wrong-password' ||
+            e.code == 'invalid-credential') {
+          errorMessage =
+              'Could not verify your identity. Check your password and try again.';
+        } else if (e.code == 'requires-recent-login') {
           errorMessage =
               'For security reasons, please sign out and sign in again before deleting your account.';
         } else if (e.code == 'network-request-failed') {
@@ -292,10 +317,11 @@ class _ProfileScreenState extends State<ProfileScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
               backgroundColor: CinemaPalette.wine,
-              content: Text('An unexpected error occurred: ${e.toString()}',
-                  style: const TextStyle(color: CinemaPalette.ivory))),
+              content: Text(
+                  'Could not confirm deletion. Please retry. A request already received by the server will continue processing.',
+                  style: TextStyle(color: CinemaPalette.ivory))),
         );
       }
     } finally {
@@ -368,7 +394,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       return Scaffold(
         backgroundColor: CinemaPalette.background,
         body: Center(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -688,6 +714,50 @@ class _ProfileScreenState extends State<ProfileScreen>
       ),
     );
   }
+}
+
+class _DeletionPasswordDialog extends StatefulWidget {
+  const _DeletionPasswordDialog();
+  @override
+  State<_DeletionPasswordDialog> createState() =>
+      _DeletionPasswordDialogState();
+}
+
+class _DeletionPasswordDialogState extends State<_DeletionPasswordDialog> {
+  final _password = TextEditingController();
+  @override
+  void dispose() {
+    _password.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('Verify your identity'),
+        content: TextField(
+          controller: _password,
+          autofocus: true,
+          obscureText: true,
+          autocorrect: false,
+          enableSuggestions: false,
+          decoration: const InputDecoration(labelText: 'Current password'),
+          onSubmitted: (value) {
+            if (value.isNotEmpty) Navigator.of(context).pop(value);
+          },
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () {
+                if (_password.text.isNotEmpty) {
+                  Navigator.of(context).pop(_password.text);
+                }
+              },
+              child: const Text('Verify and delete')),
+        ],
+      );
 }
 
 typedef _ProfileChanges = ({String displayName, String photoUrl});

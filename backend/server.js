@@ -1,4 +1,4 @@
-﻿const path = require("path");
+const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 const express = require("express");
@@ -8,36 +8,27 @@ const mime = require("mime");
 const fs = require("fs");
 const { attachRequestTrace, upstreamTrace } = require("./upstream_diagnostics");
 const { database, NeonDatabaseError } = require("./neon_database");
-const { applicationDefault, getApps, initializeApp } = require("firebase-admin/app");
-const { getAuth } = require("firebase-admin/auth");
+const { getRuntimeFirebaseAuth } = require("./firebase_runtime");
 const { registerRewardsRoutes } = require("./rewards");
+const { registerAccountDeletionRoutes } = require("./account_deletion");
+const deletionPage = require("./deletion_page");
+const { registerWambeshaRoutes } = require("./wambesha");
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const JWT_SECRET = process.env.JWT_SECRET;
 const MOVIES_DIR = path.join(__dirname, "movies");
-const FILMS365_BASE_URL = "https://www.films365.org";
 const SUPPORTED_MOVIE_EXTENSIONS = new Set([".mp4", ".mkv", ".mov", ".avi", ".webm"]);
 const BYTE_UNITS = ["B", "KB", "MB", "GB", "TB"];
 const MOVIE_FILENAME_PATTERN = /^(.*?)[.\s_-]+((?:19|20)\d{2})(?:[.\s_-]+(\d{3,4}p))?/i;
-const FILMS365_ENDPOINTS = new Map([
-  ["trending", "GET"],
-  ["popular", "GET"],
-  ["latest", "GET"],
-  ["explore", "GET"],
-  ["details", "GET"],
-  ["search", "POST"],
-  ["person", "GET"],
-  ["details/torrent-link", "POST"],
-]);
 
 app.use(cors());
 
 function getLoggedApiEndpoint(pathname) {
-  const mobileEndpoint = pathname.replace(/^\/mobile\//, "");
-  if (pathname.startsWith("/mobile/") && FILMS365_ENDPOINTS.has(mobileEndpoint)) {
-    return `/api/mobile/${mobileEndpoint}`;
-  }
+  if (/^\/wambesha\/titles\/[^/]+\/sources$/.test(pathname)) return "/api/wambesha/titles/:id/sources";
+  if (/^\/wambesha\/titles\/[^/]+\/episodes$/.test(pathname)) return "/api/wambesha/titles/:id/episodes";
+  if (/^\/wambesha\/titles\/[^/]+$/.test(pathname)) return "/api/wambesha/titles/:id";
+  if (["/wambesha/search", "/wambesha/titles", "/wambesha/genres", "/wambesha/lookup"].includes(pathname)) return `/api${pathname}`;
   if (pathname === "/movies") return "/api/movies";
   if (/^\/movies\/[^/]+$/.test(pathname)) return "/api/movies/:id";
   if (pathname === "/download/request") return "/api/download/request";
@@ -63,23 +54,7 @@ function logApiRequest(req, res, next) {
 app.use("/api", logApiRequest);
 
 function getFirebaseAdminAuth() {
-  const projectId =
-    process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
-  if (!projectId) {
-    throw new Error("FIREBASE_PROJECT_ID is not configured.");
-  }
-
-  const appName = "films365-proxy";
-  const firebaseApp =
-    getApps().find((candidate) => candidate.name === appName) ||
-    initializeApp(
-      {
-        credential: applicationDefault(),
-        projectId,
-      },
-      appName
-    );
-  return getAuth(firebaseApp);
+  return getRuntimeFirebaseAuth();
 }
 
 async function requireFirebaseUser(req, res, next) {
@@ -92,7 +67,7 @@ async function requireFirebaseUser(req, res, next) {
   }
 
   try {
-    req.firebaseUser = await getFirebaseAdminAuth().verifyIdToken(match[1]);
+    req.firebaseUser = await getFirebaseAdminAuth().verifyIdToken(match[1], true);
     res.set("X-MovieHub-Response-Source", "node-backend");
     return next();
   } catch (error) {
@@ -117,93 +92,19 @@ async function requireFirebaseUser(req, res, next) {
   }
 }
 
-function createFilms365Url(req, endpoint) {
-  const url = new URL(`/api/mobile/${endpoint}`, FILMS365_BASE_URL);
-  url.search = new URL(req.originalUrl, "http://localhost").search;
-  return url;
-}
-
-function createFilms365Headers(req, apiKey) {
-  const headers = { Authorization: `ApiKey ${apiKey}` };
-  const contentType = req.header("content-type");
-  if (contentType) headers["Content-Type"] = contentType;
-  return headers;
-}
-
-function logUpstreamResponse({ req, endpoint, url, credential, response, startedAt }) {
-  const trace = upstreamTrace({ req, endpoint, url, credential, response, startedAt });
-  const prefix = response.ok ? "UPSTREAM_RESULT" : "UPSTREAM_FAIL";
-  const log = response.ok ? console.log : console.error;
-  log(`${prefix} ${JSON.stringify(trace)}`);
-}
-
-async function proxyFilms365Request(req, res, endpoint = req.params.endpoint) {
-  attachRequestTrace(req, res);
-  const expectedMethod = FILMS365_ENDPOINTS.get(endpoint);
-  if (!expectedMethod) {
-    return res.status(404).json({ error: "Unknown FILMS365 endpoint." });
-  }
-  if (req.method !== expectedMethod) {
-    res.set("Allow", expectedMethod);
-    return res.status(405).json({ error: "Method not allowed for this endpoint." });
-  }
-
-  const apiKey = process.env.FILMS365_API_KEY?.trim();
-  if (!apiKey) {
-    return res.status(503).json({ error: "FILMS365 is not configured on the server." });
-  }
-
-  const upstreamUrl = createFilms365Url(req, endpoint);
-  const headers = createFilms365Headers(req, apiKey);
-
-  const startedAt = Date.now();
-  try {
-    const upstreamResponse = await fetch(upstreamUrl, {
-      method: expectedMethod,
-      headers,
-      body: expectedMethod === "POST" ? req.body : undefined,
-      redirect: "error",
-      signal: AbortSignal.timeout(30000),
-    });
-    logUpstreamResponse({
-      req,
-      endpoint,
-      url: upstreamUrl,
-      credential: apiKey,
-      response: upstreamResponse,
-      startedAt,
-    });
-    const responseBody = Buffer.from(await upstreamResponse.arrayBuffer());
-    res.set("X-MovieHub-Response-Source", "films365");
-    // Forward response bytes unchanged; response bodies are not logged.
-    const upstreamContentType = upstreamResponse.headers.get("content-type");
-    if (upstreamContentType) res.set("Content-Type", upstreamContentType);
-    return res.status(upstreamResponse.status).send(responseBody);
-  } catch (error) {
-    console.error(`UPSTREAM_FAIL ${JSON.stringify(upstreamTrace({ req, endpoint,
-      url: upstreamUrl, credential: apiKey, startedAt,
-      failure: error?.name === "TimeoutError" ? "timeout" : "transport-error" }))}`);
-    if (error && error.name === "TimeoutError") {
-      return res.status(504).json({ error: "FILMS365 request timed out." });
-    }
-    const errorName =
-      error && typeof error.name === "string" ? error.name : "UnknownError";
-    console.error("FILMS365 upstream request failed:", errorName);
-    return res.status(502).json({ error: "FILMS365 is unavailable." });
-  }
-}
-
-app.use(
-  "/api/mobile",
-  express.raw({ type: "*/*", limit: "1mb" }),
-  requireFirebaseUser,
-  (req, res) =>
-    proxyFilms365Request(req, res, req.path.replace(/^\/+/, ""))
-);
-
-app.locals.proxyFilms365Request = proxyFilms365Request;
+registerWambeshaRoutes(app, { authenticate: requireFirebaseUser });
 
 app.use(express.json());
+
+registerAccountDeletionRoutes(app, {
+  authenticate: requireFirebaseUser,
+  firebaseAuth: getFirebaseAdminAuth,
+  page: deletionPage.html,
+});
+app.get('/delete-account.js', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.type('application/javascript').send(deletionPage.script);
+});
 
 registerRewardsRoutes(app, {
   authenticate: requireFirebaseUser,

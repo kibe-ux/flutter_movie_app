@@ -5,6 +5,11 @@
 !backend/package-lock.json
 !/firestore.indexes.json
 backend/node_modules/
+tools/firestore-tests/node_modules/
+tools/firestore-tests/.emulator/
+!tools/firestore-tests/package.json
+!tools/firestore-tests/package-lock.json
+firestore-debug.log
 *.key
 *.p12
 *.p8
@@ -56,3 +61,11 @@ flutter_run*.txt
 # Generated Neon Function bundles
 /backend/.neon-build/
 !ios/Runner/Assets.xcassets/LaunchLogo.imageset/Contents.json
+
+.kilo/
+.stage_comments.dart
+debug.log
+reports/
+screenshots/
+check-progress.ps1
+

@@ -2,16 +2,24 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'account_deletion_service.dart';
+import '../utils/my_list.dart';
 
 class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth;
   final GoogleSignIn _googleSignIn;
+  final AccountDeletionService _accountDeletion;
   late final StreamSubscription<User?> _authSubscription;
   User? _currentUser;
   bool _isLoading = true;
 
-  AuthService({FirebaseAuth? auth, GoogleSignIn? googleSignIn})
+  AuthService(
+      {FirebaseAuth? auth,
+      GoogleSignIn? googleSignIn,
+      AccountDeletionService? accountDeletion})
       : _auth = auth ?? FirebaseAuth.instance,
+        _accountDeletion = accountDeletion ?? AccountDeletionService(),
         _googleSignIn = googleSignIn ?? GoogleSignIn(scopes: ['email']) {
     _authSubscription = _auth.authStateChanges().listen((user) {
       _currentUser = user;
@@ -148,8 +156,35 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  // Delete account
-  Future<void> deleteAccount() async {
+  Future<void> reauthenticateForDeletion({String? password}) async {
+    final user = _auth.currentUser;
+    if (user == null) throw FirebaseAuthException(code: 'no-current-user');
+    final providers = user.providerData.map((provider) => provider.providerId);
+    if (password != null && providers.contains('password')) {
+      await user.reauthenticateWithCredential(
+          EmailAuthProvider.credential(email: user.email!, password: password));
+    } else if (providers.contains('google.com')) {
+      if (kIsWeb) {
+        await user.reauthenticateWithPopup(GoogleAuthProvider());
+      } else {
+        final account = await _googleSignIn.signIn();
+        if (account == null) throw FirebaseAuthException(code: 'cancelled');
+        final tokens = await account.authentication;
+        if (tokens.idToken == null || tokens.idToken!.isEmpty) {
+          throw FirebaseAuthException(code: 'missing-google-id-token');
+        }
+        await user.reauthenticateWithCredential(GoogleAuthProvider.credential(
+            idToken: tokens.idToken, accessToken: tokens.accessToken));
+      }
+    } else {
+      throw FirebaseAuthException(
+          code: 'requires-recent-login',
+          message: 'Verify your account with your current password.');
+    }
+  }
+
+  // Cleanup is server-owned; never delete only the Firebase login.
+  Future<bool> deleteAccount() async {
     try {
       final user = _auth.currentUser;
       if (user == null) {
@@ -158,9 +193,16 @@ class AuthService extends ChangeNotifier {
           message: 'No authenticated user found.',
         );
       }
-      await user.delete();
+      final completed = await _accountDeletion.request(user);
+      await MyList().clearForDeletedUser(user.uid);
+      final prefs = await SharedPreferences.getInstance();
+      for (final key in ['favorite_movies', 'watch_history']) {
+        await prefs.remove('${key}_${user.uid}');
+      }
+      if (_auth.currentUser?.uid == user.uid) await signOut();
       _currentUser = _auth.currentUser;
       notifyListeners();
+      return completed;
     } catch (e) {
       debugPrint('Account deletion error: $e');
       rethrow;

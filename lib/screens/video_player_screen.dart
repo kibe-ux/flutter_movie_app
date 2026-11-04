@@ -6,16 +6,25 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:video_player/video_player.dart';
+import '../services/wambesha_api_service.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   const VideoPlayerScreen({
     super.key,
     this.videoUrl,
     this.localFilePath,
-  }) : assert(videoUrl != null || localFilePath != null);
+    this.videoUrlProvider,
+    this.title,
+    this.onGoToDownload,
+  }) : assert(videoUrl != null ||
+            localFilePath != null ||
+            videoUrlProvider != null);
 
   final String? videoUrl;
   final String? localFilePath;
+  final Future<String> Function(bool refresh)? videoUrlProvider;
+  final String? title;
+  final VoidCallback? onGoToDownload;
 
   @override
   State<VideoPlayerScreen> createState() => _VideoPlayerScreenState();
@@ -50,7 +59,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       if (widget.localFilePath != null) {
         controller = VideoPlayerController.file(File(widget.localFilePath!));
       } else {
-        final videoUrl = widget.videoUrl?.trim();
+        final videoUrl = widget.videoUrlProvider != null
+            ? (await widget.videoUrlProvider!(attempt > 1)).trim()
+            : widget.videoUrl?.trim();
         if (videoUrl == null || videoUrl.isEmpty) {
           throw ArgumentError.value(videoUrl, 'videoUrl', 'Must not be empty.');
         }
@@ -80,11 +91,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         _lastReportedPlaying = controller.value.isPlaying;
       });
     } catch (error) {
-      var message = 'Failed to load video: $error';
+      var message = widget.videoUrlProvider == null
+          ? 'Failed to load video: $error'
+          : error is WambeshaSourceUnavailable
+              ? error.message
+              : error is WambeshaRequestException
+                  ? error.message
+                  : 'Failed to load video. Please retry to request a fresh playback link.';
       try {
         await controller?.dispose();
       } catch (disposeError) {
-        message = '$message\nFailed to release video player: $disposeError';
+        if (widget.videoUrlProvider == null) {
+          message = '$message\nFailed to release video player: $disposeError';
+        }
       }
       if (!mounted || attempt != _initializationAttempt) return;
       setState(() {
@@ -141,7 +160,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   void _showPlaybackError(Object error) {
     if (!mounted) return;
     _cancelControlsHide();
-    final message = 'Playback failed: $error';
+    final message = widget.videoUrlProvider == null
+        ? 'Playback failed: $error'
+        : 'Playback failed. Please retry to request a fresh playback link.';
     if (_errorMessage == message) return;
     setState(() {
       _errorMessage = message;
@@ -294,6 +315,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   String get _title {
+    if (widget.title != null && widget.title!.trim().isNotEmpty) {
+      return widget.title!.trim();
+    }
     if (widget.localFilePath != null) {
       return p.basenameWithoutExtension(widget.localFilePath!);
     }
@@ -301,26 +325,63 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Widget _buildErrorWidget() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Icon(Icons.error_outline, size: 64, color: Colors.red),
-        const SizedBox(height: 16),
-        Text(
-          _errorMessage ?? 'Error loading video',
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white70, fontSize: 16),
-        ),
-        const SizedBox(height: 24),
-        ElevatedButton.icon(
-          onPressed: _retryVideo,
-          icon: const Icon(Icons.refresh),
-          label: const Text('Retry'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF00D4FF),
+    final isStreamingUnavailable = _errorMessage != null &&
+        (_errorMessage!.contains('Online streaming is not available') ||
+            _errorMessage!.contains('download for offline viewing') ||
+            _errorMessage!.contains('tap Download') ||
+            _errorMessage!.contains('No confirmed playback source'));
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            isStreamingUnavailable ? Icons.offline_pin_outlined : Icons.error_outline,
+            size: 64,
+            color: isStreamingUnavailable ? CinemaPalette.gold : Colors.red,
           ),
-        ),
-      ],
+          const SizedBox(height: 16),
+          Text(
+            _errorMessage ?? 'Error loading video',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white70, fontSize: 16),
+          ),
+          const SizedBox(height: 24),
+          if (isStreamingUnavailable && widget.onGoToDownload != null) ...[
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                widget.onGoToDownload?.call();
+              },
+              icon: const Icon(Icons.download_rounded),
+              label: const Text('Save Offline Instead'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: CinemaPalette.gold,
+                foregroundColor: CinemaPalette.background,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: _retryVideo,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry Stream'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white70,
+              ),
+            ),
+          ] else ...[
+            ElevatedButton.icon(
+              onPressed: _retryVideo,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00D4FF),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 

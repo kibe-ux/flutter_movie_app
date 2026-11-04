@@ -92,10 +92,11 @@ class _SupportScreenState extends State<SupportScreen> {
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
             border: Border.all(color: _borderDark),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               Center(
                 child: Container(
                   width: 44,
@@ -241,6 +242,7 @@ class _SupportScreenState extends State<SupportScreen> {
               ),
             ],
           ),
+          ),
         ),
       ),
     );
@@ -266,10 +268,11 @@ class _SupportScreenState extends State<SupportScreen> {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           border: Border.all(color: _borderDark),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Center(
               child: Container(
                 width: 44,
@@ -416,6 +419,7 @@ class _SupportScreenState extends State<SupportScreen> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

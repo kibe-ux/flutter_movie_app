@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test",
+    "accounts:retry-deletions": "node scripts/retry_account_deletions.js",
     "db:check": "node scripts/check_neon_database.js",
     "neon:build": "node scripts/deploy_neon.js --build",
     "neon:plan": "node scripts/deploy_neon.js --plan",

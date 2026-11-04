@@ -25,6 +25,28 @@ void main() {
     await fakePlatform.disposeAll();
   });
 
+  testWidgets(
+      'source-backed playback resolves on open and refreshes on retry without leaking URLs',
+      (tester) async {
+    final refreshes = <bool>[];
+    await tester.pumpWidget(MaterialApp(home: VideoPlayerScreen(
+      videoUrlProvider: (refresh) async {
+        refreshes.add(refresh);
+        if (!refresh) {
+          throw StateError('https://delivery.example/file?sig=secret');
+        }
+        return 'https://example.test/video.mp4';
+      },
+    )));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('sig=secret'), findsNothing);
+    expect(refreshes, [false]);
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+    expect(refreshes, [false, true]);
+    expect(find.byType(VideoPlayer), findsOneWidget);
+  });
+
   testWidgets('loads and supports playback and bounded skip controls',
       (tester) async {
     await tester.pumpWidget(

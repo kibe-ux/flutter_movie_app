@@ -1,0 +1,22 @@
+// REQUIRED before enabling account deletion in production.
+// Merge into the EXISTING deployed Firestore rules; this is not a full ruleset.
+// All existing validation/authorization must remain in place.
+function activeAccount() {
+  return request.auth != null
+    && !exists(/databases/$(database)/documents/account_deletions/$(request.auth.uid));
+}
+
+// Add `&& activeAccount()` to EVERY client write allow expression, especially
+// forum_posts/{postId}, forum_posts/{postId}/comments/{commentId}, users/{uid}
+// and any future account-owned collections. Multiple allow expressions are ORed;
+// a separate deny cannot override an existing broad allow.
+// Also require a non-deleting parent author for comment CREATE:
+// !exists(/databases/$(database)/documents/account_deletions/$(get(/databases/$(database)/documents/forum_posts/$(postId)).data.uid))
+// This prevents new replies racing recursive deletion of that author's posts.
+// Require an existing parent for comment creation as well.
+
+match /account_deletions/{uid} {
+  allow read, write: if false;
+}
+// Admin SDK accesses bypass rules. Backend reward transactions separately read
+// this fence so callbacks and redemption cannot recreate deleted wallets.

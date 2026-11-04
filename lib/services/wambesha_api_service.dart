@@ -1,0 +1,317 @@
+import 'dart:convert';
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
+
+class WambeshaApiService {
+  WambeshaApiService({
+    http.Client? client,
+    String Function()? baseUrlProvider,
+    Future<String?> Function(bool forceRefresh)? tokenProvider,
+  })  : _client = client ?? http.Client(),
+        _baseUrlProvider = baseUrlProvider,
+        _tokenProvider = tokenProvider;
+
+  final http.Client _client;
+  final String Function()? _baseUrlProvider;
+  final Future<String?> Function(bool)? _tokenProvider;
+  final _sourceCache = <String, WambeshaSources>{};
+  final _pendingSources = <String, Future<WambeshaSources>>{};
+
+  void dispose() => _client.close();
+
+  Future<String?> _token(bool refresh) async => _tokenProvider != null
+      ? _tokenProvider(refresh)
+      : FirebaseAuth.instance.currentUser?.getIdToken(refresh);
+
+  Future<Map<String, dynamic>> _get(String path,
+      [Map<String, String> parameters = const {}]) async {
+    const definedUrl = String.fromEnvironment('MOVIE_DOWNLOAD_API_BASE_URL');
+    final base = (_baseUrlProvider?.call() ??
+            (dotenv.isInitialized
+                ? dotenv.env['MOVIE_DOWNLOAD_API_BASE_URL']
+                : null) ??
+            (definedUrl.isNotEmpty
+                ? definedUrl
+                : (kDebugMode ? 'http://127.0.0.1:3000' : '')))
+        .trim()
+        .replaceAll(RegExp(r'/+$'), '');
+    if (base.isEmpty) throw const WambeshaRequestException(503);
+    final uri = Uri.parse('$base/api/wambesha/$path')
+        .replace(queryParameters: parameters.isEmpty ? null : parameters);
+    var token = await _token(false);
+    if (token == null || token.trim().isEmpty) {
+      throw const WambeshaRequestException(401);
+    }
+    Future<http.Response> send() =>
+        _client.get(uri, headers: {'Authorization': 'Bearer $token'}).timeout(
+            const Duration(seconds: 20));
+    var response = await send();
+    if (response.statusCode == 401 &&
+        response.headers['x-moviehub-response-source'] == 'firebase-auth') {
+      token = await _token(true);
+      if (token != null && token.trim().isNotEmpty) response = await send();
+    }
+    if (response.statusCode != 200) {
+      throw WambeshaRequestException(response.statusCode);
+    }
+    return (jsonDecode(response.body) as Map).cast<String, dynamic>();
+  }
+
+  Future<List<Map<String, dynamic>>> genres() async {
+    final body = await _get('genres');
+    return List<Map<String, dynamic>>.from(body['items'] as List);
+  }
+
+  Future<String> resolveTitle(
+      {required int tmdbId, required String type, String? titleRef}) async {
+    final prefix = type == 'movie' ? 'mv_' : 'sr_';
+    if (titleRef != null &&
+        titleRef.startsWith(prefix) &&
+        RegExp(r'^(mv|sr)_[A-Za-z0-9]{1,40}$').hasMatch(titleRef)) {
+      return titleRef;
+    }
+    final record = await _get('lookup', {'tmdb_id': '$tmdbId'});
+    final id = record['id'];
+    if (id is! String ||
+        !id.startsWith(prefix) ||
+        record['type'] != (type == 'movie' ? 'movie' : 'series')) {
+      throw const WambeshaSourceUnavailable(
+          'This title could not be matched in the source catalogue.');
+    }
+    return id;
+  }
+
+  Future<WambeshaSources> movieSources(
+      {required int tmdbId, String? titleRef, bool refresh = false}) async {
+    final id =
+        await resolveTitle(tmdbId: tmdbId, type: 'movie', titleRef: titleRef);
+    return sources(id, refresh: refresh);
+  }
+
+  Future<WambeshaSources> episodeSources(
+      {required int seriesTmdbId,
+      required int season,
+      required int episode,
+      String? seriesRef,
+      bool refresh = false}) async {
+    final id = await resolveTitle(
+        tmdbId: seriesTmdbId, type: 'tv', titleRef: seriesRef);
+    String? cursor;
+    final visited = <String>{};
+    for (var page = 0; page < 20; page++) {
+      final body = await _get('titles/$id/episodes', {
+        'season': '$season',
+        'limit': '50',
+        if (cursor != null) 'cursor': cursor,
+      });
+      for (final item in body['items'] as List? ?? []) {
+        if (item['season_number'] == season &&
+            item['episode_number'] == episode &&
+            item['id'] is String &&
+            (item['id'] as String).startsWith('ep_')) {
+          return sources(item['id'] as String, refresh: refresh);
+        }
+      }
+      cursor = body['next_cursor'] as String?;
+      if (cursor == null || !visited.add(cursor)) break;
+    }
+    throw const WambeshaSourceUnavailable(
+        'This episode could not be matched in the source catalogue.');
+  }
+
+  /// Only called on explicit play/download actions. Concurrent actions share
+  /// a verification; cached answers expire before any signed URL does.
+  Future<WambeshaSources> sources(String titleRef,
+      {bool refresh = false}) async {
+    if (!RegExp(r'^(mv|sr|sn|ep)_[A-Za-z0-9]{1,40}$').hasMatch(titleRef)) {
+      throw ArgumentError('Invalid Wambesha title reference.');
+    }
+    final token = await _token(false);
+    if (token == null || token.trim().isEmpty) {
+      throw const WambeshaRequestException(401);
+    }
+    final scope = '${_baseUrlProvider?.call() ?? ''}|$token|$titleRef';
+    final cached = _sourceCache[scope];
+    if (!refresh && cached != null && cached.isReusable) return cached;
+    final pending = _pendingSources[scope];
+    if (pending != null) return pending;
+    final future = () async {
+      final body = await _get('titles/$titleRef/sources');
+      final result = WambeshaSources.fromJson(body);
+      if (_sourceCache.length >= 32) {
+        _sourceCache.remove(_sourceCache.keys.first);
+      }
+      _sourceCache[scope] = result;
+      return result;
+    }();
+    _pendingSources[scope] = future;
+    try {
+      return await future;
+    } finally {
+      _pendingSources.remove(scope);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> search(String query) async {
+    if (query.trim().length < 2) return [];
+    final body = await _get('search', {'q': query.trim(), 'language': 'en'});
+    final cards =
+        List<Map<String, dynamic>>.from(body['titles']['items'] as List);
+    final ids = cards
+        .where((card) => card['type'] == 'movie' || card['type'] == 'series')
+        .map((card) => card['id'] as String)
+        .take(100)
+        .toList();
+    if (ids.isEmpty) return [];
+    final records =
+        await _get('titles', {'ids': ids.join(','), 'language': 'en'});
+    final byId = {
+      for (final record
+          in List<Map<String, dynamic>>.from(records['items'] as List))
+        record['id']: record,
+    };
+    final results = <Map<String, dynamic>>[];
+    // Search order is authoritative; batch records may omit withdrawn titles.
+    for (final id in ids) {
+      final record = byId[id];
+      if (record == null) continue;
+      final item = normalizeTitle(record);
+      if (item != null) results.add(item);
+    }
+    return results;
+  }
+
+  /// Existing details, saved lists and downloads identify titles by TMDB ID.
+  /// Never substitute a Wambesha ID or a made-up numeric ID for that identity.
+  static Map<String, dynamic>? normalizeTitle(Map<String, dynamic> record) {
+    final type = record['type'];
+    if (type != 'movie' && type != 'series') return null;
+    final external = record['external_ids'];
+    final id = external is Map ? int.tryParse('${external['tmdb_id']}') : null;
+    if (id == null || id < 1) return null;
+    final isMovie = type == 'movie';
+    return {
+      'id': id,
+      'wambesha_id': record['id'],
+      'media_type': isMovie ? 'movie' : 'tv',
+      isMovie ? 'title' : 'name': record['title'],
+      isMovie ? 'original_title' : 'original_name': record['original_title'],
+      'overview': record['synopsis'],
+      'year': record['year'],
+      'release_date': record['release_date'],
+      'first_air_date': record['first_air_date'],
+      'catalogue_status': record['status'],
+      'poster_url': record['poster']?['url'],
+      'genre_ids': [
+        for (final genre in record['genres'] as List? ?? []) genre['id'],
+      ],
+    };
+  }
+}
+
+class WambeshaSources {
+  WambeshaSources({required this.sources, required this.unverified, this.id})
+      : fetchedAt = DateTime.now();
+  factory WambeshaSources.fromJson(Map<String, dynamic> body) =>
+      WambeshaSources(
+        id: body['id'] as String?,
+        sources: [
+          for (final item in body['sources'] as List? ?? [])
+            if (item is Map) Map<String, dynamic>.from(item)
+        ],
+        unverified: (body['unverified'] as num?)?.toInt() ?? 0,
+      );
+  final List<Map<String, dynamic>> sources;
+  final String? id;
+  final int unverified;
+  final DateTime fetchedAt;
+  bool get isReusable =>
+      DateTime.now().difference(fetchedAt) < const Duration(seconds: 30) &&
+      sources.every((source) => _valid(source));
+  bool _valid(Map<String, dynamic> source) {
+    final url = source['url'];
+    final uri = url is String ? Uri.tryParse(url) : null;
+    final expiryValue = source['expires_at'];
+    final expires =
+        expiryValue is String ? DateTime.tryParse(expiryValue) : null;
+    return uri != null &&
+        uri.scheme == 'https' &&
+        uri.host.isNotEmpty &&
+        uri.userInfo.isEmpty &&
+        (expiryValue == null ||
+            (expires != null &&
+                expires
+                    .isAfter(DateTime.now().add(const Duration(seconds: 30)))));
+  }
+
+  bool get hasPlayback =>
+      sources.any((source) => source['kind'] == 'playback_holding' && _valid(source));
+
+  bool get hasDownload =>
+      sources.any((source) => source['kind'] == 'file_holding' && _valid(source));
+
+  String requirePlaybackUrl({bool fallbackToFile = false}) {
+    for (final source in sources) {
+      if (source['kind'] == 'playback_holding' && _valid(source)) {
+        return source['url'] as String;
+      }
+    }
+    if (fallbackToFile) {
+      for (final source in sources) {
+        if (source['kind'] == 'file_holding' && _valid(source)) {
+          return source['url'] as String;
+        }
+      }
+    }
+    if (hasDownload) {
+      throw const WambeshaSourceUnavailable(
+          'Online streaming is not available for this title. Please tap Download to save it for offline viewing.');
+    }
+    throw WambeshaSourceUnavailable(unverified > 0
+        ? 'Wambesha could not confirm a playback source for this title. Please try again later.'
+        : 'No confirmed playback source is available for this title.');
+  }
+
+  String requireUrl(String kind) {
+    for (final source in sources) {
+      if (source['kind'] == kind && _valid(source)) {
+        return source['url'] as String;
+      }
+    }
+    if (kind == 'playback_holding' && hasDownload) {
+      throw const WambeshaSourceUnavailable(
+          'Online streaming is not available for this title. Please tap Download to save it for offline viewing.');
+    }
+    throw WambeshaSourceUnavailable(unverified > 0
+        ? 'Wambesha could not confirm a file source for this title. Please try again later.'
+        : kind == 'playback_holding'
+            ? 'No confirmed playback source is available for this title.'
+            : 'No confirmed download file is available for this title.');
+  }
+}
+
+class WambeshaSourceUnavailable implements Exception {
+  const WambeshaSourceUnavailable(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
+class WambeshaRequestException implements Exception {
+  const WambeshaRequestException(this.statusCode);
+  final int statusCode;
+  String get message => switch (statusCode) {
+        401 => 'Please sign in again to use the movie service.',
+        429 => 'Source check limit reached. Please try again later.',
+        404 => 'This title was not found in the source catalogue.',
+        409 =>
+          'This title has an ambiguous catalogue identifier. Please report it.',
+        503 => 'Movie service is not available yet. Please try again later.',
+        _ => 'Unable to load results. Check your connection and try again.',
+      };
+  @override
+  String toString() => 'Movie search request failed ($statusCode).';
+}

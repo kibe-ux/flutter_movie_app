@@ -5,8 +5,11 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 import '../services/films365_api_service.dart';
+import '../services/wambesha_api_service.dart';
 
 String movieDownloadErrorMessage(Object error) {
+  if (error is WambeshaSourceUnavailable) return error.message;
+  if (error is WambeshaRequestException) return error.message;
   if (error is FirebaseAuthException) {
     if (error.code == 'network-request-failed') {
       return 'Cannot refresh your sign-in. Check your connection and try again.';

@@ -13,6 +13,14 @@ class MyList {
   Timer? _saveTimer;
   String? _currentUserId;
 
+  Future<void> clearForDeletedUser(String uid) async {
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    if (_currentUserId == uid || !_initialized) _ids.clear();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('${_storageKey}_$uid');
+  }
+
   String _getUserKey() {
     final userId = FirebaseAuth.instance.currentUser?.uid ?? 'guest';
     return '${_storageKey}_$userId';

@@ -430,6 +430,27 @@ class DownloadService {
     return _activeDownloads[movieId]?.status;
   }
 
+  /// Find local file path for a completed download, if it exists on disk.
+  Future<String?> getDownloadedFilePath(int movieId) async {
+    try {
+      final appDir = await _documentsDirectoryProvider();
+      for (final folder in ['movies', 'downloads']) {
+        final directory = Directory(p.join(appDir.path, folder));
+        if (!await directory.exists()) continue;
+        await for (final entry in directory.list()) {
+          if (entry is File &&
+              p.basename(entry.path).startsWith('${movieId}_') &&
+              ['.mp4', '.mkv', '.mov', '.webm', '.avi']
+                  .contains(p.extension(entry.path).toLowerCase()) &&
+              await entry.length() > 0) {
+            return entry.path;
+          }
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
   /// Restore saved status after restarting, and clear it if the file vanished.
   Future<void> refreshDownloadStatus({
     required int movieId,

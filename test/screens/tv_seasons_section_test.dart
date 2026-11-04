@@ -82,6 +82,48 @@ void main() {
     expect(isTvSeries({'media_type': 'movie', 'name': 'Movie'}), isFalse);
   });
 
+  testWidgets(
+      'on-demand episode actions do not require prefetched file metadata',
+      (tester) async {
+    var downloads = 0;
+    var plays = 0;
+    await tester.pumpWidget(MaterialApp(
+      theme: ThemeData(splashFactory: InkRipple.splashFactory),
+      home: Scaffold(
+          body: ListView(children: [
+        TvSeasonsSection(
+          seriesId: 42,
+          service: _Tv(),
+          downloadService: _Downloads(),
+          metadata: Future.value(null),
+          resolveOnDemand: true,
+          onRefresh: () {},
+          onDownload: (season, episode) {
+            expect(season, 1);
+            expect(episode['episode_number'], 1);
+            downloads++;
+          },
+          onPlay: (season, episode) {
+            expect(season, 1);
+            expect(episode['episode_number'], 1);
+            plays++;
+          },
+        )
+      ])),
+    ));
+    await tester.pumpAndSettle();
+    expect(downloads, 0);
+    expect(plays, 0);
+    await tester.ensureVisible(find.text('Find episode download'));
+    await tester.tap(find.text('Find episode download'));
+    expect(downloads, 1);
+    await tester.ensureVisible(find.text('Watch episode'));
+    await tester.tap(find.text('Watch episode'));
+    expect(plays, 1);
+    expect(find.text('Coming soon'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final width in [320.0, 844.0]) {
     testWidgets('seasons and episode actions fit width $width with large text',
         (tester) async {
