@@ -322,12 +322,14 @@ Keep operational evidence in restricted storage; local `reports/` is ignored and
 is not a shared durable release record. Log any risk accepted for this release.
 
 App Check registration/enforcement, infrastructure abuse controls, developer-tool
-advisories, unknown-expiry delivery validity and full load testing remain
+advisories, unknown-expiry delivery validity and hosted load/soak testing remain
 follow-ups. Read the [security guide](SECURITY_GUIDE.md) before claiming readiness.
 
 Related guides:
 
 - [Backend configuration and endpoints](backend/README.md)
+- [Load-test commands, scope and sizing](docs/LOAD_TESTING.md)
+- [Local load-test results, 5 November 2026](docs/load-testing-results-2026-11-05.md)
 - [Catalogue cache and storage limits](backend/CATALOGUE_CACHE.md)
 - [Account deletion rollout](docs/account-deletion-rollout.md)
 - [Forum rules and moderation rollout](docs/forum-security-rollout.md)

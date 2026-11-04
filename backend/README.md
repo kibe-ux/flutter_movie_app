@@ -6,6 +6,11 @@ For releases and incidents, start with the
 Shared public catalogue caching, provider limits, and app migration are described
 in [CATALOGUE_CACHE.md](CATALOGUE_CACHE.md).
 
+For repeatable local load tests and an isolated database latency probe, use
+[the load-testing guide](../docs/LOAD_TESTING.md). See the
+[measured results](../docs/load-testing-results-2026-11-05.md) before making
+capacity claims.
+
 ## Wambesha search, playback and downloads
 
 Set `WAMBESHA_API_KEY` in `backend/.env` for local development. The key stays
