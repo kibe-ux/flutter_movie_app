@@ -668,70 +668,202 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
   }
 
   Future<String?> _showDownloadOptions(
-      BuildContext context, Map<String, dynamic> metadata) {
-    final rawQuality = metadata['quality'];
-    final quality = rawQuality is String && rawQuality.trim().isNotEmpty
-        ? rawQuality.trim()
-        : 'Quality unspecified';
-    final rawSize = metadata['size'];
-    final size = rawSize is num && rawSize > 0
-        ? '${(rawSize / (1024 * 1024)).toStringAsFixed(1)} MB'
-        : 'Size not supplied';
+      BuildContext context, Map<String, dynamic> metadata, {String? title}) {
+    final displayTitle = title ?? widget.movie['title'] ?? widget.movie['name'] ?? 'Movie';
     return showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: CinemaPalette.surface,
-      showDragHandle: true,
-      builder: (ctx) => Theme(
-        data: _detailsTheme,
-        child: SafeArea(
-          child: SingleChildScrollView(
-              child: Column(
+      backgroundColor: const Color(0xFF14171C),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+          child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const ListTile(
-                leading: Icon(Icons.download_for_offline_outlined),
-                title: Text('Save for offline viewing'),
-                subtitle: Text('Review the available download before saving.'),
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ),
-              ListTile(
-                leading:
-                    const Icon(Icons.check_circle, color: CinemaPalette.gold),
-                title: const Text('Provider file'),
-                subtitle: Text('$quality \u00B7 $size'),
+              Text(
+                displayTitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                ),
               ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: Text(
-                    'One file is available. Other resolutions are not supplied.',
-                    style: TextStyle(color: CinemaPalette.muted, fontSize: 12)),
+              const SizedBox(height: 16),
+              Text(
+                'Download Options',
+                style: GoogleFonts.inter(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-              ListTile(
-                leading: const Icon(Icons.download_rounded),
-                title: const Text('Download movie'),
-                subtitle: const Text('Save the available file to this device'),
-                onTap: () => Navigator.pop(ctx, 'download'),
+              const SizedBox(height: 4),
+              Text(
+                'Choose your preferred method to save this file.',
+                style: GoogleFonts.inter(
+                  color: const Color(0xFF8E95A2),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                ),
               ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.copy),
-                title: const Text('Copy Download Link'),
-                onTap: () => Navigator.pop(ctx, 'copy'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.open_in_browser),
-                title: const Text('Open in Browser'),
+              const SizedBox(height: 20),
+              _buildModernOptionTile(
+                icon: Icons.open_in_browser_rounded,
+                iconBg: const Color(0xFF1E293B),
+                iconColor: const Color(0xFF38BDF8),
+                title: 'Download in Browser',
+                subtitle: 'Standard download via your default web browser.',
                 onTap: () => Navigator.pop(ctx, 'browser'),
               ),
-              ListTile(
-                title: const Text('Cancel'),
-                onTap: () => Navigator.pop(ctx),
+              const SizedBox(height: 12),
+              _buildModernOptionTile(
+                icon: Icons.file_download_outlined,
+                iconBg: const Color(0xFF2C1E1E),
+                iconColor: const Color(0xFFF97316),
+                title: 'Download with ADM',
+                subtitle: 'Faster speeds & resume capability using Advanced Download Manager.',
+                onTap: () => Navigator.pop(ctx, 'adm'),
+              ),
+              const SizedBox(height: 12),
+              _buildModernOptionTile(
+                icon: Icons.copy_rounded,
+                iconBg: const Color(0xFF132A26),
+                iconColor: const Color(0xFF34D399),
+                title: 'Copy Download Link',
+                subtitle: 'Copy the raw URL to clipboard for external tools.',
+                onTap: () => Navigator.pop(ctx, 'copy'),
               ),
             ],
-          )),
+          ),
         ),
       ),
     );
+  }
+
+  Widget _buildModernOptionTile({
+    required IconData icon,
+    required Color iconBg,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: const Color(0xFF1C2128),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        splashColor: iconColor.withOpacity(0.12),
+        highlightColor: iconColor.withOpacity(0.06),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: iconColor, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF8E95A2),
+                        fontSize: 12,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Color(0xFF555E6D),
+                size: 22,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openAdmDownload(String downloadUrl, String fileName) async {
+    // Attempt 1: Direct ADM custom intent scheme (com.dv.adm.AEditor)
+    final admIntentUri = Uri.parse(
+      'intent:$downloadUrl#Intent;action=android.intent.action.VIEW;'
+      'type=video/*;package=com.dv.adm;S.title=${Uri.encodeComponent(fileName)};end',
+    );
+    try {
+      final launched = await launchUrl(
+        admIntentUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (launched) return;
+    } catch (_) {}
+
+    // Attempt 2: Fallback to generic URL view with external application chooser
+    try {
+      final fallbackLaunched = await launchUrl(
+        Uri.parse(downloadUrl),
+        mode: LaunchMode.externalApplication,
+      );
+      if (fallbackLaunched) return;
+    } catch (_) {}
+
+    // Attempt 3: If neither opened, offer to install ADM or copy the link
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('ADM not installed or not responding. Link copied to clipboard!'),
+        action: SnackBarAction(
+          label: 'Get ADM',
+          textColor: CinemaPalette.gold,
+          onPressed: () => launchUrl(
+            Uri.parse('https://play.google.com/store/apps/details?id=com.dv.adm'),
+            mode: LaunchMode.externalApplication,
+          ),
+        ),
+      ),
+    );
+    await _copyDownloadLink(downloadUrl);
   }
 
   Future<void> _copyDownloadLink(String downloadUrl) async {
@@ -953,8 +1085,13 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
       final number = (episode['episode_number'] as num).toInt();
       final sources = await _resolveEpisodeSources(season, number);
       final metadata = {'downloadUrl': sources.requireUrl('file_holding')};
+      final code =
+          'S${season.toString().padLeft(2, '0')}E${number.toString().padLeft(2, '0')}';
+      final episodeTitle =
+          '${widget.movie['title'] ?? widget.movie['name']} $code - ${episode['name'] ?? 'Episode $number'}';
+
       if (!mounted) return;
-      final action = await _showDownloadOptions(context, metadata);
+      final action = await _showDownloadOptions(context, metadata, title: episodeTitle);
       if (!mounted || action == null) return;
       final url = (await _sourceService.sources(sources.id!))
           .requireUrl('file_holding');
@@ -966,14 +1103,15 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
         await _openDownloadLink(url);
         return;
       }
+      if (action == 'adm') {
+        await _openAdmDownload(url, '$episodeTitle.mp4');
+        return;
+      }
       if (!await AdService().beforeTransition(isActive: () => mounted)) return;
       if (!mounted) return;
-      final code =
-          'S${season.toString().padLeft(2, '0')}E${number.toString().padLeft(2, '0')}';
       unawaited(_downloadService.downloadMovie(
         movieId: episodeDownloadId((episode['id'] as num).toInt()),
-        movieTitle:
-            '${widget.movie['title'] ?? widget.movie['name']} $code - ${episode['name'] ?? 'Episode $number'}',
+        movieTitle: episodeTitle,
         posterPath: widget.movie['poster_path'],
         downloadUrl: (await _sourceService.sources(sources.id!))
             .requireUrl('file_holding'),
@@ -1013,7 +1151,8 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
 
       if (!mounted) return;
       downloadStage = 'download-options';
-      final action = await _showDownloadOptions(context, metadata);
+      final movieTitle = movie['title'] ?? movie['name'] ?? 'Movie';
+      final action = await _showDownloadOptions(context, metadata, title: movieTitle);
       if (!mounted || action == null) return;
       if (action == 'copy') {
         await _copyDownloadLink(downloadUrl);
@@ -1021,6 +1160,10 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
       }
       if (action == 'browser') {
         await _openDownloadLink(downloadUrl);
+        return;
+      }
+      if (action == 'adm') {
+        await _openAdmDownload(downloadUrl, '$movieTitle.mp4');
         return;
       }
       downloadStage = 'download-ad';
