@@ -20,7 +20,7 @@ test("the hosted API serves health and still requires Firebase authentication", 
 test("the hosted transport preserves POST bytes, query encoding and authorization", async () => {
   const fixture = express();
   fixture.use(express.raw({ type: "*/*" }));
-  fixture.post("/api/mobile/search", (req, res) => res.json({
+  fixture.post("/api/transport-test", (req, res) => res.json({
     originalUrl: req.originalUrl,
     body: req.body.toString("utf8"),
     authorization: req.get("authorization"),
@@ -28,12 +28,12 @@ test("the hosted transport preserves POST bytes, query encoding and authorizatio
   }));
   const body = '{ "query": "Cinema & café" }';
   const response = await createNeonHandler(fixture).fetch(new Request(
-    "https://api.example/api/mobile/search?query=a%26b&type=movie", {
+    "https://api.example/api/transport-test?query=a%26b&type=movie", {
       method: "POST", body,
       headers: { "content-type": "application/json", authorization: "Bearer test-id-token" },
     }));
   assert.deepEqual(await response.json(), {
-    originalUrl: "/api/mobile/search?query=a%26b&type=movie",
+    originalUrl: "/api/transport-test?query=a%26b&type=movie",
     body, authorization: "Bearer test-id-token", protocol: "https",
   });
 });
@@ -48,8 +48,8 @@ test("binary response bytes and upstream status survive the hosted transport", a
 
 test("oversized bodies are rejected before reaching the API", async () => {
   const fixture = express();
-  fixture.post("/api/mobile/search", () => assert.fail("Oversized input reached the API"));
-  const response = await createNeonHandler(fixture).fetch(new Request("https://api.example/api/mobile/search", {
+  fixture.post("/api/transport-test", () => assert.fail("Oversized input reached the API"));
+  const response = await createNeonHandler(fixture).fetch(new Request("https://api.example/api/transport-test", {
     method: "POST", body: "a".repeat(1024 * 1024 + 1),
   }));
   assert.equal(response.status, 413);

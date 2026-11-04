@@ -18,7 +18,7 @@ function runtimeOptions(env = process.env) {
 }
 
 function getRuntimeFirebaseApp() {
-  const name = 'films365-proxy';
+  const name = 'moviehub-backend';
   const existing = getApps().find(app => app.name === name);
   if (existing) return existing;
   const app = initializeApp(runtimeOptions(), name);

@@ -23,7 +23,7 @@ void main() {
       'vote_average': 8.4,
       'id': 987654321,
       'tmdbId': 987654321,
-      'films365_id': 'private-provider-id',
+      'wambesha_id': 'private-provider-id',
       'imdbId': 'tt123456789',
     })));
     await tester.ensureVisible(find.text('Copy message'));

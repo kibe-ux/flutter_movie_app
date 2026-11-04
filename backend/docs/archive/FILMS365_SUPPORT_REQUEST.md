@@ -1,3 +1,5 @@
+> Archived: FILMS365 has been retired. This historical investigation is not deployment or integration guidance. See [the current backend README](../../README.md).
+
 # FILMS365 support request
 
 Subject: Details endpoint returns 401 Invalid API key

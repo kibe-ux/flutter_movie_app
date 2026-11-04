@@ -1,3 +1,5 @@
+> Archived: FILMS365 has been retired. This historical investigation is not deployment or integration guidance. See [the current backend README](../../README.md).
+
 # FILMS365 success/failure comparison
 
 Captured during app testing on October 21, 2026 (Africa/Nairobi, UTC+03:00).

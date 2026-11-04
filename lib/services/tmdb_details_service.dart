@@ -4,8 +4,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-/// Fetches rich movie/TV metadata directly from TMDB, returning a map whose
-/// keys match the shape previously expected from Films365:
+/// Fetches rich movie/TV metadata through the shared backend proxy. The map
+/// uses the normalized keys expected by the details screen:
 ///
 /// - runtime, voteAverage, voteCount
 /// - mpaRating, imdbId

@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:moviehub_app/services/films365_api_service.dart';
+import 'package:moviehub_app/services/wambesha_api_service.dart';
 import 'package:moviehub_app/utils/movie_download_error.dart';
 
 void main() {
@@ -21,16 +21,18 @@ void main() {
         'Could not reach the download service. Check your connection.');
   });
 
-  test('401 distinguishes Firebase sessions from provider credentials', () {
-    const firebase = Films365RequestException(401, source: 'firebase-auth');
-    const provider = Films365RequestException(401, source: 'films365');
-    expect(movieDownloadErrorMessage(firebase),
-        'Please sign in again to download.');
-    expect(movieDownloadErrorMessage(firebase), isNot(contains('API key')));
-    expect(movieDownloadErrorMessage(provider),
-        'Film365 denied access to this movie. Please try again later.');
-    expect(movieDownloadErrorMessage(provider), isNot(contains('not set up')));
-    expect(movieDownloadErrorMessage(provider), isNot(contains('API key')));
+  test('source errors provide actionable messages without credentials', () {
+    const signedOut = WambeshaRequestException(401);
+    const limited = WambeshaRequestException(429);
+    expect(movieDownloadErrorMessage(signedOut), contains('sign in again'));
+    expect(movieDownloadErrorMessage(limited), contains('limit reached'));
+    expect(movieDownloadErrorMessage(signedOut), isNot(contains('API key')));
+    expect(
+        movieDownloadErrorMessage(const WambeshaSourceUnavailable(
+            'No confirmed download file is available for this title.')),
+        contains('No confirmed download'));
+    expect(movieDownloadErrorDiagnostic(limited),
+        'errorType=WambeshaRequestException status=429');
   });
 
   test('diagnostics do not expose exception messages or unknown codes', () {
@@ -48,13 +50,10 @@ void main() {
         movieDownloadErrorDiagnostic(malformed), 'errorType=FormatException');
   });
 
-  test('invalid response and unavailable Firebase configuration are distinct',
-      () {
+  test('invalid response and unavailable movie service are distinct', () {
     expect(
         movieDownloadErrorMessage(const FormatException()), contains('format'));
-    expect(
-        movieDownloadErrorMessage(
-            const Films365RequestException(503, source: 'firebase-auth')),
-        contains('Firebase configuration'));
+    expect(movieDownloadErrorMessage(const WambeshaRequestException(503)),
+        contains('Movie service'));
   });
 }

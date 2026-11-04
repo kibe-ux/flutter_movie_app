@@ -1,4 +1,4 @@
-/// Fields supplied by the Film365 Details response, alongside downloadUrl.
+/// Normalized movie and TV metadata displayed on the details screen.
 List<Map<String, dynamic>> movieInfoRecords(Object? value) {
   if (value is Map) value = value['results'];
   return value is List

@@ -22,6 +22,10 @@ test('retired FILMS365 routes stay unavailable and never contact an upstream', a
     ['/api/mobile/person?type=movie&tmdbId=1', 'GET'],
     ['/api/mobile/search', 'POST'], ['/api/mobile/details/torrent-link', 'POST'],
     ['/api/mobile/unknown', 'GET'],
+    ['/api/films365/trending', 'GET'], ['/api/films365/popular', 'GET'],
+    ['/api/films365/latest', 'GET'], ['/api/films365/explore', 'GET'],
+    ['/api/films365/details', 'GET'], ['/api/films365/person', 'GET'],
+    ['/api/films365/search', 'POST'], ['/api/films365/details/torrent-link', 'POST'],
   ]) {
     const response = await realFetch(origin + route, { method });
     await response.arrayBuffer();

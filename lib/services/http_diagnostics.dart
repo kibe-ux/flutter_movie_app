@@ -7,7 +7,7 @@ void logHttpDiagnostic({
   String fallbackSource = 'unknown',
 }) {
   if (!kDebugMode) return;
-  const sources = {'firebase-auth', 'node-backend', 'films365'};
+  const sources = {'firebase-auth', 'node-backend', 'wambesha'};
   final reportedSource = headers['x-moviehub-response-source'];
   final source =
       sources.contains(reportedSource) ? reportedSource! : fallbackSource;

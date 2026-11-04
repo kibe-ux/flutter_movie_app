@@ -1,3 +1,5 @@
+> Archived: FILMS365 has been retired. This historical investigation is not deployment or integration guidance. See [the current backend README](../../README.md).
+
 # Film365 release download check — October 27, 2026
 
 The installed release reports that Film365 denied access when loading movie

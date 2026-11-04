@@ -141,7 +141,7 @@ class DownloadService {
       }
       if (!_isCurrentAttempt(movieId, attempt)) return;
 
-      // Start the request before choosing an extension because FILMS365 URLs
+      // Start the request before choosing an extension because provider URLs
       // are often tokenized and do not expose one in their path.
       final request = http.Request('GET', Uri.parse(url));
       final response =

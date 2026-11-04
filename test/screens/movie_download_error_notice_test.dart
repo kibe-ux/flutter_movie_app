@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:moviehub_app/services/films365_api_service.dart';
+import 'package:moviehub_app/services/wambesha_api_service.dart';
 import 'package:moviehub_app/widgets/movie_download_error_notice.dart';
 
 void main() {
-  const denial = Films365RequestException(401, source: 'films365');
+  const denial = WambeshaRequestException(502);
 
   Widget app(VoidCallback onRetry) => MaterialApp(
         home: Scaffold(
