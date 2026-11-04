@@ -1,3 +1,4 @@
+import 'backend_url.dart';
 import 'dart:convert';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -39,7 +40,7 @@ class WambeshaApiService {
         .trim()
         .replaceAll(RegExp(r'/+$'), '');
     if (base.isEmpty) throw const WambeshaRequestException(503);
-    final uri = Uri.parse('$base/api/wambesha/$path')
+    final uri = Uri.parse('${validateBackendUrl(base)}/api/wambesha/$path')
         .replace(queryParameters: parameters.isEmpty ? null : parameters);
     var token = await _token(false);
     if (token == null || token.trim().isEmpty) {
@@ -247,11 +248,11 @@ class WambeshaSources {
                     .isAfter(DateTime.now().add(const Duration(seconds: 30)))));
   }
 
-  bool get hasPlayback =>
-      sources.any((source) => source['kind'] == 'playback_holding' && _valid(source));
+  bool get hasPlayback => sources
+      .any((source) => source['kind'] == 'playback_holding' && _valid(source));
 
-  bool get hasDownload =>
-      sources.any((source) => source['kind'] == 'file_holding' && _valid(source));
+  bool get hasDownload => sources
+      .any((source) => source['kind'] == 'file_holding' && _valid(source));
 
   String requirePlaybackUrl({bool fallbackToFile = false}) {
     for (final source in sources) {
@@ -273,6 +274,31 @@ class WambeshaSources {
     throw WambeshaSourceUnavailable(unverified > 0
         ? 'Wambesha could not confirm a playback source for this title. Please try again later.'
         : 'No confirmed playback source is available for this title.');
+  }
+
+  /// Returns all available download sources with human-readable quality labels
+  List<Map<String, String>> get downloadQualities {
+    final list = <Map<String, String>>[];
+    for (final s in sources) {
+      if (s['kind'] == 'file_holding' && _valid(s)) {
+        final url = s['url'] as String;
+        final rawQuality = (s['quality'] ?? s['label'] ?? s['resolution'])?.toString();
+        String label;
+        if (rawQuality != null && rawQuality.isNotEmpty) {
+          label = rawQuality.toUpperCase();
+        } else if (url.contains('1080') || url.contains('FHD')) {
+          label = '1080p (Full HD)';
+        } else if (url.contains('720') || url.contains('HD')) {
+          label = '720p (HD)';
+        } else if (url.contains('480') || url.contains('SD')) {
+          label = '480p (Data Saver)';
+        } else {
+          label = list.isEmpty ? '1080p (Full HD)' : '720p (HD)';
+        }
+        list.add({'url': url, 'label': label});
+      }
+    }
+    return list;
   }
 
   String requireUrl(String kind) {

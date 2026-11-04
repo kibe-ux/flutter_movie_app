@@ -279,7 +279,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                           colors: [
-                            CinemaPalette.background.withValues(alpha: 0.32),
+                            CinemaPalette.background.withOpacity(0.32),
                             Colors.transparent,
                           ],
                         ),
@@ -295,7 +295,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                 icon: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                      color: CinemaPalette.background.withValues(alpha: 0.75),
+                      color: CinemaPalette.background.withOpacity(0.75),
                       shape: BoxShape.circle),
                   child: const Icon(Icons.arrow_back_rounded,
                       color: CinemaPalette.ivory, size: 20),
@@ -307,7 +307,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                   icon: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: CinemaPalette.background.withValues(alpha: 0.75),
+                      color: CinemaPalette.background.withOpacity(0.75),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -326,7 +326,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                   icon: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: CinemaPalette.background.withValues(alpha: 0.75),
+                      color: CinemaPalette.background.withOpacity(0.75),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -348,7 +348,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                   icon: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: CinemaPalette.background.withValues(alpha: 0.75),
+                      color: CinemaPalette.background.withOpacity(0.75),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -663,19 +663,25 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
-  Future<String?> _showDownloadOptions(
+  Future<({String action, String url})?> _showDownloadOptions(
       BuildContext context, Map<String, dynamic> metadata,
-      {String? title}) {
+      {String? title, List<Map<String, String>>? qualities}) {
     final displayTitle =
         title ?? widget.movie['title'] ?? widget.movie['name'] ?? 'Movie';
-    return showModalBottomSheet<String>(
+    final availableQualities = qualities ?? const [];
+    String selectedUrl = metadata['downloadUrl'] as String? ?? '';
+    if (availableQualities.isNotEmpty && !availableQualities.any((q) => q['url'] == selectedUrl)) {
+      selectedUrl = availableQualities.first['url']!;
+    }
+    return showModalBottomSheet<({String action, String url})>(
       context: context,
       isScrollControlled: true,
       backgroundColor: const Color(0xFF14171C),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (ctx) => SafeArea(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
           child: Column(
@@ -722,6 +728,70 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                   fontWeight: FontWeight.w400,
                 ),
               ),
+              if (availableQualities.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Select Quality',
+                  style: GoogleFonts.inter(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final q in availableQualities) ...[
+                      GestureDetector(
+                        onTap: () => setSheetState(() => selectedUrl = q['url']!),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: selectedUrl == q['url']
+                                ? CinemaPalette.gold
+                                : const Color(0xFF1C2128),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: selectedUrl == q['url']
+                                  ? CinemaPalette.gold
+                                  : Colors.white24,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                selectedUrl == q['url']
+                                    ? Icons.check_circle_rounded
+                                    : Icons.video_library_outlined,
+                                size: 14,
+                                color: selectedUrl == q['url']
+                                    ? Colors.black
+                                    : Colors.white70,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                q['label'] ?? 'HD',
+                                style: GoogleFonts.inter(
+                                  color: selectedUrl == q['url']
+                                      ? Colors.black
+                                      : Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: selectedUrl == q['url']
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
               const SizedBox(height: 20),
               _buildModernOptionTile(
                 icon: Icons.open_in_browser_rounded,
@@ -729,7 +799,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                 iconColor: const Color(0xFF38BDF8),
                 title: 'Download in Browser',
                 subtitle: 'Standard download via your default web browser.',
-                onTap: () => Navigator.pop(ctx, 'browser'),
+                onTap: () => Navigator.pop(ctx, (action: 'browser', url: selectedUrl)),
               ),
               const SizedBox(height: 12),
               _buildModernOptionTile(
@@ -739,7 +809,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                 title: 'Download with ADM',
                 subtitle:
                     'Faster speeds & resume capability using Advanced Download Manager.',
-                onTap: () => Navigator.pop(ctx, 'adm'),
+                onTap: () => Navigator.pop(ctx, (action: 'adm', url: selectedUrl)),
               ),
               const SizedBox(height: 12),
               _buildModernOptionTile(
@@ -748,13 +818,13 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                 iconColor: const Color(0xFF34D399),
                 title: 'Copy Download Link',
                 subtitle: 'Copy the raw URL to clipboard for external tools.',
-                onTap: () => Navigator.pop(ctx, 'copy'),
+                onTap: () => Navigator.pop(ctx, (action: 'copy', url: selectedUrl)),
               ),
             ],
           ),
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildModernOptionTile({
@@ -771,8 +841,8 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
-        splashColor: iconColor.withValues(alpha: 0.12),
-        highlightColor: iconColor.withValues(alpha: 0.06),
+        splashColor: iconColor.withOpacity(0.12),
+        highlightColor: iconColor.withOpacity(0.06),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Row(
@@ -1040,7 +1110,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
         backgroundColor: isPrimary ? CinemaPalette.gold : CinemaPalette.surface,
         side: isPrimary
             ? BorderSide.none
-            : BorderSide(color: buttonColor.withValues(alpha: 0.7)),
+            : BorderSide(color: buttonColor.withOpacity(0.7)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         minimumSize: const Size.fromHeight(54),
       ),
@@ -1091,11 +1161,11 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
           '${widget.movie['title'] ?? widget.movie['name']} $code - ${episode['name'] ?? 'Episode $number'}';
 
       if (!mounted) return;
-      final action =
-          await _showDownloadOptions(context, metadata, title: episodeTitle);
-      if (!mounted || action == null) return;
-      final url = (await _sourceService.sources(sources.id!))
-          .requireUrl('file_holding');
+      final result = await _showDownloadOptions(context, metadata,
+          title: episodeTitle, qualities: sources.downloadQualities);
+      if (!mounted || result == null) return;
+      final url = result.url;
+      final action = result.action;
       if (action == 'copy') {
         await _copyDownloadLink(url);
         return;
@@ -1153,19 +1223,21 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
       if (!mounted) return;
       downloadStage = 'download-options';
       final movieTitle = movie['title'] ?? movie['name'] ?? 'Movie';
-      final action =
-          await _showDownloadOptions(context, metadata, title: movieTitle);
-      if (!mounted || action == null) return;
+      final result = await _showDownloadOptions(context, metadata,
+          title: movieTitle, qualities: sources.downloadQualities);
+      if (!mounted || result == null) return;
+      final chosenUrl = result.url;
+      final action = result.action;
       if (action == 'copy') {
-        await _copyDownloadLink(downloadUrl);
+        await _copyDownloadLink(chosenUrl);
         return;
       }
       if (action == 'browser') {
-        await _openDownloadLink(downloadUrl);
+        await _openDownloadLink(chosenUrl);
         return;
       }
       if (action == 'adm') {
-        await _openAdmDownload(downloadUrl, '$movieTitle.mp4');
+        await _openAdmDownload(chosenUrl, '$movieTitle.mp4');
         return;
       }
       downloadStage = 'download-ad';
