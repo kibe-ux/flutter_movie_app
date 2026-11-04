@@ -1,3 +1,4 @@
+import '../services/tmdb_api.dart';
 // -------------------- MovieDetailsScreen.dart --------------------
 import 'dart:async';
 import 'dart:convert';
@@ -5,9 +6,7 @@ import 'package:flutter/material.dart';
 import '../utils/cinema_palette.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:http/http.dart' as http;
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../utils/my_list.dart';
@@ -30,8 +29,6 @@ import '../widgets/movie_download_error_notice.dart';
 import '../widgets/tv_seasons_section.dart';
 import '../services/tv_series_service.dart';
 
-final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '';
-const String baseUrl = 'https://api.themoviedb.org/3';
 const String imageBase = 'https://image.tmdb.org/t/p/w500';
 const String backdropBase = 'https://image.tmdb.org/t/p/w780';
 
@@ -156,8 +153,8 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
   Future<void> fetchSimilarMovies() async {
     try {
       final movieId = widget.movie['id'];
-      final response = await http.get(
-          Uri.parse('$baseUrl/$_mediaType/$movieId/similar?api_key=$apiKey'));
+      final response =
+          await TmdbApi.get(TmdbApi.uri('$_mediaType/$movieId/similar'));
       if (!mounted) return;
       if (response.statusCode == 200) {
         final data = json.decode(response.body);

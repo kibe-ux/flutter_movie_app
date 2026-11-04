@@ -1,3 +1,5 @@
+import '../services/tmdb_api.dart';
+
 class HomeCategory {
   const HomeCategory(this.name, this.endpoint, [this.filters = const {}]);
 
@@ -7,9 +9,8 @@ class HomeCategory {
 
   bool get isTv => endpoint.split('/').contains('tv');
 
-  Uri uri(String apiKey, {int page = 1, DateTime? now}) {
-    return Uri.https('api.themoviedb.org', '/3/$endpoint', {
-      'api_key': apiKey,
+  Uri uri({int page = 1, DateTime? now}) {
+    return TmdbApi.uri(endpoint, {
       'language': 'en-US',
       ...filters,
       if (name == 'Latest Movies')
@@ -23,7 +24,8 @@ class HomeCategory {
 const homeCategories = <HomeCategory>[
   HomeCategory('Trending Today', 'trending/movie/day'),
   HomeCategory('Now Playing', 'movie/now_playing'),
-  HomeCategory('Latest Movies', 'discover/movie', {'sort_by': 'release_date.desc'}),
+  HomeCategory(
+      'Latest Movies', 'discover/movie', {'sort_by': 'release_date.desc'}),
   HomeCategory('Top Rated', 'movie/top_rated'),
   HomeCategory('Popular Movies', 'movie/popular'),
   HomeCategory(

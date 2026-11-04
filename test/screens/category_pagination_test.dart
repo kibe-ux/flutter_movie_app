@@ -1,4 +1,6 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
+import 'package:moviehub_app/services/catalogue_service.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -9,7 +11,10 @@ import 'package:http/testing.dart';
 import 'package:moviehub_app/screens/full_category_screen.dart';
 
 void main() {
-  setUp(() => dotenv.testLoad(fileInput: 'MOVIE_API_KEY=test'));
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(CatalogueService.resetCacheForTesting);
+  setUp(() => dotenv.testLoad(
+      fileInput: 'MOVIE_DOWNLOAD_API_BASE_URL=http://127.0.0.1:3000'));
 
   Widget app({int initialPage = 1, String title = 'Popular Movies'}) =>
       MaterialApp(
@@ -24,14 +29,14 @@ void main() {
       );
 
   final tvRoutes = {
-    'Airing Today': ('/3/tv/airing_today', null),
-    'On the Air': ('/3/tv/on_the_air', null),
-    'Action & Adventure TV': ('/3/discover/tv', '10759'),
-    'Comedy TV': ('/3/discover/tv', '35'),
-    'Crime TV': ('/3/discover/tv', '80'),
-    'Drama TV': ('/3/discover/tv', '18'),
-    'Animation TV': ('/3/discover/tv', '16'),
-    'Documentary TV': ('/3/discover/tv', '99'),
+    'Airing Today': ('/api/catalogue/3/tv/airing_today', null),
+    'On the Air': ('/api/catalogue/3/tv/on_the_air', null),
+    'Action & Adventure TV': ('/api/catalogue/3/discover/tv', '10759'),
+    'Comedy TV': ('/api/catalogue/3/discover/tv', '35'),
+    'Crime TV': ('/api/catalogue/3/discover/tv', '80'),
+    'Drama TV': ('/api/catalogue/3/discover/tv', '18'),
+    'Animation TV': ('/api/catalogue/3/discover/tv', '16'),
+    'Documentary TV': ('/api/catalogue/3/discover/tv', '99'),
   };
 
   for (final entry in tvRoutes.entries) {

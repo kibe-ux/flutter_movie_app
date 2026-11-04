@@ -3,15 +3,12 @@ import '../utils/cinema_palette.dart';
 import '../widgets/cinema_app_bar_surface.dart';
 import 'package:flutter/material.dart';
 import '../config/home_categories.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'movie_details_screen.dart';
 import '../utils/my_list.dart';
 import '../services/ad_service.dart';
 import '../widgets/safe_network_image.dart';
 import '../services/catalogue_service.dart';
 
-final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '';
-const String baseUrl = 'https://api.themoviedb.org/3';
 const String imageBase = 'https://image.tmdb.org/t/p/w300';
 
 class FullCategoryScreen extends StatefulWidget {
@@ -75,7 +72,7 @@ class _FullCategoryScreenState extends State<FullCategoryScreen> {
     final category = homeCategoriesByName[widget.title];
     final uri =
         (category ?? const HomeCategory('Popular Movies', 'movie/popular'))
-            .uri(apiKey, page: nextPage);
+            .uri(page: nextPage);
     try {
       final result = await const CatalogueService().fetchPage(uri);
       if (!mounted) return;

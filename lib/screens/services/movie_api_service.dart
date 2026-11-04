@@ -1,16 +1,12 @@
+import '../../services/tmdb_api.dart';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 
 class MovieApiService {
-  final String apiKey;
-  final String baseUrl;
-
-  MovieApiService({required this.apiKey, required this.baseUrl});
+  const MovieApiService();
 
   // Fetch cast
   Future<List<Map<String, dynamic>>> fetchCast(int movieId) async {
-    final response = await http
-        .get(Uri.parse('$baseUrl/movie/$movieId/credits?api_key=$apiKey'));
+    final response = await TmdbApi.get(TmdbApi.uri('movie/$movieId/credits'));
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       return List<Map<String, dynamic>>.from(data['cast'] ?? []);
@@ -20,8 +16,7 @@ class MovieApiService {
 
   // Fetch similar movies
   Future<List<Map<String, dynamic>>> fetchSimilarMovies(int movieId) async {
-    final response = await http
-        .get(Uri.parse('$baseUrl/movie/$movieId/similar?api_key=$apiKey'));
+    final response = await TmdbApi.get(TmdbApi.uri('movie/$movieId/similar'));
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       return List<Map<String, dynamic>>.from(data['results'] ?? []);
@@ -31,8 +26,7 @@ class MovieApiService {
 
   // Fetch trailers
   Future<List<Map<String, dynamic>>> fetchTrailers(int movieId) async {
-    final response = await http
-        .get(Uri.parse('$baseUrl/movie/$movieId/videos?api_key=$apiKey'));
+    final response = await TmdbApi.get(TmdbApi.uri('movie/$movieId/videos'));
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       return List<Map<String, dynamic>>.from(data['results'] ?? []);

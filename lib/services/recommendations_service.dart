@@ -1,11 +1,7 @@
+import 'tmdb_api.dart';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'watch_history_service.dart';
 import 'favorites_service.dart';
-
-final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '';
-const String baseUrl = 'https://api.themoviedb.org/3';
 
 class RecommendationsService {
   static Future<List<Map<String, dynamic>>> getPersonalizedRecommendations({
@@ -66,12 +62,9 @@ class RecommendationsService {
     int movieId,
   ) async {
     try {
-      final response = await http
-          .get(
-            Uri.parse(
-                '$baseUrl/movie/$movieId/recommendations?api_key=$apiKey'),
-          )
-          .timeout(const Duration(seconds: 10));
+      final response = await TmdbApi.get(
+        TmdbApi.uri('movie/$movieId/recommendations'),
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -91,11 +84,9 @@ class RecommendationsService {
   static Future<List<Map<String, dynamic>>> _getTrendingMovies(
       int limit) async {
     try {
-      final response = await http
-          .get(
-            Uri.parse('$baseUrl/trending/movie/week?api_key=$apiKey'),
-          )
-          .timeout(const Duration(seconds: 10));
+      final response = await TmdbApi.get(
+        TmdbApi.uri('trending/movie/week'),
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -121,11 +112,9 @@ class RecommendationsService {
     int limit = 10,
   }) async {
     try {
-      final response = await http
-          .get(
-            Uri.parse('$baseUrl/movie/top_rated?api_key=$apiKey'),
-          )
-          .timeout(const Duration(seconds: 10));
+      final response = await TmdbApi.get(
+        TmdbApi.uri('movie/top_rated'),
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -145,11 +134,9 @@ class RecommendationsService {
     int limit = 10,
   }) async {
     try {
-      final response = await http
-          .get(
-            Uri.parse('$baseUrl/movie/upcoming?api_key=$apiKey'),
-          )
-          .timeout(const Duration(seconds: 10));
+      final response = await TmdbApi.get(
+        TmdbApi.uri('movie/upcoming'),
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

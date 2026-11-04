@@ -1,6 +1,6 @@
+import '../services/tmdb_api.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'movie_details_screen.dart';
 import '../utils/my_list.dart';
 import '../utils/cinema_palette.dart';
@@ -10,8 +10,6 @@ import '../widgets/safe_network_image.dart';
 import '../widgets/movie_hub_banner_ad.dart';
 import '../utils/movie_download_availability.dart';
 
-final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '';
-const String baseUrl = 'https://api.themoviedb.org/3';
 const String imageBase = 'https://image.tmdb.org/t/p/w500';
 
 // Explore Screen
@@ -46,8 +44,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   Future<Map<String, dynamic>> _getData(String path,
       {Map<String, String> parameters = const {}, bool refresh = false}) async {
-    final uri = Uri.https('api.themoviedb.org', '/3/$path', {
-      'api_key': apiKey,
+    final uri = TmdbApi.uri(path, {
       'language': 'en-US',
       ...parameters,
     });

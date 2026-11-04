@@ -51,6 +51,7 @@ class _RetryableStartup extends HomeStartupService {
 }
 
 void main() {
+  setUp(CatalogueService.resetCacheForTesting);
   testWidgets('shows splash immediately and waits for initialization',
       (tester) async {
     final ready = Completer<void>();

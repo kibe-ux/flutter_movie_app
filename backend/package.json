@@ -12,6 +12,8 @@
     "neon:plan": "node scripts/deploy_neon.js --plan",
     "neon:deploy": "node scripts/deploy_neon.js --deploy",
     "neon:status": "node scripts/deploy_neon.js --status",
+    "catalogue:plan": "node scripts/deploy_neon.js --plan --catalogue-only",
+    "catalogue:deploy": "node scripts/deploy_neon.js --deploy --catalogue-only",
     "diagnose:films365": "node scripts/diagnose_films365.js"
   },
   "engines": {

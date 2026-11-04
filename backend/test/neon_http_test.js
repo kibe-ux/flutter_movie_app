@@ -9,7 +9,7 @@ test("the hosted API serves health and still requires Firebase authentication", 
   const health = await hosted.fetch(new Request("https://api.example/health"));
   assert.equal(health.status, 200);
   assert.equal((await health.json()).status, "ok");
-  for (const route of ["/api/mobile/popular", "/api/database/health", "/api/movies"]) {
+  for (const route of ["/api/wambesha/genres", "/api/database/health", "/api/movies"]) {
     const response = await hosted.fetch(new Request(`https://api.example${route}`));
     assert.equal(response.status, 401);
     assert.equal(response.headers.get("x-moviehub-response-source"), "firebase-auth");

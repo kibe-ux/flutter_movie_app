@@ -1,3 +1,4 @@
+import 'package:moviehub_app/services/tmdb_api.dart';
 import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -5,7 +6,7 @@ import 'package:http/testing.dart';
 import 'package:moviehub_app/services/catalogue_json_client.dart';
 
 void main() {
-  final uri = Uri.https('example.test', '/movie');
+  final uri = TmdbApi.uri('movie/popular');
   test('reuses successful responses, refreshes explicitly and expires old data',
       () async {
     var now = DateTime(2026);
@@ -55,9 +56,9 @@ void main() {
       return http.Response('{"path":"${request.url.path}"}', 200);
     }));
     addTearDown(client.close);
-    final tv = uri.replace(path: '/tv');
-    expect((await client.get(uri))['path'], '/movie');
-    expect((await client.get(tv))['path'], '/tv');
+    final tv = TmdbApi.uri('tv/popular');
+    expect((await client.get(uri))['path'], '/api/catalogue/3/movie/popular');
+    expect((await client.get(tv))['path'], '/api/catalogue/3/tv/popular');
     await client.get(uri);
     await client.get(tv);
     expect(requests, 2);

@@ -3,11 +3,11 @@ const test = require('node:test');
 const express = require('express');
 const { registerWambeshaRoutes } = require('../wambesha');
 
-async function fixture(t, fetchImpl) {
+async function fixture(t, fetchImpl, fixedUid) {
   const app = express();
   registerWambeshaRoutes(app, {
     authenticate: (req, res, next) => req.header('authorization') === 'Bearer firebase-token'
-      ? (req.firebaseUser = { uid: req.header('x-test-user') || 'test-user' }, next()) : res.status(401).json({ error: 'Sign in required.' }),
+      ? (req.firebaseUser = { uid: fixedUid || req.header('x-test-user') || 'test-user' }, next()) : res.status(401).json({ error: 'Sign in required.' }),
     fetchImpl,
   });
   const server = app.listen(0);
@@ -149,4 +149,68 @@ test('lookup and episode resolution are unmetered and source failures are not re
   assert.equal(calls, 3);
   assert.equal((await request('/titles/mv_123/sources')).status, 503);
   assert.equal(calls, 4);
+});
+
+
+test('unknown provider exceptions are redacted for source requests and concurrent waiters', async t => {
+  const request = await fixture(t, async () => {
+    await new Promise(resolve => setTimeout(resolve, 25));
+    throw new Error('private-url?api_key=secret-in-error');
+  });
+  const responses = await Promise.all(Array.from({ length: 4 }, () => request('/titles/mv_123/sources')));
+  for (const response of responses) {
+    assert.equal(response.status, 502);
+    assert.deepEqual(await response.json(), { error: 'Movie catalogue is unavailable.' });
+  }
+});
+
+test('timeouts and malformed provider JSON return controlled messages', async t => {
+  let timeout = true;
+  const request = await fixture(t, async () => {
+    if (timeout) throw Object.assign(new Error('private-provider-url'), { name: 'TimeoutError' });
+    return new Response('private-malformed-json', { status: 200 });
+  });
+  const first = await request('/genres');
+  assert.equal(first.status, 504);
+  assert.deepEqual(await first.json(), { error: 'Movie catalogue request timed out.' });
+  timeout = false;
+  const second = await request('/genres');
+  assert.equal(second.status, 502);
+  assert.deepEqual(await second.json(), { error: 'Movie catalogue is unavailable.' });
+});
+
+test('simultaneous source requests stay isolated between verified users', async t => {
+  let calls = 0;
+  const request = await fixture(t, async () => {
+    const call = ++calls;
+    await new Promise(resolve => setTimeout(resolve, 25));
+    return Response.json({ sources: [{ kind: 'file_holding', url: `https://delivery.example/${call}.mp4` }] });
+  });
+  const responses = await Promise.all([
+    request('/titles/mv_123/sources', { headers: { 'x-test-user': 'first-user' } }),
+    request('/titles/mv_123/sources', { headers: { 'x-test-user': 'second-user' } }),
+  ]);
+  const bodies = await Promise.all(responses.map(response => response.json()));
+  assert.equal(calls, 2);
+  assert.notEqual(bodies[0].sources[0].url, bodies[1].sources[0].url);
+});
+
+test('client-supplied test headers cannot override a verified UID', async t => {
+  let calls = 0;
+  const request = await fixture(t, async () => { calls++; return Response.json({ sources: [] }); }, 'verified-user');
+  await request('/titles/mv_123/sources', { headers: { 'x-test-user': 'spoofed-user-one' } });
+  await request('/titles/mv_123/sources', { headers: { 'x-test-user': 'spoofed-user-two' } });
+  assert.equal(calls, 1);
+});
+
+test('duplicate source taps share one verification without consuming extra rate allowance', async t => {
+  let calls = 0;
+  const request = await fixture(t, async () => {
+    calls++;
+    await new Promise(resolve => setTimeout(resolve, 25));
+    return Response.json({ sources: [] });
+  });
+  const responses = await Promise.all(Array.from({ length: 12 }, () => request('/titles/mv_123/sources')));
+  assert.ok(responses.every(response => response.status === 200));
+  assert.equal(calls, 1);
 });

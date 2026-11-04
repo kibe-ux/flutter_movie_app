@@ -1,3 +1,4 @@
+import 'package:moviehub_app/services/tmdb_api.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -7,7 +8,23 @@ import 'package:http/testing.dart';
 import 'package:moviehub_app/services/catalogue_service.dart';
 
 void main() {
-  final uri = Uri.https('example.test', '/movies', {'page': '2'});
+  setUp(CatalogueService.resetCacheForTesting);
+  final uri = TmdbApi.uri('discover/movie', {'page': '2'});
+
+  test('default service instances reuse a shared catalogue page', () async {
+    var calls = 0;
+    await http.runWithClient(() async {
+      await const CatalogueService().fetchPage(uri);
+      await const CatalogueService().fetchPage(uri);
+      expect(calls, 1);
+      await const CatalogueService().fetchPage(uri, refresh: true);
+      expect(calls, 2);
+    },
+        () => MockClient((_) async {
+              calls++;
+              return http.Response('{"results":[]}', 200);
+            }));
+  });
 
   test('filters invalid and future items and recognizes the final page',
       () async {

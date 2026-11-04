@@ -1,5 +1,8 @@
 # Movie Download Backend
 
+Shared public catalogue caching, provider limits, and app migration are described
+in [CATALOGUE_CACHE.md](CATALOGUE_CACHE.md).
+
 ## Wambesha search, playback and downloads
 
 Set `WAMBESHA_API_KEY` in `backend/.env` for local development. The key stays
@@ -48,7 +51,8 @@ Episode lookup matches season AND episode, following episode cursors before
 spending a verification on that episode. A missing file/playback source shows
 an availability message; it does not fall back to the other kind or FILMS365.
 Player Retry requests sources again (subject to the backend's short cache).
-The existing FILMS365 metadata routes remain for descriptive detail widgets.
+The retired FILMS365 proxy routes return 404. Descriptive details now use the
+shared TMDB catalogue proxy; Wambesha supplies playback/download sources.
 Account/key-management endpoints are not exposed. Provider
 401/403 responses become 502; only Firebase 401 responses refresh the app token.
 

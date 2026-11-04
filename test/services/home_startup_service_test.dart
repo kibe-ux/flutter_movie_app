@@ -9,12 +9,14 @@ import 'package:moviehub_app/services/home_startup_service.dart';
 import 'package:moviehub_app/services/catalogue_service.dart';
 
 void main() {
+  setUp(CatalogueService.resetCacheForTesting);
   TestWidgetsFlutterBinding.ensureInitialized();
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   const connectivity = MethodChannel('dev.fluttercommunity.plus/connectivity');
   setUp(() {
-    dotenv.testLoad(fileInput: 'MOVIE_API_KEY=test');
+    dotenv.testLoad(
+        fileInput: 'MOVIE_DOWNLOAD_API_BASE_URL=http://127.0.0.1:3000');
     messenger.setMockMethodCallHandler(connectivity, (_) async => ['wifi']);
   });
   tearDown(() => messenger.setMockMethodCallHandler(connectivity, null));
@@ -35,7 +37,7 @@ void main() {
     },
         () => MockClient((request) async {
               expect(request.url.queryParameters['page'], '1');
-              expect(request.url.queryParameters['api_key'], 'test');
+              expect(request.url.queryParameters, isNot(contains('api_key')));
               return http.Response(
                   jsonEncode({
                     'results': [

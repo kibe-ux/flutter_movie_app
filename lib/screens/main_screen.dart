@@ -46,7 +46,8 @@ class _MainScreenState extends State<MainScreen> {
     final coinsEarned = await DailyRewardService.claimDailyBonus(uid: uid);
     if (coinsEarned > 0 && mounted) {
       context.read<RewardsService>().addBonusCoins(coinsEarned);
-      _showSnackBar('🎉 Daily Check-in Bonus: + Cinema Coins added to your balance!');
+      _showSnackBar(
+          '\u{1F389} Daily Check-in Bonus: +$coinsEarned Cinema Coins added to your balance!');
     }
   }
 
@@ -477,7 +478,7 @@ class _MainScreenState extends State<MainScreen> {
             height: 44,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: _drawerAccent.withOpacity(0.08),
+              color: _drawerAccent.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: _drawerAccent, size: 24),
@@ -509,7 +510,7 @@ class _MainScreenState extends State<MainScreen> {
         ),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.4),
+              color: Colors.black.withValues(alpha: 0.4),
               blurRadius: 20,
               offset: const Offset(0, -5))
         ],
@@ -551,7 +552,7 @@ class _MainScreenState extends State<MainScreen> {
               icon,
               color: isSelected
                   ? CinemaPalette.background
-                  : _onSurfaceColor.withOpacity(0.65),
+                  : _onSurfaceColor.withValues(alpha: 0.65),
               size: 24,
             ),
           ),
@@ -563,7 +564,7 @@ class _MainScreenState extends State<MainScreen> {
             style: TextStyle(
               color: isSelected
                   ? activeColor
-                  : _onSurfaceColor.withOpacity(0.65),
+                  : _onSurfaceColor.withValues(alpha: 0.65),
               fontSize: 12,
               height: 1.3,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,

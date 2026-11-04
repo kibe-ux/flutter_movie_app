@@ -20,7 +20,7 @@ function createDatabase({
   let cachedUrl;
   let client;
 
-  async function query(text, parameters = []) {
+  function getClient() {
     const url = connectionString()?.trim();
     if (!url) throw new NeonDatabaseError("NOT_CONFIGURED");
     try {
@@ -37,11 +37,35 @@ function createDatabase({
         client = createClient(url);
         cachedUrl = url;
       }
-      return await client.query(text, parameters, {
+      return client;
+    } catch {
+      // Driver errors can contain passwords, SQL parameters or connection URLs.
+      throw new NeonDatabaseError("UNAVAILABLE");
+    }
+  }
+
+  async function query(text, parameters = []) {
+    const sql = getClient();
+    try {
+      return await sql.query(text, parameters, {
         fetchOptions: { signal: AbortSignal.timeout(15000) },
       });
     } catch {
-      // Driver errors can contain passwords, SQL parameters or connection URLs.
+      throw new NeonDatabaseError("UNAVAILABLE");
+    }
+  }
+
+  async function transaction(statements) {
+    const sql = getClient();
+    try {
+      return await sql.transaction(statements.map(({ text, parameters = [] }) =>
+        sql.query(text, parameters)), {
+        // Each statement sees commits made while the first statement waited
+        // for an advisory lock held by another cache writer.
+        isolationLevel: "ReadCommitted",
+        fetchOptions: { signal: AbortSignal.timeout(15000) },
+      });
+    } catch {
       throw new NeonDatabaseError("UNAVAILABLE");
     }
   }
@@ -52,7 +76,7 @@ function createDatabase({
     return { connected: true };
   }
 
-  return { query, checkConnection };
+  return { query, transaction, checkConnection };
 }
 
 module.exports = {

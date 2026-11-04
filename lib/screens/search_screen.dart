@@ -1,10 +1,9 @@
+import '../services/tmdb_api.dart';
 import '../widgets/cinema_app_bar_surface.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'movie_details_screen.dart';
 import '../utils/my_list.dart';
@@ -15,8 +14,6 @@ import '../services/ad_service.dart';
 import '../services/cache_service.dart';
 import '../services/wambesha_api_service.dart';
 import '../widgets/safe_network_image.dart';
-
-final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key, this.searchService});
@@ -467,11 +464,9 @@ class _SearchScreenState extends State<SearchScreen>
     try {
       // Details still uses TMDB artwork, seasons and identifiers. Fetch its
       // canonical record instead of handing it Wambesha artwork paths.
-      final uri =
-          Uri.parse('${AppTheme.baseUrl}/${item['media_type']}/${item['id']}')
-              .replace(
-                  queryParameters: {'api_key': apiKey, 'language': 'en-US'});
-      final response = await http.get(uri).timeout(AppTheme.apiTimeout);
+      final uri = TmdbApi.uri(
+          '${item['media_type']}/${item['id']}', {'language': 'en-US'});
+      final response = await TmdbApi.get(uri).timeout(AppTheme.apiTimeout);
       if (response.statusCode != 200) throw StateError('Title unavailable');
       final movie = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
       if (movie['id'] != item['id']) throw StateError('Title mismatch');

@@ -12,7 +12,7 @@ class DailyRewardService {
   static Future<int> claimDailyBonus({String? uid}) async {
     final keyId = uid ?? 'guest';
     final prefs = await SharedPreferences.getInstance();
-    
+
     final today = _dateKey(DateTime.now());
     final lastClaimed = prefs.getString('$_prefix$keyId');
 
@@ -22,10 +22,11 @@ class DailyRewardService {
 
     // Record claim date
     await prefs.setString('$_prefix$keyId', today);
-    
+
     // Increment local bonus coins accumulated
     final currentBonus = prefs.getInt('$_bonusCoinsPrefix$keyId') ?? 0;
-    await prefs.setInt('$_bonusCoinsPrefix$keyId', currentBonus + dailyBonusCoins);
+    await prefs.setInt(
+        '$_bonusCoinsPrefix$keyId', currentBonus + dailyBonusCoins);
 
     return dailyBonusCoins;
   }

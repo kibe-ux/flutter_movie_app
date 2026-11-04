@@ -1,4 +1,6 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:moviehub_app/services/catalogue_service.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,7 +14,10 @@ import 'package:moviehub_app/services/home_startup_service.dart';
 import 'package:moviehub_app/widgets/movie_hub_app_bar.dart';
 
 void main() {
-  setUp(() => dotenv.testLoad(fileInput: 'MOVIE_API_KEY=test'));
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(CatalogueService.resetCacheForTesting);
+  setUp(() => dotenv.testLoad(
+      fileInput: 'MOVIE_DOWNLOAD_API_BASE_URL=http://127.0.0.1:3000'));
 
   Future<void> resize(WidgetTester tester, Size size) async {
     tester.view.devicePixelRatio = 1;
@@ -154,7 +159,8 @@ void main() {
             await tester.pump(const Duration(milliseconds: 100));
           }
           for (final endpoint in HomeStartupService.endpoints.values) {
-            expect(requestedPaths, isNot(contains('/3/$endpoint')));
+            expect(
+                requestedPaths, isNot(contains('/api/catalogue/3/$endpoint')));
           }
           expect(tester.takeException(), isNull);
           await tester.pumpWidget(const SizedBox());
@@ -177,7 +183,7 @@ void main() {
           for (var frame = 0; frame < 5; frame++) {
             await tester.pump(const Duration(milliseconds: 100));
           }
-          expect(requestedPaths, contains('/3/discover/movie'));
+          expect(requestedPaths, contains('/api/catalogue/3/discover/movie'));
           expect(tester.takeException(), isNull);
           await tester.pumpWidget(const SizedBox());
           await tester.pump();

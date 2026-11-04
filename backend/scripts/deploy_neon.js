@@ -60,25 +60,27 @@ async function bundle() {
 
 async function main() {
   const mode = process.argv[2] || "--plan";
+  const catalogueOnly = process.argv.includes("--catalogue-only");
+  const configFile = catalogueOnly ? "neon.catalogue.ts" : "neon.ts";
   if (!["--build", "--plan", "--deploy", "--status"].includes(mode)) throw new Error("Unknown deployment mode.");
   if (mode !== "--status") await bundle();
   if (mode === "--build") return;
   const target = ["--project-id", projectId, "--branch", branchId];
   if (mode === "--plan") {
-    const plan = runNeon(["config", "plan", "--config", "neon.ts", "--env", ".env", ...target, "-o", "json"], { json: true });
+    const plan = runNeon(["config", "plan", "--config", configFile, "--env", ".env", ...target, "-o", "json"], { json: true });
     if (plan.projectId !== projectId || plan.branchId !== branchId || !plan.dryRun) throw new Error('Unexpected plan target.');
     const changes = plan.applied.filter(change => change.action !== 'noop');
     console.log(JSON.stringify({ projectId, branchId, dryRun: true,
       changes: changes.map(({ kind, action, identifier }) => ({ kind, action, identifier })),
       conflicts: plan.conflicts.length }, null, 2));
-    const allowed = new Set(['function:moviehub', 'function:accountcleanup', 'trigger:accountcleanup:account-deletion-retries']);
+    const allowed = new Set(catalogueOnly ? ['function:moviehub'] : ['function:moviehub', 'function:accountcleanup', 'trigger:accountcleanup:account-deletion-retries']);
     if (plan.conflicts.length || changes.some(change => change.action === 'delete' || change.kind === 'branch' || !allowed.has(change.identifier))) {
       throw new Error('Deployment plan includes a conflict or unrelated branch/deletion change.');
     }
     return;
   }
   if (mode === "--deploy") {
-    const applied = runNeon(["deploy", "--config", "neon.ts", "--env", ".env", "--no-env-pull", ...target, "-o", "json"], { json: true });
+    const applied = runNeon(["deploy", "--config", configFile, "--env", ".env", "--no-env-pull", ...target, "-o", "json"], { json: true });
     console.log(JSON.stringify({ deployed: true, changes: (applied.applied || []).filter(change => change.action !== 'noop')
       .map(({ kind, action, identifier }) => ({ kind, action, identifier })) }));
   }

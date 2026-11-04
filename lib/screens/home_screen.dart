@@ -3,7 +3,6 @@ import '../config/home_categories.dart';
 import '../utils/cinema_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'movie_details_screen.dart';
 import 'full_category_screen.dart';
 import 'my_list_screen.dart';
@@ -16,8 +15,6 @@ import '../widgets/movie_hub_banner_ad.dart';
 import '../widgets/connection_notice.dart';
 import '../widgets/home_movie_carousel.dart';
 
-final String apiKey = dotenv.env['MOVIE_API_KEY'] ?? '';
-const String baseUrl = 'https://api.themoviedb.org/3';
 const String imageBase = 'https://image.tmdb.org/t/p/w300';
 const String backdropBase = 'https://image.tmdb.org/t/p/w780';
 
@@ -213,7 +210,7 @@ class _HomeScreenState extends State<HomeScreen> {
       await Future.wait(categories.map((category) async {
         try {
           refreshed[category] = await const CatalogueService()
-              .fetchPage(homeCategoriesByName[category]!.uri(apiKey));
+              .fetchPage(homeCategoriesByName[category]!.uri(), refresh: true);
         } on CatalogueLoadException {
           failed = true;
         }
@@ -255,8 +252,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showRefreshError() {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content:
-          const Text('Couldn\u2019t refresh. Your loaded movies are still here.'),
+      content: const Text(
+          'Couldn\u2019t refresh. Your loaded movies are still here.'),
       backgroundColor: CinemaPalette.surface,
       action: SnackBarAction(
         label: 'Retry',
@@ -295,8 +292,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _categoryErrors.remove(category);
     });
     try {
-      final result = await const CatalogueService()
-          .fetchPage(definition.uri(apiKey, page: page));
+      final result =
+          await const CatalogueService().fetchPage(definition.uri(page: page));
       if (!mounted || generation != _loadGeneration) return;
       final usedIds = _movieCategories.entries
           .where((entry) => !reset || entry.key != category)

@@ -1,5 +1,18 @@
 const express = require('express');
 
+class WambeshaRequestError extends Error {
+  constructor(status, message) { super(message); this.status = status; }
+}
+
+function sendRequestError(res, error) {
+  const controlled = error instanceof WambeshaRequestError;
+  const timeout = error?.name === 'TimeoutError';
+  return res.status(controlled ? error.status : timeout ? 504 : 502).json({
+    error: controlled ? error.message : timeout
+      ? 'Movie catalogue request timed out.' : 'Movie catalogue is unavailable.',
+  });
+}
+
 function registerWambeshaRoutes(app, { authenticate, fetchImpl = (...args) => fetch(...args) }) {
   const router = express.Router();
   router.use((req, res, next) => {
@@ -14,7 +27,7 @@ function registerWambeshaRoutes(app, { authenticate, fetchImpl = (...args) => fe
   const userRateLimits = new Map();
 
   function getUserId(req) {
-    return req.header('x-test-user') || req.firebaseUser?.uid || 'default-user';
+    return req.firebaseUser?.uid;
   }
 
   function checkRateLimit(userId) {
@@ -131,30 +144,32 @@ function registerWambeshaRoutes(app, { authenticate, fetchImpl = (...args) => fe
     }
 
     const userId = getUserId(req);
+    if (typeof userId !== 'string' || !userId) {
+      return res.status(401).json({ error: 'A verified Firebase user is required.' });
+    }
+    const sourceScope = `${userId}:${titleRef}`;
 
     if (isSourcesEndpoint) {
-      const cacheKey = `${userId}:${titleRef}`;
-      const cached = sourcesCache.get(cacheKey);
+      const cached = sourcesCache.get(sourceScope);
       if (cached && cached.expiresAt > Date.now()) {
         res.set('X-MovieHub-Response-Source', 'wambesha');
         return res.json(cached.data);
       }
 
+      // In-flight coalescing for simultaneous taps
+      if (inFlightSources.has(sourceScope)) {
+        try {
+          const sharedData = await inFlightSources.get(sourceScope);
+          res.set('X-MovieHub-Response-Source', 'wambesha');
+          return res.json(sharedData);
+        } catch (sharedError) {
+          return sendRequestError(res, sharedError);
+        }
+      }
       const retryAfter = checkRateLimit(userId);
       if (retryAfter > 0) {
         res.set('Retry-After', String(retryAfter));
         return res.status(429).json({ error: 'Movie search limit reached. Please try again later.' });
-      }
-
-      // In-flight coalescing for simultaneous taps
-      if (inFlightSources.has(titleRef)) {
-        try {
-          const sharedData = await inFlightSources.get(titleRef);
-          res.set('X-MovieHub-Response-Source', 'wambesha');
-          return res.json(sharedData);
-        } catch (sharedError) {
-          return res.status(sharedError.status || 502).json({ error: sharedError.message });
-        }
       }
     }
 
@@ -174,11 +189,9 @@ function registerWambeshaRoutes(app, { authenticate, fetchImpl = (...args) => fe
 
       if (!upstream.ok) {
         const status = [401, 403].includes(upstream.status) ? 502 : upstream.status;
-        const err = new Error(upstream.status === 429
+        throw new WambeshaRequestError(status, upstream.status === 429
           ? 'Movie search limit reached. Please try again later.'
           : 'Movie catalogue is unavailable.');
-        err.status = status;
-        throw err;
       }
 
       const rawJson = await upstream.json();
@@ -190,19 +203,19 @@ function registerWambeshaRoutes(app, { authenticate, fetchImpl = (...args) => fe
 
     if (isSourcesEndpoint) {
       const fetchPromise = executeFetch();
-      inFlightSources.set(titleRef, fetchPromise);
+      inFlightSources.set(sourceScope, fetchPromise);
       try {
         const data = await fetchPromise;
         const cacheTtlMs = data.sources && data.sources.length > 0 ? 300000 : 30000;
-        sourcesCache.set(`${userId}:${titleRef}`, {
+        sourcesCache.set(sourceScope, {
           data,
           expiresAt: Date.now() + cacheTtlMs,
         });
         return res.json(data);
       } catch (err) {
-        return res.status(err.status || 502).json({ error: err.message || 'Movie catalogue is unavailable.' });
+        return sendRequestError(res, err);
       } finally {
-        inFlightSources.delete(titleRef);
+        inFlightSources.delete(sourceScope);
       }
     }
 
@@ -210,8 +223,7 @@ function registerWambeshaRoutes(app, { authenticate, fetchImpl = (...args) => fe
       const data = await executeFetch();
       return res.json(data);
     } catch (error) {
-      const status = error.status || (error?.name === 'TimeoutError' ? 504 : 502);
-      return res.status(status).json({ error: error.message || 'Movie catalogue is unavailable.' });
+      return sendRequestError(res, error);
     }
   });
 

@@ -1,3 +1,4 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -9,7 +10,9 @@ import 'package:http/testing.dart';
 import 'package:moviehub_app/screens/explore_screen.dart';
 
 void main() {
-  setUp(() => dotenv.testLoad(fileInput: 'MOVIE_API_KEY=test'));
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(() => dotenv.testLoad(
+      fileInput: 'MOVIE_DOWNLOAD_API_BASE_URL=http://127.0.0.1:3000'));
 
   Widget app() => MaterialApp(
         theme: ThemeData(splashFactory: InkRipple.splashFactory),
@@ -33,23 +36,28 @@ void main() {
     await http.runWithClient(() async {
       await tester.pumpWidget(app());
       await tester.pumpAndSettle();
-      expect(requests.last.path, '/3/discover/movie');
+      expect(requests.last.path, '/api/catalogue/3/discover/movie');
       await tester.tap(find.text('TV Shows'));
       await tester.pumpAndSettle();
-      expect(requests.any((uri) => uri.path == '/3/genre/tv/list'), isTrue);
-      expect(requests.last.path, '/3/discover/tv');
+      expect(
+          requests.any((uri) => uri.path == '/api/catalogue/3/genre/tv/list'),
+          isTrue);
+      expect(requests.last.path, '/api/catalogue/3/discover/tv');
       expect(requests.last.queryParameters['with_genres'], '35');
       expect(find.text('Search TV shows...'), findsOneWidget);
 
       await tester.enterText(find.byType(TextField), 'Law & Order');
       await tester.pump(const Duration(milliseconds: 450));
       await tester.pumpAndSettle();
-      expect(requests.last.path, '/3/search/tv');
+      expect(requests.last.path, '/api/catalogue/3/search/tv');
       expect(requests.last.queryParameters['query'], 'Law & Order');
 
       await tester.tap(find.text('Movies'));
       await tester.pumpAndSettle();
-      expect(requests.where((uri) => uri.path == '/3/discover/movie'), hasLength(1));
+      expect(
+          requests
+              .where((uri) => uri.path == '/api/catalogue/3/discover/movie'),
+          hasLength(1));
       expect(find.text('Search movies...'), findsOneWidget);
       expect(tester.widget<TextField>(find.byType(TextField)).controller!.text,
           isEmpty);
@@ -68,7 +76,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Sci-Fi & Adventure'));
       await tester.pumpAndSettle();
-      expect(requests.last.path, '/3/discover/movie');
+      expect(requests.last.path, '/api/catalogue/3/discover/movie');
       expect(requests.last.queryParameters['with_genres'], '878,12');
       await tester.tap(find.text('TV Shows'));
       await tester.pumpAndSettle();
@@ -100,7 +108,7 @@ void main() {
       expect(tester.takeException(), isNull);
     },
         () => MockClient((request) async {
-              if (request.url.path == '/3/discover/movie') {
+              if (request.url.path == '/api/catalogue/3/discover/movie') {
                 return pendingMovie.future;
               }
               return response(request.url);

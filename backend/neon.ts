@@ -2,10 +2,11 @@ import { defineConfig } from "@neon/config/v1";
 
 const apiKey = process.env.FILMS365_API_KEY?.trim();
 const projectId = process.env.FIREBASE_PROJECT_ID?.trim();
+const tmdbApiKey = process.env.TMDB_API_KEY?.trim();
 const adminCredentials = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 const workerEnabled = process.env.ACCOUNT_DELETION_WORKER_ENABLED === "true";
-if (!apiKey || !projectId) {
-  throw new Error("Set FILMS365_API_KEY and FIREBASE_PROJECT_ID in backend/.env before deploying.");
+if (!apiKey || !projectId || !tmdbApiKey) {
+  throw new Error("Set TMDB_API_KEY, FILMS365_API_KEY and FIREBASE_PROJECT_ID in backend/.env before deploying.");
 }
 
 export default defineConfig({
@@ -15,6 +16,9 @@ export default defineConfig({
       source: "./.neon-build/index.mjs",
       bundler: "none",
       env: {
+        TMDB_API_KEY: tmdbApiKey,
+        CATALOGUE_CLIENT_LIMIT: process.env.CATALOGUE_CLIENT_LIMIT || "120",
+        CATALOGUE_UPSTREAM_LIMIT: process.env.CATALOGUE_UPSTREAM_LIMIT || "600",
         FILMS365_API_KEY: apiKey,
         ...(process.env.WAMBESHA_API_KEY?.trim()
           ? { WAMBESHA_API_KEY: process.env.WAMBESHA_API_KEY.trim() } : {}),

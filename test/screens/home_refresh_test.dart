@@ -1,4 +1,6 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
+import 'package:moviehub_app/services/catalogue_service.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,8 +12,11 @@ import 'package:moviehub_app/screens/home_screen.dart';
 import 'package:moviehub_app/services/home_startup_service.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(CatalogueService.resetCacheForTesting);
   setUp(() {
-    dotenv.testLoad(fileInput: 'MOVIE_API_KEY=test');
+    dotenv.testLoad(
+        fileInput: 'MOVIE_DOWNLOAD_API_BASE_URL=http://127.0.0.1:3000');
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
     messenger.setMockMethodCallHandler(
@@ -90,7 +95,7 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
         () => MockClient((request) async {
-              if (request.url.path != '/3/movie/now_playing') {
+              if (request.url.path != '/api/catalogue/3/movie/now_playing') {
                 return response([]);
               }
               final page = request.url.queryParameters['page']!;
@@ -125,7 +130,7 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
         () => MockClient((request) async {
-              if (request.url.path != '/3/movie/now_playing') {
+              if (request.url.path != '/api/catalogue/3/movie/now_playing') {
                 return response([]);
               }
               if (fail) return http.Response('Unavailable', 503);

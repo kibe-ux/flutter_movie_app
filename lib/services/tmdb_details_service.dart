@@ -1,7 +1,7 @@
+import 'tmdb_api.dart';
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 
 /// Fetches rich movie/TV metadata directly from TMDB, returning a map whose
@@ -45,21 +45,17 @@ class TmdbDetailsService {
     }
 
     try {
-      final apiKey = dotenv.env['MOVIE_API_KEY'] ?? '';
-      if (apiKey.isEmpty) return null;
-
       final append = mediaType == 'movie'
           ? 'credits,videos,watch/providers,release_dates,external_ids'
           : 'credits,videos,watch/providers,content_ratings,external_ids';
 
-      final uri = Uri.https('api.themoviedb.org', '/3/$mediaType/$tmdbId', {
-        'api_key': apiKey,
+      final uri = TmdbApi.uri('$mediaType/$tmdbId', {
         'language': 'en-US',
         'append_to_response': append,
       });
 
-      final response =
-          await _client.get(uri).timeout(const Duration(seconds: 20));
+      final response = await TmdbApi.get(uri, client: _client)
+          .timeout(const Duration(seconds: 20));
       if (response.statusCode != 200) return null;
 
       final raw = jsonDecode(response.body) as Map<String, dynamic>;
@@ -71,8 +67,7 @@ class TmdbDetailsService {
     }
   }
 
-  Map<String, dynamic> _normalize(
-      Map<String, dynamic> raw, String mediaType) {
+  Map<String, dynamic> _normalize(Map<String, dynamic> raw, String mediaType) {
     // --- basic ---
     final runtime = mediaType == 'movie'
         ? raw['runtime']
@@ -80,14 +75,12 @@ class TmdbDetailsService {
     final voteAverage = raw['vote_average'];
     final voteCount = raw['vote_count'];
     final synopsis = raw['overview'];
-    final releaseDate =
-        raw['release_date'] ?? raw['first_air_date'];
+    final releaseDate = raw['release_date'] ?? raw['first_air_date'];
     final firstAirDate = raw['first_air_date'];
     final imdbId = (raw['external_ids'] as Map?)?['imdb_id'];
 
     // --- MPA / content rating ---
-    final mpaRating =
-        mediaType == 'movie' ? _movieRating(raw) : _tvRating(raw);
+    final mpaRating = mediaType == 'movie' ? _movieRating(raw) : _tvRating(raw);
 
     // --- genres ---
     final genres = [
@@ -98,8 +91,7 @@ class TmdbDetailsService {
     // --- spoken languages ---
     final spokenLanguages = [
       for (final l in raw['spoken_languages'] as List? ?? [])
-        if (l is Map)
-          (l['english_name'] ?? l['name'])?.toString() ?? '',
+        if (l is Map) (l['english_name'] ?? l['name'])?.toString() ?? '',
     ].where((s) => s.isNotEmpty).toList();
 
     // --- production companies ---
@@ -202,7 +194,8 @@ class TmdbDetailsService {
         break;
       }
     }
-    final entries = usEntry ?? (releaseDates.isNotEmpty ? releaseDates.first : null);
+    final entries =
+        usEntry ?? (releaseDates.isNotEmpty ? releaseDates.first : null);
     if (entries is! Map) return '';
     for (final release in entries['release_dates'] as List? ?? []) {
       if (release is Map) {
@@ -224,4 +217,3 @@ class TmdbDetailsService {
     return '';
   }
 }
-

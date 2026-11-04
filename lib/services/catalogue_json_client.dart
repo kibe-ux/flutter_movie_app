@@ -1,3 +1,4 @@
+import 'tmdb_api.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
@@ -34,8 +35,8 @@ class CatalogueJsonClient {
   }
 
   Future<Map<String, dynamic>> _fetch(Uri uri) async {
-    final response =
-        await _client.get(uri).timeout(const Duration(seconds: 20));
+    final response = await TmdbApi.get(uri, client: _client)
+        .timeout(const Duration(seconds: 20));
     if (response.statusCode != 200) throw StateError('Catalogue unavailable');
     final decoded = jsonDecode(response.body);
     if (decoded is! Map<String, dynamic>) {

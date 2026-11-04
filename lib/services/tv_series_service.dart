@@ -1,6 +1,5 @@
+import 'tmdb_api.dart';
 import 'dart:convert';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:http/http.dart' as http;
 
 bool isTvSeries(Map<String, dynamic> item) {
   final type = item['media_type'] ?? item['type'];
@@ -51,11 +50,11 @@ Map<String, dynamic>? episodeDownloadMetadata(
 
 class TvSeriesService {
   Future<Map<String, dynamic>> _get(String path) async {
-    final uri = Uri.https('api.themoviedb.org', '/3/$path', {
-      'api_key': dotenv.env['MOVIE_API_KEY'] ?? '',
+    final uri = TmdbApi.uri(path, {
       'language': 'en-US',
     });
-    final response = await http.get(uri).timeout(const Duration(seconds: 20));
+    final response =
+        await TmdbApi.get(uri).timeout(const Duration(seconds: 20));
     if (response.statusCode != 200) {
       throw StateError('Unable to load TV information');
     }

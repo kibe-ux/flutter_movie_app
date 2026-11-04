@@ -6,13 +6,14 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const mime = require("mime");
 const fs = require("fs");
-const { attachRequestTrace, upstreamTrace } = require("./upstream_diagnostics");
+const { attachRequestTrace } = require("./upstream_diagnostics");
 const { database, NeonDatabaseError } = require("./neon_database");
 const { getRuntimeFirebaseAuth } = require("./firebase_runtime");
 const { registerRewardsRoutes } = require("./rewards");
 const { registerAccountDeletionRoutes } = require("./account_deletion");
 const deletionPage = require("./deletion_page");
 const { registerWambeshaRoutes } = require("./wambesha");
+const { registerCatalogueRoutes } = require("./catalogue");
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -25,6 +26,7 @@ const MOVIE_FILENAME_PATTERN = /^(.*?)[.\s_-]+((?:19|20)\d{2})(?:[.\s_-]+(\d{3,4
 app.use(cors());
 
 function getLoggedApiEndpoint(pathname) {
+  if (pathname.startsWith('/catalogue/3/')) return '/api/catalogue';
   if (/^\/wambesha\/titles\/[^/]+\/sources$/.test(pathname)) return "/api/wambesha/titles/:id/sources";
   if (/^\/wambesha\/titles\/[^/]+\/episodes$/.test(pathname)) return "/api/wambesha/titles/:id/episodes";
   if (/^\/wambesha\/titles\/[^/]+$/.test(pathname)) return "/api/wambesha/titles/:id";
@@ -93,6 +95,7 @@ async function requireFirebaseUser(req, res, next) {
 }
 
 registerWambeshaRoutes(app, { authenticate: requireFirebaseUser });
+registerCatalogueRoutes(app, { authenticate: requireFirebaseUser, database });
 
 app.use(express.json());
 

@@ -1,9 +1,9 @@
+import 'tmdb_api.dart';
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'catalogue_service.dart';
 
 class HomeStartupData {
@@ -35,8 +35,7 @@ class HomeStartupService {
     }
     final errors = <String, String>{};
     final responses = await Future.wait(endpoints.entries.map((entry) async {
-      final uri = Uri.https('api.themoviedb.org', '/3/${entry.value}', {
-        'api_key': dotenv.env['MOVIE_API_KEY'] ?? '',
+      final uri = TmdbApi.uri(entry.value, {
         'language': 'en-US',
         'page': '1',
       });

@@ -2,6 +2,37 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const { createDatabase, NeonDatabaseError } = require("../neon_database");
 
+test('transactions use separate statements at read-committed isolation with parameters intact', async () => {
+  const database = createDatabase({
+    connectionString: () => 'postgresql://test:test@example.neon.tech/neondb',
+    createClient: () => ({
+      query: (text, parameters) => ({ text, parameters }),
+      transaction: async (statements, options) => {
+        assert.deepEqual(statements, [
+          { text: 'SELECT pg_advisory_xact_lock($1)', parameters: [123] },
+          { text: 'SELECT $1::text', parameters: ['private-value'] },
+        ]);
+        assert.equal(options.isolationLevel, 'ReadCommitted');
+        assert.ok(options.fetchOptions.signal instanceof AbortSignal);
+        return [[{ locked: true }], [{ value: 'private-value' }]];
+      },
+    }),
+  });
+  assert.equal((await database.transaction([
+    { text: 'SELECT pg_advisory_xact_lock($1)', parameters: [123] },
+    { text: 'SELECT $1::text', parameters: ['private-value'] },
+  ]))[1][0].value, 'private-value');
+});
+
+test('transaction errors do not expose connection strings or parameters', async () => {
+  const database = createDatabase({
+    connectionString: () => 'postgresql://test:private-password@example.neon.tech/neondb',
+    createClient: () => ({ query: () => ({}), transaction: async () => { throw new Error('private-password private-value'); } }),
+  });
+  await assert.rejects(database.transaction([{ text: 'SELECT $1', parameters: ['private-value'] }]), error =>
+    error instanceof NeonDatabaseError && error.code === 'UNAVAILABLE' && !error.message.includes('private-'));
+});
+
 test("a missing database configuration never opens a connection", async () => {
   const database = createDatabase({
     connectionString: () => "",
