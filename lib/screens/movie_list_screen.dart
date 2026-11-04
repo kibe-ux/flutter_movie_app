@@ -160,33 +160,76 @@ class _MovieListScreenState extends State<MovieListScreen> {
       );
     }
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.64,
+    return SafeArea(
+      top: false,
+      child: MovieDownloadGrid(
+        movies: _movies,
+        taskForMovie: _primaryTaskForMovie,
+        onMovieTap: (movie) => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MovieDetailScreen(movieId: movie.id),
+          ),
+        ),
       ),
-      itemCount: _movies.length,
-      itemBuilder: (context, index) {
-        final movie = _movies[index];
-        final task = _primaryTaskForMovie(movie);
-        return _MovieCard(
-          movie: movie,
-          task: task,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => MovieDetailScreen(movieId: movie.id),
-              ),
-            );
-          },
-        );
-      },
     );
   }
+}
+
+class MovieDownloadGrid extends StatelessWidget {
+  const MovieDownloadGrid({
+    super.key,
+    required this.movies,
+    required this.taskForMovie,
+    required this.onMovieTap,
+  });
+
+  final List<Movie> movies;
+  final DownloadTask? Function(Movie) taskForMovie;
+  final ValueChanged<Movie> onMovieTap;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, constraints) {
+          const padding = 12.0;
+          const spacing = 12.0;
+          final scaler = MediaQuery.textScalerOf(context);
+          final textFactor = (scaler.scale(14) / 14).clamp(1.0, 1.5);
+          final columns = ((constraints.maxWidth - padding * 2 + spacing) /
+                  (140 * textFactor + spacing))
+              .floor()
+              .clamp(1, 12);
+          final cardWidth =
+              (constraints.maxWidth - padding * 2 - spacing * (columns - 1)) /
+                  columns;
+          // Reserve room for two-line titles, metadata and download status.
+          final cardHeight = cardWidth / 0.7 +
+              18 +
+              4 +
+              (scaler.scale(14) * 1.4).ceilToDouble() * 2 +
+              (scaler.scale(12) * 1.4).ceilToDouble() * 2 +
+              16 +
+              (scaler.scale(11) * 1.4).ceilToDouble() * 2;
+          return GridView.builder(
+            padding: const EdgeInsets.all(padding),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              crossAxisSpacing: spacing,
+              mainAxisSpacing: spacing,
+              mainAxisExtent: cardHeight,
+            ),
+            itemCount: movies.length,
+            itemBuilder: (context, index) {
+              final movie = movies[index];
+              return _MovieCard(
+                movie: movie,
+                task: taskForMovie(movie),
+                onTap: () => onMovieTap(movie),
+              );
+            },
+          );
+        },
+      );
 }
 
 class _MovieCard extends StatelessWidget {
@@ -238,13 +281,18 @@ class _MovieCard extends StatelessWidget {
                       movie.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                      style: const TextStyle(
+                          fontSize: 14,
+                          height: 1.4,
+                          fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '${movie.year} • ${movie.qualities.length} qualities',
-                      style:
-                          const TextStyle(fontSize: 12, color: Colors.white70),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 12, height: 1.4, color: Colors.white70),
                     ),
                     if (task != null) ...[
                       const SizedBox(height: 8),
@@ -256,8 +304,10 @@ class _MovieCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         _statusLabel(task!),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                            fontSize: 11, color: Colors.white70),
+                            fontSize: 11, height: 1.4, color: Colors.white70),
                       ),
                     ],
                   ],

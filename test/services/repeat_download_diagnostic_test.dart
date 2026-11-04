@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -49,7 +50,7 @@ void main() {
     expect(replacement.path, original.path);
     expect(await File(replacement.path).readAsBytes(), [2]);
     expect(service!.activeDownloads[42]!.errorMessage, isNull);
-    print(
+    debugPrint(
         'DIAGNOSTIC completed-repeat requests=2 first=completed second=completed keptFile=true');
   });
 
@@ -67,7 +68,8 @@ void main() {
     await download();
     expect(requests, 2);
     expect(service!.getDownloadStatus(42), DownloadStatus.completed);
-    print('DIAGNOSTIC failure-repeat requests=2 first=failed second=completed');
+    debugPrint(
+        'DIAGNOSTIC failure-repeat requests=2 first=failed second=completed');
   });
 
   test('only a still-running attempt makes a duplicate call a silent no-op',
@@ -99,7 +101,7 @@ void main() {
     await download();
     expect(requests, 2);
     expect(service!.getDownloadStatus(42), DownloadStatus.completed);
-    print(
+    debugPrint(
         'DIAGNOSTIC in-flight-duplicate requestsWhileActive=1 error=null afterCompletionRequests=2');
   });
 
@@ -115,7 +117,7 @@ void main() {
     await download();
     expect(requests, 1);
     expect(service!.getDownloadStatus(42), DownloadStatus.completed);
-    print(
+    debugPrint(
         'DIAGNOSTIC invalid-url-repeat networkCallsAfterFailure=0 afterRetry=1 status=completed');
   });
 }

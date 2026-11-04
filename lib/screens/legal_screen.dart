@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../utils/cinema_palette.dart';
 
 class LegalScreen extends StatelessWidget {
@@ -41,7 +41,7 @@ class LegalScreen extends StatelessWidget {
                 ),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: CinemaPalette.gold.withOpacity(0.28),
+                  color: CinemaPalette.gold.withValues(alpha: 0.28),
                 ),
               ),
               child: const Column(
@@ -69,7 +69,7 @@ class LegalScreen extends StatelessWidget {
                 color: CinemaPalette.surface,
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
-                    color: CinemaPalette.ivory.withOpacity(0.08)),
+                    color: CinemaPalette.ivory.withValues(alpha: 0.08)),
               ),
               child: const SelectableText(
                 _disclaimer,
@@ -92,4 +92,3 @@ class LegalScreen extends StatelessWidget {
     );
   }
 }
-

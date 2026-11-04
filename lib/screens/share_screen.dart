@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../utils/cinema_palette.dart';
 import 'package:share_plus/share_plus.dart';
@@ -86,7 +86,7 @@ class _ShareScreenState extends State<ShareScreen> {
       decoration: BoxDecoration(
         color: CinemaPalette.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _posterBorder.withOpacity(0.35)),
+        border: Border.all(color: _posterBorder.withValues(alpha: 0.35)),
       ),
       child: Stack(
         fit: StackFit.expand,
@@ -242,7 +242,7 @@ class _ShareScreenState extends State<ShareScreen> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             border:
-                Border.all(color: CinemaPalette.ivory.withOpacity(0.08)),
+                Border.all(color: CinemaPalette.ivory.withValues(alpha: 0.08)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -267,9 +267,9 @@ class _ShareScreenState extends State<ShareScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _accent.withOpacity(0.08),
+        color: _accent.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _accent.withOpacity(0.22)),
+        border: Border.all(color: _accent.withValues(alpha: 0.22)),
       ),
       child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -323,4 +323,3 @@ class _ShareScreenState extends State<ShareScreen> {
     );
   }
 }
-

@@ -41,6 +41,55 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  for (final size in [
+    const Size(320, 568),
+    const Size(844, 390),
+    const Size(1024, 768)
+  ]) {
+    testWidgets('search results fit $size with large text and rotation',
+        (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = size;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      service.handler = (_) async => [
+            {
+              'id': 987654,
+              'name': 'Orbit: A very long television series title',
+              'media_type': 'tv',
+              'year': 2024,
+              'overview':
+                  'A long description of a television series that wraps across several lines on a narrow screen.'
+            },
+          ];
+      await tester.pumpWidget(MaterialApp(
+        theme: ThemeData(splashFactory: InkRipple.splashFactory),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: const TextScaler.linear(2)),
+          child: child!,
+        ),
+        home: SearchScreen(searchService: service),
+      ));
+      await tester.pumpAndSettle();
+      await search(tester, 'Orbit');
+      expect(find.text('Orbit: A very long television series title'),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+      final bookmark = find.byTooltip('Add to My List');
+      await tester.ensureVisible(bookmark);
+      await tester.pumpAndSettle();
+      expect(bookmark.hitTestable(), findsOneWidget);
+      await tester.tap(bookmark);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(SnackBar), findsOneWidget);
+      await tester.pumpAndSettle();
+      tester.view.physicalSize = Size(size.height, size.width);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('Wambesha movies and TV results rank and filter by type',
       (tester) async {
     service.handler = (_) async => [

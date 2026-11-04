@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../utils/cinema_palette.dart';
 import 'movie_hub_icon.dart';
 
@@ -54,8 +54,9 @@ class _ToolbarControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DecoratedBox(
         decoration: BoxDecoration(
-          color: CinemaPalette.homeAccent.withOpacity(.05),
-          border: Border.all(color: CinemaPalette.homeAccent.withOpacity(.18)),
+          color: CinemaPalette.homeAccent.withValues(alpha: .05),
+          border: Border.all(
+              color: CinemaPalette.homeAccent.withValues(alpha: .18)),
           borderRadius: BorderRadius.circular(15),
         ),
         child: SizedBox(width: 48, height: 48, child: child),
@@ -132,4 +133,3 @@ class _MovieHubWordmark extends StatelessWidget {
         ),
       );
 }
-

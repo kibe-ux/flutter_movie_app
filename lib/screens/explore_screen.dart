@@ -218,15 +218,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
               decoration: BoxDecoration(
                 color: isSelected ? CinemaPalette.gold : CinemaPalette.surface,
                 border: Border.all(
-                  color: CinemaPalette.gold.withOpacity(
-                    isSelected ? 1 : 0.16,
+                  color: CinemaPalette.gold.withValues(
+                    alpha: isSelected ? 1 : 0.16,
                   ),
                 ),
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
-                          color: CinemaPalette.gold.withOpacity(0.18),
+                          color: CinemaPalette.gold.withValues(alpha: 0.18),
                           blurRadius: 12,
                           spreadRadius: 1,
                         ),
@@ -338,7 +338,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           begin: Alignment.bottomCenter,
                           end: Alignment.topCenter,
                           colors: [
-                            Colors.black.withOpacity(0.7),
+                            Colors.black.withValues(alpha: 0.7),
                             Colors.transparent
                           ],
                         ),
@@ -385,7 +385,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.5),
+                            color: Colors.black.withValues(alpha: 0.5),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -405,7 +405,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.6),
+                          color: Colors.black.withValues(alpha: 0.6),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -475,7 +475,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
             borderSide: BorderSide(
-              color: CinemaPalette.gold.withOpacity(0.16),
+              color: CinemaPalette.gold.withValues(alpha: 0.16),
             ),
           ),
           focusedBorder: OutlineInputBorder(
@@ -617,4 +617,3 @@ class _MovieSkeletonCardState extends State<_MovieSkeletonCard>
     super.dispose();
   }
 }
-

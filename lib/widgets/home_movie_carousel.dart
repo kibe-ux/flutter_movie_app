@@ -37,7 +37,7 @@ class _HomeMovieCarouselState extends State<HomeMovieCarousel> {
   Widget build(BuildContext context) {
     final movies = widget.movies;
     if (movies.isEmpty) return SizedBox(height: widget.height);
-    final active = TickerMode.of(context);
+    final active = TickerMode.valuesOf(context).enabled;
     final configuration = '${widget.height}:$active:'
         '${movies.map((movie) => '${movie['id']}:${movie['backdrop_path']}:${movie['poster_path']}').join('|')}';
     if (_slider == null || configuration != _configuration) {

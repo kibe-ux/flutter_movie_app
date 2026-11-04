@@ -18,7 +18,7 @@ class RecommendationsService {
 
       if (favorites.isEmpty && history.isEmpty) {
         // If no history, return trending movies
-        return _getTrendingMovies(limit);
+        return await _getTrendingMovies(limit);
       }
 
       // Collect movies to fetch recommendations from

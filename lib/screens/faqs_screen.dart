@@ -1,4 +1,4 @@
-﻿import '../widgets/cinema_app_bar_surface.dart';
+import '../widgets/cinema_app_bar_surface.dart';
 import 'package:flutter/material.dart';
 
 import 'support_screen.dart';
@@ -137,12 +137,12 @@ class _FAQsScreenState extends State<FAQsScreen> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide(
-                      color: CinemaPalette.ivory.withOpacity(0.1)),
+                      color: CinemaPalette.ivory.withValues(alpha: 0.1)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide(
-                      color: CinemaPalette.ivory.withOpacity(0.1)),
+                      color: CinemaPalette.ivory.withValues(alpha: 0.1)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -253,7 +253,7 @@ class _FAQsScreenState extends State<FAQsScreen> {
       decoration: BoxDecoration(
         color: CinemaPalette.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: CinemaPalette.ivory.withOpacity(0.08)),
+        border: Border.all(color: CinemaPalette.ivory.withValues(alpha: 0.08)),
       ),
       child: ExpansionTile(
         key: PageStorageKey(faq.question),
@@ -264,7 +264,7 @@ class _FAQsScreenState extends State<FAQsScreen> {
         leading: Container(
           padding: const EdgeInsets.all(9),
           decoration: BoxDecoration(
-            color: CinemaPalette.gold.withOpacity(0.12),
+            color: CinemaPalette.gold.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(faq.icon, color: CinemaPalette.gold),
@@ -337,7 +337,7 @@ class _FAQsScreenState extends State<FAQsScreen> {
       decoration: BoxDecoration(
         color: CinemaPalette.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: CinemaPalette.gold.withOpacity(0.35)),
+        border: Border.all(color: CinemaPalette.gold.withValues(alpha: 0.35)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -388,4 +388,3 @@ class _Faq {
   final String answer;
   final IconData icon;
 }
-

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
@@ -495,7 +495,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   color: CinemaPalette.surface,
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: CinemaPalette.gold.withOpacity(0.18),
+                    color: CinemaPalette.gold.withValues(alpha: 0.18),
                   ),
                 ),
                 child: Column(
@@ -569,7 +569,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: CinemaPalette.gold.withOpacity(0.12),
+                          color: CinemaPalette.gold.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(color: CinemaPalette.gold),
                         ),
@@ -686,14 +686,14 @@ class _ProfileScreenState extends State<ProfileScreen>
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: CinemaPalette.ivory.withOpacity(0.07)),
+        side: BorderSide(color: CinemaPalette.ivory.withValues(alpha: 0.07)),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         leading: Container(
           padding: const EdgeInsets.all(9),
           decoration: BoxDecoration(
-            color: CinemaPalette.gold.withOpacity(0.12),
+            color: CinemaPalette.gold.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(11),
           ),
           child: Icon(icon,
@@ -859,4 +859,3 @@ class _AccountSettingsDialogState extends State<_AccountSettingsDialog> {
         ],
       );
 }
-

@@ -282,7 +282,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                           colors: [
-                            CinemaPalette.background.withOpacity(0.32),
+                            CinemaPalette.background.withValues(alpha: 0.32),
                             Colors.transparent,
                           ],
                         ),
@@ -298,7 +298,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                 icon: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                      color: CinemaPalette.background.withOpacity(0.75),
+                      color: CinemaPalette.background.withValues(alpha: 0.75),
                       shape: BoxShape.circle),
                   child: const Icon(Icons.arrow_back_rounded,
                       color: CinemaPalette.ivory, size: 20),
@@ -310,7 +310,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                   icon: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: CinemaPalette.background.withOpacity(0.75),
+                      color: CinemaPalette.background.withValues(alpha: 0.75),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -329,7 +329,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                   icon: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: CinemaPalette.background.withOpacity(0.75),
+                      color: CinemaPalette.background.withValues(alpha: 0.75),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -351,7 +351,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                   icon: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: CinemaPalette.background.withOpacity(0.75),
+                      color: CinemaPalette.background.withValues(alpha: 0.75),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -408,8 +408,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                         mediaType: _mediaType,
                         metadata: _tmdbDetails,
                         onRetry: () => setState(() {
-                          _tmdbDetails =
-                              _loadTmdbDetails(refresh: true);
+                          _tmdbDetails = _loadTmdbDetails(refresh: true);
                         }),
                       ),
                     const SizedBox(height: 24),
@@ -668,8 +667,10 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
   }
 
   Future<String?> _showDownloadOptions(
-      BuildContext context, Map<String, dynamic> metadata, {String? title}) {
-    final displayTitle = title ?? widget.movie['title'] ?? widget.movie['name'] ?? 'Movie';
+      BuildContext context, Map<String, dynamic> metadata,
+      {String? title}) {
+    final displayTitle =
+        title ?? widget.movie['title'] ?? widget.movie['name'] ?? 'Movie';
     return showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -739,7 +740,8 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                 iconBg: const Color(0xFF2C1E1E),
                 iconColor: const Color(0xFFF97316),
                 title: 'Download with ADM',
-                subtitle: 'Faster speeds & resume capability using Advanced Download Manager.',
+                subtitle:
+                    'Faster speeds & resume capability using Advanced Download Manager.',
                 onTap: () => Navigator.pop(ctx, 'adm'),
               ),
               const SizedBox(height: 12),
@@ -772,8 +774,8 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
-        splashColor: iconColor.withOpacity(0.12),
-        highlightColor: iconColor.withOpacity(0.06),
+        splashColor: iconColor.withValues(alpha: 0.12),
+        highlightColor: iconColor.withValues(alpha: 0.06),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Row(
@@ -852,12 +854,14 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('ADM not installed or not responding. Link copied to clipboard!'),
+        content: const Text(
+            'ADM not installed or not responding. Link copied to clipboard!'),
         action: SnackBarAction(
           label: 'Get ADM',
           textColor: CinemaPalette.gold,
           onPressed: () => launchUrl(
-            Uri.parse('https://play.google.com/store/apps/details?id=com.dv.adm'),
+            Uri.parse(
+                'https://play.google.com/store/apps/details?id=com.dv.adm'),
             mode: LaunchMode.externalApplication,
           ),
         ),
@@ -911,8 +915,8 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
         onDownload: _startEpisodeDownload,
         onPlay: _playEpisode,
         resolveOnDemand: true,
-        onRefresh: () => setState(
-            () => _tmdbDetails = _loadTmdbDetails(refresh: true)),
+        onRefresh: () =>
+            setState(() => _tmdbDetails = _loadTmdbDetails(refresh: true)),
       );
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1039,7 +1043,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
         backgroundColor: isPrimary ? CinemaPalette.gold : CinemaPalette.surface,
         side: isPrimary
             ? BorderSide.none
-            : BorderSide(color: buttonColor.withOpacity(0.7)),
+            : BorderSide(color: buttonColor.withValues(alpha: 0.7)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         minimumSize: const Size.fromHeight(54),
       ),
@@ -1070,8 +1074,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
             builder: (_) => VideoPlayerScreen(
                 title: title,
                 videoUrlProvider: (refresh) async =>
-                    (await _resolveEpisodeSources(
-                            season, episodeNumber,
+                    (await _resolveEpisodeSources(season, episodeNumber,
                             refresh: refresh))
                         .requirePlaybackUrl(),
                 onGoToDownload: () => _startEpisodeDownload(season, episode))));
@@ -1091,7 +1094,8 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
           '${widget.movie['title'] ?? widget.movie['name']} $code - ${episode['name'] ?? 'Episode $number'}';
 
       if (!mounted) return;
-      final action = await _showDownloadOptions(context, metadata, title: episodeTitle);
+      final action =
+          await _showDownloadOptions(context, metadata, title: episodeTitle);
       if (!mounted || action == null) return;
       final url = (await _sourceService.sources(sources.id!))
           .requireUrl('file_holding');
@@ -1152,7 +1156,8 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
       if (!mounted) return;
       downloadStage = 'download-options';
       final movieTitle = movie['title'] ?? movie['name'] ?? 'Movie';
-      final action = await _showDownloadOptions(context, metadata, title: movieTitle);
+      final action =
+          await _showDownloadOptions(context, metadata, title: movieTitle);
       if (!mounted || action == null) return;
       if (action == 'copy') {
         await _copyDownloadLink(downloadUrl);

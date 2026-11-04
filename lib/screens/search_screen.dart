@@ -318,7 +318,7 @@ class _SearchScreenState extends State<SearchScreen>
         onDeleted: onDeleted,
         labelStyle: const TextStyle(color: CinemaPalette.ivory),
         backgroundColor: CinemaPalette.surface,
-        side: BorderSide(color: CinemaPalette.gold.withOpacity(.3)),
+        side: BorderSide(color: CinemaPalette.gold.withValues(alpha: .3)),
         deleteIconColor: CinemaPalette.gold,
       );
 
@@ -438,7 +438,7 @@ class _SearchScreenState extends State<SearchScreen>
       required List<DropdownMenuItem<String>> items,
       required ValueChanged<String?> onChanged}) {
     return DropdownButtonFormField<String>(
-      value: value.isEmpty ? null : value,
+      initialValue: value.isEmpty ? null : value,
       dropdownColor: CinemaPalette.surface,
       iconEnabledColor: CinemaPalette.gold,
       style: const TextStyle(color: CinemaPalette.ivory),
@@ -511,14 +511,13 @@ class _SearchScreenState extends State<SearchScreen>
           borderRadius: BorderRadius.circular(18),
           onTap: () => _openTitle(item),
           child: Ink(
-            height: 144,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
                 color: CinemaPalette.surface,
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
-                    color: CinemaPalette.ivory.withOpacity(0.05))),
-            child: Row(children: [
+                    color: CinemaPalette.ivory.withValues(alpha: 0.05))),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               SafeNetworkImage(
                   imageUrl: imageUrl,
                   width: 80,
@@ -529,73 +528,68 @@ class _SearchScreenState extends State<SearchScreen>
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                    Row(children: [
-                      Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                              color: tagColor.withOpacity(0.16),
-                              borderRadius: BorderRadius.circular(6)),
-                          child: Text(isMovie ? 'MOVIE' : 'TV SHOW',
-                              style: TextStyle(
-                                  color: tagColor,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: .5))),
-                      const SizedBox(width: 8),
-                      Text(_getYear(item),
-                          style: const TextStyle(
-                              color: CinemaPalette.muted, fontSize: 12)),
-                    ]),
+                    Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                  color: tagColor.withValues(alpha: 0.16),
+                                  borderRadius: BorderRadius.circular(6)),
+                              child: Text(isMovie ? 'MOVIE' : 'TV SHOW',
+                                  style: TextStyle(
+                                      color: tagColor,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: .5))),
+                          Text(_getYear(item),
+                              style: const TextStyle(
+                                  color: CinemaPalette.muted, fontSize: 12)),
+                        ]),
                     const SizedBox(height: 9),
                     Text(title,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                             color: CinemaPalette.ivory,
                             fontSize: 16,
                             fontWeight: FontWeight.w800)),
                     const SizedBox(height: 6),
-                    Expanded(
-                        child: ShaderMask(
-                            shaderCallback: (bounds) => const LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [
-                                      CinemaPalette.ivory,
-                                      Colors.transparent
-                                    ],
-                                    stops: [
-                                      0.62,
-                                      1
-                                    ]).createShader(bounds),
-                            blendMode: BlendMode.dstIn,
-                            child: Text(overview,
-                                maxLines: 3,
-                                overflow: TextOverflow.clip,
-                                style: const TextStyle(
-                                    color: CinemaPalette.muted,
-                                    fontSize: 12,
-                                    height: 1.35)))),
+                    Text(overview,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            color: CinemaPalette.muted,
+                            fontSize: 12,
+                            height: 1.35)),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: IconButton(
+                        tooltip: isInMyList
+                            ? 'Remove from My List'
+                            : 'Add to My List',
+                        icon: Icon(
+                            isInMyList
+                                ? Icons.bookmark_rounded
+                                : Icons.bookmark_border_rounded,
+                            color: isInMyList
+                                ? CinemaPalette.gold
+                                : CinemaPalette.muted),
+                        onPressed: () => setState(() {
+                          MyList().toggle(item['id']);
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text(MyList().contains(item['id'])
+                                  ? 'Added to My List'
+                                  : 'Removed from My List'),
+                              backgroundColor: CinemaPalette.wine,
+                              duration: const Duration(seconds: 1)));
+                        }),
+                      ),
+                    ),
                   ])),
-              IconButton(
-                tooltip: isInMyList ? 'Remove from My List' : 'Add to My List',
-                icon: Icon(
-                    isInMyList
-                        ? Icons.bookmark_rounded
-                        : Icons.bookmark_border_rounded,
-                    color:
-                        isInMyList ? CinemaPalette.gold : CinemaPalette.muted),
-                onPressed: () => setState(() {
-                  MyList().toggle(item['id']);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text(MyList().contains(item['id'])
-                          ? 'Added to My List'
-                          : 'Removed from My List'),
-                      backgroundColor: CinemaPalette.wine,
-                      duration: const Duration(seconds: 1)));
-                }),
-              ),
             ]),
           ),
         ),
@@ -619,7 +613,7 @@ class _SearchScreenState extends State<SearchScreen>
     if (_isSearching) return _buildSkeletonResults();
     if (_searchError != null) {
       return Center(
-          child: Padding(
+          child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           const Icon(Icons.wifi_off_rounded,
@@ -699,27 +693,32 @@ class _SearchScreenState extends State<SearchScreen>
 
   Widget _buildEmptyState(IconData icon, String title, String subtitle) =>
       Center(
-          child: Padding(
+          child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                      colors: [CinemaPalette.gold, CinemaPalette.wine])
-                  .createShader(bounds),
-              child: Icon(icon,
-                  size: 82, color: CinemaPalette.ivory.withOpacity(.42))),
-          const SizedBox(height: 22),
-          Text(title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                  color: CinemaPalette.ivory,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          Text(subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: CinemaPalette.muted, fontSize: 14)),
-        ]),
+        child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ShaderMask(
+                  shaderCallback: (bounds) => const LinearGradient(
+                          colors: [CinemaPalette.gold, CinemaPalette.wine])
+                      .createShader(bounds),
+                  child: Icon(icon,
+                      size: 82,
+                      color: CinemaPalette.ivory.withValues(alpha: .42))),
+              const SizedBox(height: 22),
+              Text(title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      color: CinemaPalette.ivory,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              Text(subtitle,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      color: CinemaPalette.muted, fontSize: 14)),
+            ]),
       ));
 
   Widget _buildSearchHistory() {
@@ -733,17 +732,21 @@ class _SearchScreenState extends State<SearchScreen>
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(20),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          const Text('Recent searches',
-              style: TextStyle(
-                  color: CinemaPalette.ivory,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700)),
-          TextButton(
-              onPressed: _clearHistory,
-              child: const Text('Clear all',
-                  style: TextStyle(color: CinemaPalette.gold)))
-        ]),
+        Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            children: [
+              const Text('Recent searches',
+                  style: TextStyle(
+                      color: CinemaPalette.ivory,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700)),
+              TextButton(
+                  onPressed: _clearHistory,
+                  child: const Text('Clear all',
+                      style: TextStyle(color: CinemaPalette.gold)))
+            ]),
         const SizedBox(height: 14),
         Wrap(
             spacing: 9,
@@ -798,18 +801,18 @@ class _SearchScreenState extends State<SearchScreen>
                     child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6),
                         decoration: BoxDecoration(
-                            color: CinemaPalette.surface.withOpacity(.82),
+                            color: CinemaPalette.surface.withValues(alpha: .82),
                             borderRadius: BorderRadius.circular(26),
                             border: Border.all(
                                 color: _searchFocusNode.hasFocus
-                                    ? CinemaPalette.gold.withOpacity(.7)
+                                    ? CinemaPalette.gold.withValues(alpha: .7)
                                     : CinemaPalette.ivory
-                                        .withOpacity(.12)),
+                                        .withValues(alpha: .12)),
                             boxShadow: _searchFocusNode.hasFocus
                                 ? [
                                     BoxShadow(
                                         color: CinemaPalette.gold
-                                            .withOpacity(.18),
+                                            .withValues(alpha: .18),
                                         blurRadius: 18)
                                   ]
                                 : null),
@@ -867,4 +870,3 @@ class _SearchScreenState extends State<SearchScreen>
     );
   }
 }
-
