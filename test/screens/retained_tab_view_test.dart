@@ -49,7 +49,7 @@ void main() {
     await show(1);
     expect(started, [0, 1]);
     final offstage = find.byType(TextField, skipOffstage: false).first;
-      expect(TickerMode.valuesOf(tester.element(offstage)).enabled, isFalse);
+    expect(TickerMode.of(tester.element(offstage)), isFalse);
     await show(0);
     expect(started, [0, 1]);
     expect(tester.widget<TextField>(find.byType(TextField)).controller!.text,
