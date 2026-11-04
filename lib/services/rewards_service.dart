@@ -155,6 +155,13 @@ class RewardsService extends ChangeNotifier with WidgetsBindingObserver {
     return data;
   }
 
+  /// Adds bonus coins immediately and notifies listeners
+  void addBonusCoins(int amount) {
+    if (amount <= 0) return;
+    coins += amount;
+    _notify();
+  }
+
   void _wallet(Map<String, dynamic> data, String uid) {
     coins = (data['coins'] as num).toInt();
     coinsPerAd = (data['coinsPerAd'] as num).toInt();

@@ -13,6 +13,8 @@ import 'legal_screen.dart';
 import 'profile_screen.dart';
 import 'share_screen.dart';
 import 'rewards_screen.dart';
+import '../services/daily_reward_service.dart';
+import '../services/rewards_service.dart';
 import '../services/auth_service.dart';
 import '../services/home_startup_service.dart';
 import '../utils/cinema_palette.dart';
@@ -30,6 +32,23 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkDailyReward());
+  }
+
+  Future<void> _checkDailyReward() async {
+    final auth = context.read<AuthService>();
+    final user = auth.currentUser;
+    final uid = user?.uid;
+    final coinsEarned = await DailyRewardService.claimDailyBonus(uid: uid);
+    if (coinsEarned > 0 && mounted) {
+      context.read<RewardsService>().addBonusCoins(coinsEarned);
+      _showSnackBar('🎉 Daily Check-in Bonus: + Cinema Coins added to your balance!');
+    }
+  }
 
   static const Color _drawerAccent = CinemaPalette.gold;
   static const Color _drawerBackground = CinemaPalette.background;
@@ -458,7 +477,7 @@ class _MainScreenState extends State<MainScreen> {
             height: 44,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: _drawerAccent.withValues(alpha: 0.08),
+              color: _drawerAccent.withOpacity(0.08),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: _drawerAccent, size: 24),
@@ -490,7 +509,7 @@ class _MainScreenState extends State<MainScreen> {
         ),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
+              color: Colors.black.withOpacity(0.4),
               blurRadius: 20,
               offset: const Offset(0, -5))
         ],
@@ -532,7 +551,7 @@ class _MainScreenState extends State<MainScreen> {
               icon,
               color: isSelected
                   ? CinemaPalette.background
-                  : _onSurfaceColor.withValues(alpha: 0.65),
+                  : _onSurfaceColor.withOpacity(0.65),
               size: 24,
             ),
           ),
@@ -544,7 +563,7 @@ class _MainScreenState extends State<MainScreen> {
             style: TextStyle(
               color: isSelected
                   ? activeColor
-                  : _onSurfaceColor.withValues(alpha: 0.65),
+                  : _onSurfaceColor.withOpacity(0.65),
               fontSize: 12,
               height: 1.3,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
