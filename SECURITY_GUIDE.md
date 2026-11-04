@@ -57,6 +57,23 @@ Both include `Retry-After`. Database failure never enables unrestricted access.
 Source coalescing is per process, not distributed. Configure budgets for the
 actual provider allowance before increasing them.
 
+Wambesha provider bodies are streamed with a 1 MiB decoded-byte limit, including
+responses with compressed, missing or misleading length headers. The 15-second
+deadline covers provider headers and body reads. Malformed/non-object JSON and
+invalid source envelopes are rejected, never cached, and returned as generic
+errors. Unconsumed error/oversized bodies are cancelled without waiting on an
+untrusted cancellation promise.
+
+Each API instance admits at most eight new provider tasks, including their quota
+checks; local source followers reuse an existing task. Excess new work receives
+503 and `Retry-After: 1`. The per-user source cache uses LRU eviction, at most
+128 entries and 8 MiB of encoded JSON buffers. These are payload/entry bounds,
+not total Node heap limits. Expired bodies are pruned on cache access and
+insertion; there is no persistent signed-link cache. Entries expire after at most
+five minutes (30 seconds for empty sources), or earlier at the earliest supplied
+link expiry minus a 30-second safety margin. Invalid expiry, near-expired URLs
+and URLs containing credentials are discarded.
+
 The hosted HTTP adapter caps bodies at 1 MiB. Firebase verification precedes
 Wambesha quota checks. Infrastructure-level connection limits, request limits
 and DDoS protection are still needed for hostile unauthenticated traffic.
@@ -96,10 +113,9 @@ identity with minimum required IAM permissions.
 - Verify deployed Firestore rules and runtime IAM. Configure host-level abuse
   controls, monitoring and alerts. One reward per account does not prevent
   multi-account abuse; forum and account-creation abuse also need monitoring.
-- Harden Wambesha source-cache memory and provider response sizes separately from
-  the bounded public metadata cache. Source replies have a five-minute backend
-  TTL and a 30-second Flutter cache; URLs without expiry metadata cannot prove
-  continued validity.
+- Wambesha URLs without expiry metadata cannot prove continued validity despite
+  the bounded five-minute backend cache and 30-second Flutter cache. Continue
+  checking actual delivery failures and provider validity/expiry guarantees.
 - Review dependency advisories and test supported devices, hostile inputs and
   proxy/network failures before publication.
 

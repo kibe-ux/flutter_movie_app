@@ -75,6 +75,17 @@ Check provider account allowances before changing budgets. Guest installation
 IDs can be reset; they are not an authentication boundary. The global provider
 budget still applies. Fixed windows allow bursts across minute boundaries.
 
+Wambesha additionally limits decoded provider responses to 1 MiB, provider
+headers/body reads to 15 seconds, and new provider tasks (including quota checks)
+to eight per API instance. Saturated instances return 503 with `Retry-After: 1`;
+inspect concurrency/latency rather than increasing provider quotas to fix it.
+Malformed or oversized provider responses return generic 502 errors and are not
+cached. Source-cache payloads are capped per instance at 8 MiB and 128 LRU
+entries. Expiry is at most five minutes (30 seconds for empty replies), shortened
+to 30 seconds before the earliest supplied link expiry. Unknown-expiry links
+still need actual delivery checks. These limits do not bound the entire process
+heap or replace host-level request/connection controls.
+
 ## Release preflight
 
 1. Identify the commit and confirm the release checkout contains only intended
@@ -260,7 +271,7 @@ normal support channel; this runbook does not send messages automatically.
 1. Select a previously tested commit that remains compatible with installed apps,
    current data and required security controls. `9b616c3` is the security baseline,
    not an instruction to roll every future release back to it. Review any older
-   candidate for removed HTTPS, daily-reward or quota protections.
+   candidate for removed HTTPS, daily-reward, quota or Wambesha resource protections.
 2. Use a separate clean checkout/worktree; preserve current operator edits.
    Install that commit's locked dependencies with `npm ci` and provision current
    secrets privately. Keep current safe feature flags and credentials; do not
@@ -311,7 +322,7 @@ Keep operational evidence in restricted storage; local `reports/` is ignored and
 is not a shared durable release record. Log any risk accepted for this release.
 
 App Check registration/enforcement, infrastructure abuse controls, developer-tool
-advisories, Wambesha source-cache/response bounds and full load testing remain
+advisories, unknown-expiry delivery validity and full load testing remain
 follow-ups. Read the [security guide](SECURITY_GUIDE.md) before claiming readiness.
 
 Related guides:

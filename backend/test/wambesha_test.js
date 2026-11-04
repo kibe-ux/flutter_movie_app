@@ -4,13 +4,14 @@ const express = require('express');
 const { registerWambeshaRoutes } = require('../wambesha');
 const { createWambeshaLimits } = require('../wambesha_limits');
 const { memoryRateStore } = require('../test_support/memory_rate_store');
+const { MAX_RESPONSE_BYTES, MAX_PROVIDER_TASKS } = require('../wambesha_resources');
 
-async function fixture(t, fetchImpl, fixedUid, limits = createWambeshaLimits({ store: memoryRateStore() })) {
+async function fixture(t, fetchImpl, fixedUid, limits = createWambeshaLimits({ store: memoryRateStore() }), options = {}) {
   const app = express();
   registerWambeshaRoutes(app, {
     authenticate: (req, res, next) => req.header('authorization') === 'Bearer firebase-token'
       ? (req.firebaseUser = { uid: fixedUid || req.header('x-test-user') || 'test-user' }, next()) : res.status(401).json({ error: 'Sign in required.' }),
-    fetchImpl, limits,
+    fetchImpl, limits, ...options,
   });
   const server = app.listen(0);
   t.after(() => new Promise(resolve => server.close(resolve)));
@@ -247,4 +248,135 @@ test('quota failures stop all upstream access and errors remain private', async 
   assert.equal(response.headers.get('retry-after'), '15');
   assert.doesNotMatch(await response.text(), /database-password/);
   assert.equal(calls, 0);
+});
+
+test('oversized streamed sources are cancelled, redacted, coalesced and never cached', async t => {
+  let calls = 0;
+  let cancelled = false;
+  const request = await fixture(t, async () => {
+    calls++;
+    if (calls > 1) return Response.json({ sources: [] });
+    await new Promise(resolve => setTimeout(resolve, 25));
+    return new Response(new ReadableStream({
+      start(controller) { controller.enqueue(new Uint8Array(MAX_RESPONSE_BYTES + 1)); },
+      cancel() { cancelled = true; },
+    }), { headers: { 'content-length': '1' } });
+  });
+  const responses = await Promise.all(Array.from({ length: 4 }, () => request('/titles/mv_123/sources')));
+  for (const response of responses) {
+    assert.equal(response.status, 502);
+    assert.deepEqual(await response.json(), { error: 'Movie catalogue is unavailable.' });
+  }
+  assert.equal(cancelled, true);
+  assert.equal(calls, 1);
+  assert.equal((await request('/titles/mv_123/sources')).status, 200);
+  assert.equal((await request('/titles/mv_123/sources')).status, 200);
+  assert.equal(calls, 2);
+});
+
+test('response size limits cover search as well as source discovery', async t => {
+  let cancelled = false;
+  const request = await fixture(t, async () => new Response(new ReadableStream({
+    cancel() { cancelled = true; },
+  }), { headers: { 'content-length': String(MAX_RESPONSE_BYTES + 1) } }));
+  const response = await request('/search?q=Arrival');
+  assert.equal(response.status, 502);
+  assert.equal(cancelled, true);
+  assert.deepEqual(await response.json(), { error: 'Movie catalogue is unavailable.' });
+});
+
+test('provider errors discard unconsumed response bodies', async t => {
+  let cancelled = false;
+  const request = await fixture(t, async () => new Response(new ReadableStream({
+    cancel() { cancelled = true; },
+  }), { status: 503 }));
+  assert.equal((await request('/genres')).status, 503);
+  assert.equal(cancelled, true);
+});
+
+test('malformed source envelopes cannot enter the successful cache', async t => {
+  const bodies = [null, [], {}, { sources: 'private-bad-sources' }, { sources: [] }];
+  let calls = 0;
+  const request = await fixture(t, async () => Response.json(bodies[calls++]));
+  for (let i = 0; i < 4; i++) {
+    const response = await request('/titles/mv_123/sources');
+    assert.equal(response.status, 502);
+    assert.doesNotMatch(await response.text(), /private/);
+  }
+  assert.equal((await request('/titles/mv_123/sources')).status, 200);
+  assert.equal((await request('/titles/mv_123/sources')).status, 200);
+  assert.equal(calls, 5);
+});
+
+test('cache refreshes before the earliest signed-link safety margin and rejects invalid expiry', async t => {
+  let time = Date.parse('2026-11-05T00:00:00Z');
+  const expiresAt = new Date(time + 45000).toISOString();
+  let calls = 0;
+  const request = await fixture(t, async () => {
+    calls++;
+    return Response.json({ sources: [
+      { kind: 'file_holding', url: 'https://files.example/signed', expires_at: expiresAt },
+      { kind: 'file_holding', url: 'https://files.example/no-expiry' },
+      { kind: 'file_holding', url: 'https://files.example/bad', expires_at: 'private-invalid-date' },
+      { kind: 'file_holding', url: 'https://files.example/number', expires_at: 123 },
+      { kind: 'file_holding', url: 'https://files.example/soon', expires_at: new Date(time + 29000).toISOString() },
+      { kind: 'file_holding', url: 'https://private:password@files.example/' },
+    ] });
+  }, undefined, undefined, { now: () => time });
+  assert.equal((await (await request('/titles/mv_123/sources')).json()).sources.length, 2);
+  assert.equal((await request('/titles/mv_123/sources')).status, 200);
+  assert.equal(calls, 1);
+  time += 15000;
+  const refreshed = await (await request('/titles/mv_123/sources')).json();
+  assert.deepEqual(refreshed.sources.map(source => source.url), ['https://files.example/no-expiry']);
+  assert.equal(calls, 2);
+});
+
+test('provider capacity bounds new work while followers share a slot and failures release capacity', async t => {
+  const started = Promise.withResolvers();
+  const gate = Promise.withResolvers();
+  let calls = 0;
+  const request = await fixture(t, async url => {
+    calls++;
+    if (calls === MAX_PROVIDER_TASKS) started.resolve();
+    if (calls <= MAX_PROVIDER_TASKS) await gate.promise;
+    if (url.pathname.includes('/mv_0/')) throw new Error('private-provider-detail');
+    return Response.json({ sources: [] });
+  });
+  t.after(() => gate.resolve());
+  const pending = Array.from({ length: MAX_PROVIDER_TASKS }, (_, i) => request(`/titles/mv_${i}/sources`));
+  await started.promise;
+  const follower = request('/titles/mv_0/sources');
+  const refused = await request('/genres');
+  assert.equal(refused.status, 503);
+  assert.equal(refused.headers.get('retry-after'), '1');
+  assert.equal(calls, MAX_PROVIDER_TASKS);
+  gate.resolve();
+  const responses = await Promise.all(pending);
+  assert.equal(responses[0].status, 502);
+  assert.ok(responses.slice(1).every(response => response.status === 200));
+  assert.equal((await follower).status, 502);
+  assert.equal((await request('/genres')).status, 200);
+  assert.equal(calls, MAX_PROVIDER_TASKS + 1);
+});
+
+test('deadlines cover stalled headers and bodies, clear pending work, and do not cache failures', {
+  timeout: 10000,
+}, async t => {
+  for (const stall of ['headers', 'body']) {
+    let calls = 0;
+    let cancelled = false;
+    const request = await fixture(t, async () => {
+      calls++;
+      if (calls > 1) return Response.json({ sources: [] });
+      if (stall === 'headers') return new Promise(() => {});
+      return new Response(new ReadableStream({ cancel() { cancelled = true; } }));
+    }, undefined, undefined, { providerTimeoutMs: 50 });
+    const response = await request('/titles/mv_123/sources');
+    assert.equal(response.status, 504);
+    assert.deepEqual(await response.json(), { error: 'Movie catalogue request timed out.' });
+    if (stall === 'body') assert.equal(cancelled, true);
+    assert.equal((await request('/titles/mv_123/sources')).status, 200);
+    assert.equal(calls, 2);
+  }
 });

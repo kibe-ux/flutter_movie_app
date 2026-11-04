@@ -1,8 +1,12 @@
 const express = require('express');
 const { createWambeshaLimits, WambeshaLimitError } = require('./wambesha_limits');
+const { readProviderJson, withAbort, cancelBody, createSourceCache,
+  MAX_PROVIDER_TASKS, PROVIDER_TIMEOUT_MS, EXPIRY_MARGIN_MS } = require('./wambesha_resources');
 
 class WambeshaRequestError extends Error {
-  constructor(status, message) { super(message); this.status = status; }
+  constructor(status, message, retryAfter = 0) {
+    super(message); this.status = status; this.retryAfter = retryAfter;
+  }
 }
 
 function sendRequestError(res, error) {
@@ -15,7 +19,12 @@ function sendRequestError(res, error) {
   });
 }
 
-function registerWambeshaRoutes(app, { authenticate, database, limits = createWambeshaLimits({ database }), fetchImpl = (...args) => fetch(...args) }) {
+function registerWambeshaRoutes(app, { authenticate, database,
+  limits = createWambeshaLimits({ database }), fetchImpl = (...args) => fetch(...args),
+  now = Date.now, providerTimeoutMs = PROVIDER_TIMEOUT_MS } = {}) {
+  if (!Number.isInteger(providerTimeoutMs) || providerTimeoutMs < 1 || providerTimeoutMs > PROVIDER_TIMEOUT_MS) {
+    throw new RangeError('Invalid provider deadline.');
+  }
   const router = express.Router();
   router.use((req, res, next) => {
     res.set('Cache-Control', 'no-store');
@@ -25,19 +34,20 @@ function registerWambeshaRoutes(app, { authenticate, database, limits = createWa
 
   // In-flight request coalescing and per-user cache
   const inFlightSources = new Map();
-  const sourcesCache = new Map();
+  const sourcesCache = createSourceCache({ now });
+  let activeProviderTasks = 0;
 
   function getUserId(req) {
     return req.firebaseUser?.uid;
   }
 
   function sanitizeSources(body) {
-    if (!body || typeof body !== 'object') return body;
-    const now = Date.now();
+    if (!Array.isArray(body.sources)) throw new Error('Invalid source response.');
+    const time = now();
     const sanitized = {
-      id: body.id,
-      checked_at: body.checked_at,
-      unverified: typeof body.unverified === 'number' ? body.unverified : 0,
+      id: typeof body.id === 'string' ? body.id : undefined,
+      checked_at: typeof body.checked_at === 'string' ? body.checked_at : undefined,
+      unverified: Number.isSafeInteger(body.unverified) && body.unverified >= 0 ? body.unverified : 0,
       sources: [],
     };
     if (Array.isArray(body.sources)) {
@@ -46,15 +56,18 @@ function registerWambeshaRoutes(app, { authenticate, database, limits = createWa
         const kind = source.kind;
         if (kind !== 'file_holding' && kind !== 'playback_holding') continue;
         const url = source.url;
-        if (typeof url !== 'string' || !url.startsWith('https://')) continue;
-        if (source.expires_at) {
-          const expiresAt = new Date(source.expires_at).getTime();
-          if (!Number.isNaN(expiresAt) && expiresAt <= now) continue;
+        if (typeof url !== 'string') continue;
+        let parsed;
+        try { parsed = new URL(url); } catch (_) { continue; }
+        if (parsed.protocol !== 'https:' || !parsed.hostname || parsed.username || parsed.password) continue;
+        if (source.expires_at !== undefined && source.expires_at !== null) {
+          const expiresAt = typeof source.expires_at === 'string' ? Date.parse(source.expires_at) : NaN;
+          if (!Number.isFinite(expiresAt) || expiresAt <= time + EXPIRY_MARGIN_MS) continue;
         }
         const item = { kind, url };
         if (source.expires_at) item.expires_at = source.expires_at;
-        if (source.host) item.host = source.host;
-        if (source.verified_at) item.verified_at = source.verified_at;
+        if (typeof source.host === 'string') item.host = source.host;
+        if (typeof source.verified_at === 'string') item.verified_at = source.verified_at;
         sanitized.sources.push(item);
       }
     }
@@ -139,9 +152,9 @@ function registerWambeshaRoutes(app, { authenticate, database, limits = createWa
 
     if (isSourcesEndpoint) {
       const cached = sourcesCache.get(sourceScope);
-      if (cached && cached.expiresAt > Date.now()) {
+      if (cached) {
         res.set('X-MovieHub-Response-Source', 'wambesha');
-        return res.json(cached.data);
+        return res.type('application/json').send(cached);
       }
 
       // In-flight coalescing for simultaneous taps
@@ -156,34 +169,54 @@ function registerWambeshaRoutes(app, { authenticate, database, limits = createWa
       }
     }
 
+    // Admission precedes async quota/fetch work, bounding both active bodies
+    // and the per-process source-promise map. Followers reuse an existing slot.
+    if (activeProviderTasks >= MAX_PROVIDER_TASKS) {
+      return sendRequestError(res, new WambeshaRequestError(503,
+        'Movie service is busy. Please try again later.', 1));
+    }
+
     url.pathname = `/v1${req.path}`;
     url.search = new URLSearchParams(req.query).toString();
     res.set('X-MovieHub-Response-Source', 'wambesha');
 
     const executeFetch = async () => {
-      if (isSourcesEndpoint) await limits.source(userId);
-      await limits.upstream();
-      const upstream = await fetchImpl(url, {
-        headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' },
-        redirect: 'error',
-        signal: AbortSignal.timeout(15000),
-      });
+      activeProviderTasks++;
+      const controller = new AbortController();
+      let timer;
+      try {
+        if (isSourcesEndpoint) await limits.source(userId);
+        await limits.upstream();
+        timer = setTimeout(() => controller.abort(
+          new DOMException('Provider deadline exceeded.', 'TimeoutError')), providerTimeoutMs);
+        timer.unref();
+        const upstream = await withAbort(fetchImpl(url, {
+          headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' },
+          redirect: 'error',
+          signal: controller.signal,
+        }), controller.signal);
 
-      const retryAfter = upstream.headers.get('retry-after');
-      if (retryAfter && /^\d+$/.test(retryAfter)) res.set('Retry-After', retryAfter);
+        const retryAfter = upstream.headers.get('retry-after');
+        if (retryAfter && /^\d+$/.test(retryAfter)) res.set('Retry-After', retryAfter);
 
-      if (!upstream.ok) {
-        const status = [401, 403].includes(upstream.status) ? 502 : upstream.status;
-        throw new WambeshaRequestError(status, upstream.status === 429
-          ? 'Movie search limit reached. Please try again later.'
-          : 'Movie catalogue is unavailable.');
+        if (!upstream.ok) {
+          cancelBody(upstream.body);
+          const status = [401, 403].includes(upstream.status) ? 502 : upstream.status;
+          throw new WambeshaRequestError(status, upstream.status === 429
+            ? 'Movie search limit reached. Please try again later.'
+            : 'Movie catalogue is unavailable.');
+        }
+
+        const rawJson = await readProviderJson(upstream, controller.signal);
+        if (isSourcesEndpoint) {
+          return sanitizeSources(rawJson);
+        }
+        return rawJson;
+      } finally {
+        clearTimeout(timer);
+        controller.abort();
+        activeProviderTasks--;
       }
-
-      const rawJson = await upstream.json();
-      if (isSourcesEndpoint) {
-        return sanitizeSources(rawJson);
-      }
-      return rawJson;
     };
 
     if (isSourcesEndpoint) {
@@ -191,11 +224,7 @@ function registerWambeshaRoutes(app, { authenticate, database, limits = createWa
       inFlightSources.set(sourceScope, fetchPromise);
       try {
         const data = await fetchPromise;
-        const cacheTtlMs = data.sources && data.sources.length > 0 ? 300000 : 30000;
-        sourcesCache.set(sourceScope, {
-          data,
-          expiresAt: Date.now() + cacheTtlMs,
-        });
+        sourcesCache.set(sourceScope, data);
         return res.json(data);
       } catch (err) {
         return sendRequestError(res, err);

@@ -43,8 +43,23 @@ Source requests occur only on explicit play/download actions, never per search
 tile or page render. Each process coalesces pending checks and reuses answers
 on each Firebase UID and title. The Flutter cache lasts up to 30 seconds and
 requires signed links to have more than 30 seconds remaining. The backend
-currently retains nonempty source replies for five minutes and empty replies for
-30 seconds; the app still checks supplied link expiry before using a source.
+retains nonempty source replies for at most five minutes and empty replies for
+30 seconds. A supplied signed expiry shortens the cache lifetime to 30 seconds
+before the earliest link expires. Invalid/near-expired sources and credentials
+embedded in URLs are discarded; the app also checks expiry before using a source.
+Source caches are per API instance, isolated by verified UID and title, and use
+LRU eviction with at most 128 entries and 8 MiB of encoded JSON payloads.
+Expired entries are pruned on cache access/insertion. Signed links are not
+persisted to PostgreSQL. Payload limits do not describe total Node heap usage.
+
+Every Wambesha provider response is streamed with a 1 MiB decoded-byte cap,
+regardless of compression or Content-Length. Headers/body reads have a 15-second
+deadline. Invalid JSON/source envelopes and oversized responses return generic
+502 errors and never enter the source cache. Timeouts return 504. Unconsumed
+error/oversized bodies are cancelled. Each API instance admits eight new provider
+tasks at once, including quota checks; excess work returns 503 with
+Retry-After: 1. Cache hits and local source followers avoid another task slot.
+
 PostgreSQL shares limits across instances: 60 valid requests per UID/minute,
 eight new source checks per UID/minute, and 120 actual provider calls globally
 per minute. Configure WAMBESHA_CLIENT_LIMIT, WAMBESHA_SOURCE_LIMIT and
