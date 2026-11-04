@@ -2,6 +2,12 @@
 
 A new Flutter project.
 
+## Production operations
+
+Use [PRODUCTION_RUNBOOK.md](PRODUCTION_RUNBOOK.md) for release preparation,
+deployment, verification, monitoring, recovery and credential rotation. Read
+[SECURITY_GUIDE.md](SECURITY_GUIDE.md) for implemented controls and remaining gaps.
+
 ## Android release signing
 
 Release builds use the private keystore configured in `android/key.properties`.

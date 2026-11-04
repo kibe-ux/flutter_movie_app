@@ -1,5 +1,8 @@
 # Movie Download Backend
 
+For releases and incidents, start with the
+[production runbook](../PRODUCTION_RUNBOOK.md).
+
 Shared public catalogue caching, provider limits, and app migration are described
 in [CATALOGUE_CACHE.md](CATALOGUE_CACHE.md).
 
