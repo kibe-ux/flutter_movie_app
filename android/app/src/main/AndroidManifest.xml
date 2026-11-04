@@ -14,7 +14,7 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
-        android:usesCleartextTraffic="true">
+        android:usesCleartextTraffic="false">
 
         <!-- Dart enables collection after Firebase starts, according to build mode. -->
         <meta-data

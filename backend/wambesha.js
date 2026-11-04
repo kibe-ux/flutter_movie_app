@@ -1,11 +1,13 @@
 const express = require('express');
+const { createWambeshaLimits, WambeshaLimitError } = require('./wambesha_limits');
 
 class WambeshaRequestError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
 
 function sendRequestError(res, error) {
-  const controlled = error instanceof WambeshaRequestError;
+  const controlled = error instanceof WambeshaRequestError || error instanceof WambeshaLimitError;
+  if (controlled && error.retryAfter) res.set('Retry-After', String(error.retryAfter));
   const timeout = error?.name === 'TimeoutError';
   return res.status(controlled ? error.status : timeout ? 504 : 502).json({
     error: controlled ? error.message : timeout
@@ -13,7 +15,7 @@ function sendRequestError(res, error) {
   });
 }
 
-function registerWambeshaRoutes(app, { authenticate, fetchImpl = (...args) => fetch(...args) }) {
+function registerWambeshaRoutes(app, { authenticate, database, limits = createWambeshaLimits({ database }), fetchImpl = (...args) => fetch(...args) }) {
   const router = express.Router();
   router.use((req, res, next) => {
     res.set('Cache-Control', 'no-store');
@@ -24,25 +26,9 @@ function registerWambeshaRoutes(app, { authenticate, fetchImpl = (...args) => fe
   // In-flight request coalescing and per-user cache
   const inFlightSources = new Map();
   const sourcesCache = new Map();
-  const userRateLimits = new Map();
 
   function getUserId(req) {
     return req.firebaseUser?.uid;
-  }
-
-  function checkRateLimit(userId) {
-    const now = Date.now();
-    let record = userRateLimits.get(userId);
-    if (!record || record.resetAt <= now) {
-      record = { count: 0, resetAt: now + 60000 };
-      userRateLimits.set(userId, record);
-    }
-    if (record.count >= 8) {
-      const retryAfter = Math.ceil((record.resetAt - now) / 1000);
-      return Math.max(1, retryAfter);
-    }
-    record.count++;
-    return 0;
   }
 
   function sanitizeSources(body) {
@@ -147,6 +133,8 @@ function registerWambeshaRoutes(app, { authenticate, fetchImpl = (...args) => fe
     if (typeof userId !== 'string' || !userId) {
       return res.status(401).json({ error: 'A verified Firebase user is required.' });
     }
+    try { await limits.client(userId); }
+    catch (error) { return sendRequestError(res, error); }
     const sourceScope = `${userId}:${titleRef}`;
 
     if (isSourcesEndpoint) {
@@ -166,11 +154,6 @@ function registerWambeshaRoutes(app, { authenticate, fetchImpl = (...args) => fe
           return sendRequestError(res, sharedError);
         }
       }
-      const retryAfter = checkRateLimit(userId);
-      if (retryAfter > 0) {
-        res.set('Retry-After', String(retryAfter));
-        return res.status(429).json({ error: 'Movie search limit reached. Please try again later.' });
-      }
     }
 
     url.pathname = `/v1${req.path}`;
@@ -178,6 +161,8 @@ function registerWambeshaRoutes(app, { authenticate, fetchImpl = (...args) => fe
     res.set('X-MovieHub-Response-Source', 'wambesha');
 
     const executeFetch = async () => {
+      if (isSourcesEndpoint) await limits.source(userId);
+      await limits.upstream();
       const upstream = await fetchImpl(url, {
         headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' },
         redirect: 'error',

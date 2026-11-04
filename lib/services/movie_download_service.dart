@@ -1,3 +1,4 @@
+import 'backend_url.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -53,7 +54,7 @@ class MovieDownloadService {
   String get _baseUrl {
     final raw =
         dotenv.env['MOVIE_DOWNLOAD_API_BASE_URL'] ?? 'http://10.0.2.2:3000';
-    return raw.replaceAll(RegExp(r'/+$'), '');
+    return validateBackendUrl(raw);
   }
 
   Future<List<Movie>> fetchMovies() async {
@@ -97,8 +98,7 @@ class MovieDownloadService {
 
   Future<String> requestPlaybackUrl(
           {required String movieId, bool refresh = false}) async =>
-      (await _movieSources(movieId, refresh: refresh))
-          .requirePlaybackUrl();
+      (await _movieSources(movieId, refresh: refresh)).requirePlaybackUrl();
 
   Future<WambeshaSources> _movieSources(String id, {bool refresh = false}) {
     if (id.startsWith('mv_')) {

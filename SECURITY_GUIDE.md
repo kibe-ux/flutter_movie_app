@@ -1,445 +1,123 @@
-# Security Best Practices for MovieHub
-
-## Authentication Security
-
-### 1. Password Security
-
-**Current Implementation:**
-- Firebase Authentication handles password hashing
-- Email/password authentication
-
-**Best Practices:**
-```dart
-// Password strength validation
-bool _isStrongPassword(String password) {
-  return password.length >= 8 &&
-      password.contains(RegExp(r'[0-9]')) &&
-      password.contains(RegExp(r'[a-z]')) &&
-      password.contains(RegExp(r'[A-Z]')) &&
-      password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
-}
-
-// Password reset security
-Future<void> resetPassword(String email) async {
-  try {
-    await FirebaseAuth.instance.sendPasswordResetEmail(
-      email: email,
-      actionCodeSettings: ActionCodeSettings(
-        url: 'https://moviehub.com/complete-password-reset',
-        handleCodeInApp: true,
-        dynamicLinkDomain: 'moviehub.page.link',
-      ),
-    );
-  } catch (e) {
-    logger.error('Password reset failed: $e');
-  }
-}
-```
-
-### 2. Session Management
-
-**Session Timeout:**
-```dart
-class SessionManager {
-  static const Duration sessionTimeout = Duration(minutes: 30);
-  Timer? _idleTimer;
-  
-  void startSession() {
-    _idleTimer?.cancel();
-    _idleTimer = Timer(sessionTimeout, _onSessionExpired);
-  }
-  
-  void _onSessionExpired() {
-    FirebaseAuth.instance.signOut();
-    // Navigate to login
-  }
-}
-```
-
-### 3. Two-Factor Authentication (Optional Enhancement)
-
-```dart
-Future<void> enableTwoFactorAuth() async {
-  // Firebase Phone Authentication
-  final phoneCredential = await FirebaseAuth.instance.verifyPhoneNumber(
-    phoneNumber: '+1234567890',
-    codeSent: (String verificationId, int? resendToken) {
-      // Handle code sent
-    },
-  );
-}
-```
-
-## Data Security
-
-### 1. Sensitive Data Protection
-
-**Never Store Locally:**
-```dart
-// ❌ NEVER do this
-SharedPreferences prefs = await SharedPreferences.getInstance();
-prefs.setString('password', password); // INSECURE!
-prefs.setString('auth_token', token); // INSECURE!
-
-// ✅ DO this instead
-// Firebase Auth handles tokens securely
-final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
-// idToken is automatically secured
-```
-
-**Encrypted Storage for Sensitive Data:**
-```dart
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
-const secureStorage = FlutterSecureStorage();
-
-// Store sensitive data
-await secureStorage.write(
-  key: 'user_api_key',
-  value: apiKey,
-  aOptions: _getAndroidOptions(),
-  iOptions: _getIOSOptions(),
-);
-
-// Retrieve securely
-final apiKey = await secureStorage.read(key: 'user_api_key');
-```
-
-### 2. HTTPS/TLS Enforcement
-
-**Certificate Pinning:**
-```dart
-import 'package:flutter_http_certpin/flutter_http_certpin.dart';
-
-final certificatePin = CertificatePinning.check(
-  serverURL: 'https://api.themoviedb.org',
-  headerHttp: headers,
-  timeout: 60,
-);
-```
-
-### 3. Data Sanitization
-
-**Input Validation:**
-```dart
-// Validate search input
-bool _isValidSearchQuery(String query) {
-  if (query.isEmpty || query.length > 255) return false;
-  
-  // Prevent SQL injection patterns
-  final injectionPatterns = [
-    RegExp(r"('|\"|(--)|;|\/\*|\*\/|xp_|sp_)")
-  ];
-  
-  return !injectionPatterns.any((pattern) => pattern.hasMatch(query));
-}
-
-// URL encoding
-String sanitizeUrl(String url) {
-  return Uri.encodeFull(url);
-}
-```
-
-## API Security
-
-### 1. API Key Management
-
-**Config File Structure:**
-```dart
-// lib/config/api_config.dart
-class ApiConfig {
-  static const String tmdbApiKey = String.fromEnvironment('TMDB_API_KEY');
-  static const String firebaseProjectId = String.fromEnvironment('FIREBASE_PROJECT_ID');
-}
-```
-
-**Environment Variables:**
-```bash
-# .env.example
-TMDB_API_KEY=your_api_key_here
-FIREBASE_PROJECT_ID=your_project_id
-GOOGLE_MOBILE_ADS_APP_ID=your_ads_app_id
-
-# Never commit actual .env file
-# Add to .gitignore: .env, .env.local
-```
-
-### 2. Request Signing
-
-```dart
-import 'package:crypto/crypto.dart';
-
-String generateSignature(String apiKey, String timestamp) {
-  final signature = hmac256.convert(utf8.encode('$apiKey$timestamp'));
-  return signature.toString();
-}
-
-Future<Response> secureApiCall(String endpoint) async {
-  final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-  final signature = generateSignature(ApiConfig.tmdbApiKey, timestamp);
-  
-  final headers = {
-    'X-Timestamp': timestamp,
-    'X-Signature': signature,
-  };
-  
-  return http.get(Uri.parse(endpoint), headers: headers);
-}
-```
-
-### 3. Rate Limiting
-
-```dart
-class ApiRateLimiter {
-  static const Duration _window = Duration(minutes: 1);
-  static const int _maxRequests = 40;
-  
-  final Queue<DateTime> _requestTimes = Queue();
-  
-  bool canMakeRequest() {
-    final now = DateTime.now();
-    
-    // Remove old requests outside window
-    while (_requestTimes.isNotEmpty &&
-        now.difference(_requestTimes.first).inSeconds > _window.inSeconds) {
-      _requestTimes.removeFirst();
-    }
-    
-    if (_requestTimes.length >= _maxRequests) {
-      return false;
-    }
-    
-    _requestTimes.add(now);
-    return true;
-  }
-}
-```
-
-## Network Security
-
-### 1. Certificate Pinning
-
-```dart
-// pubspec.yaml
-dependencies:
-  http: ^1.1.0
-  
-class PinnedHttpClient extends http.BaseClient {
-  @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    final certificatePath = 'assets/certificates/tmdb_cert.pem';
-    // Implement certificate validation
-    return super.send(request);
-  }
-}
-```
-
-### 2. Proxy Detection
-
-```dart
-Future<bool> isProxyDetected() async {
-  try {
-    final result = await InternetAddress.lookup('google.com');
-    return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
-  } on SocketException catch (_) {
-    return true; // Might be using proxy
-  }
-}
-```
-
-## Local Storage Security
-
-### 1. Encrypted SharedPreferences
-
-```dart
-import 'package:encrypted_shared_preferences/encrypted_shared_preferences.dart';
-
-final encryptedPrefs = EncryptedSharedPreferences();
-
-// Store encrypted
-await encryptedPrefs.setString('user_preferences', jsonEncode(preferences));
-
-// Retrieve decrypted
-final preferences = jsonDecode(
-  await encryptedPrefs.getString('user_preferences') ?? '{}'
-);
-```
-
-### 2. Database Security
-
-```dart
-// If using local database, always encrypt
-// For Firebase, enable security rules
-
-// Firestore Security Rules
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId} {
-      allow read, write: if request.auth.uid == userId;
-    }
-    
-    match /favorites/{document=**} {
-      allow read, write: if request.auth != null;
-    }
-  }
-}
-```
-
-## Code Security
-
-### 1. Dependency Vulnerability Scanning
-
-```bash
-# Check for known vulnerabilities
-flutter pub outdated
-flutter pub upgrade
-
-# Audit dependencies
-dart pub global activate pana
-pana analyze
-```
-
-### 2. Code Obfuscation
-
-**android/app/build.gradle:**
-```gradle
-buildTypes {
-  release {
-    minifyEnabled true
-    useProguard true
-    
-    proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-  }
-}
-```
-
-### 3. String Obfuscation
-
-```dart
-// Avoid hardcoded strings
-const String apiUrl = 'api.example.com'; // ❌ Visible in decompiled code
-
-// Better approach
-String _getApiUrl() {
-  return _decodeString('encoded_url_bytes');
-}
-
-String _decodeString(String encoded) {
-  // Decryption logic
-  return decoded;
-}
-```
-
-## Logging Security
-
-```dart
-// Initialize secure logging
-class SecureLogger {
-  static void log(String message, {LogLevel level = LogLevel.info}) {
-    // Never log sensitive data
-    if (_containsSensitiveData(message)) {
-      log('[REDACTED]', _level: level);
-      return;
-    }
-    
-    // Log to Firebase Crashlytics (encrypted in transit)
-    FirebaseCrashlytics.instance.log(message);
-  }
-  
-  static bool _containsSensitiveData(String message) {
-    final sensitivePatterns = [
-      RegExp(r'\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b'), // Credit card
-      RegExp(r'\b[A-Z0-9]{20,}\b'), // API key pattern
-      RegExp(r'password\s*[=:]\s*(.+)', caseSensitive: false),
-    ];
-    
-    return sensitivePatterns.any((pattern) => pattern.hasMatch(message));
-  }
-}
-```
-
-## Web Security (if web version exists)
-
-### Content Security Policy
-
-```html
-<!-- web/index.html -->
-<meta http-equiv="Content-Security-Policy" content="
-  default-src 'self';
-  script-src 'self' 'unsafe-inline' https://www.gstatic.com/;
-  style-src 'self' 'unsafe-inline';
-  img-src 'self' https: data:;
-  font-src 'self' https:;
-  connect-src 'self' https://api.themoviedb.org https://firebase.googleapis.com;
-">
-```
-
-## Privacy Compliance
-
-### 1. GDPR Compliance
-
-```dart
-// User data export
-Future<String> exportUserData() async {
-  final user = FirebaseAuth.instance.currentUser!;
-  
-  return jsonEncode({
-    'profile': {
-      'email': user.email,
-      'displayName': user.displayName,
-      'photoUrl': user.photoURL,
-    },
-    'favorites': await _getFavorites(),
-    'watchHistory': await _getWatchHistory(),
-  });
-}
-
-// User data deletion
-Future<void> deleteAllUserData() async {
-  final user = FirebaseAuth.instance.currentUser!;
-  
-  // Delete from Firestore
-  await FirebaseFirestore.instance
-      .collection('users')
-      .doc(user.uid)
-      .delete();
-  
-  // Delete from SharedPreferences
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.clear();
-  
-  // Delete user account
-  await user.delete();
-}
-```
-
-### 2. Privacy Policy
-
-Include in app:
-- Data collection practices
-- Third-party services (Firebase, TMDB, Google Ads)
-- User rights and data deletion
-- Content ratings justification
-
-## Security Checklist
-
-Production Deployment:
-- [ ] All sensitive data uses secure storage
-- [ ] API keys in environment variables, not in code
-- [ ] HTTPS enforced for all network requests
-- [ ] Input validation on all user input
-- [ ] SQL injection protection (if using database)
-- [ ] XSS protection (if web version exists)
-- [ ] CSRF tokens for sensitive operations
-- [ ] Dependency vulnerabilities fixed
-- [ ] Code obfuscation enabled for release
-- [ ] Logging doesn't expose sensitive data
-- [ ] Authentication session timeout implemented
-- [ ] Password strength validation
-- [ ] Firebase security rules configured
-- [ ] Crashlytics configured (but no sensitive data)
-- [ ] Privacy policy included
-- [ ] GDPR/Privacy law compliance verified
-- [ ] Penetration testing completed
-- [ ] Security audit passed
+# MovieHub security controls
+
+This document records repository controls and known gaps. It is not a security
+certification or an independent audit of the deployed configuration.
+
+## Trust and credentials
+
+- The app is an untrusted client. Provider keys, database passwords and Firebase
+  service-account credentials belong only in the backend private environment.
+- Private routes verify Firebase ID tokens, including revocation. Rewards reject
+  anonymous accounts. Firebase client configuration is not a server secret.
+- Wambesha supplies search and playback/download sources. TMDB metadata uses the
+  backend catalogue proxy. Retired provider routes return 404.
+- A Firebase identity does not prove the caller is an unmodified application.
+
+Never put provider keys in Flutter assets, source constants, secure storage or
+`--dart-define`: values shipped to a device can be extracted. Obtain ID tokens
+from Firebase Auth when needed; do not copy them into preferences. Do not log
+authorization headers, signed URLs, credential values or raw sensitive exceptions.
+Keep environment and service-account files out of Git. Rotate any key exposed in
+an older APK; removing it from current source cannot invalidate existing copies.
+
+## Transport
+
+Android main/release configuration disables cleartext traffic. Authenticated
+backend clients validate URLs before sending credentials: HTTP is rejected
+outside debug builds, as are embedded credentials, query strings and fragments.
+Debug HTTP is restricted to explicit local hosts in Dart and the Android debug
+network configuration. Account deletion requires HTTPS. iOS has no arbitrary-load
+exception configured. Delivery source URLs must use HTTPS.
+
+Installed applications receive client security changes only after an update.
+Backend deployment alone cannot change the code in an installed APK.
+
+## API abuse controls
+
+TMDB uses allowlisted routes and parameters, a fixed provider host, rejected
+redirects, bounded responses and timeouts, shared PostgreSQL caching, and shared
+rate limits. Defaults are 120 requests per identity/minute and 600 actual provider
+requests globally/minute. Guest installation IDs are resettable identifiers, not
+authenticated identities. See [cache limits](backend/CATALOGUE_CACHE.md).
+
+Wambesha authenticates requests and validates allowed routes and parameters.
+Atomic PostgreSQL rate buckets apply across server instances:
+
+| Setting | Default per minute | Scope |
+| --- | --- | --- |
+| `WAMBESHA_CLIENT_LIMIT` | 60 | Valid requests per verified UID, including cache hits |
+| `WAMBESHA_SOURCE_LIMIT` | 8 | New source checks per UID |
+| `WAMBESHA_UPSTREAM_LIMIT` | 120 | Actual provider calls across users and endpoints |
+
+Source-cache hits and local in-flight followers avoid another source/upstream
+check, but count toward the client limit. Failed provider attempts consume quota.
+Limits use fixed minute windows; bursts across a boundary remain possible.
+Client limits return 429. The global budget and quota-store outages return 503.
+Both include `Retry-After`. Database failure never enables unrestricted access.
+Source coalescing is per process, not distributed. Configure budgets for the
+actual provider allowance before increasing them.
+
+The hosted HTTP adapter caps bodies at 1 MiB. Firebase verification precedes
+Wambesha quota checks. Infrastructure-level connection limits, request limits
+and DDoS protection are still needed for hostile unauthenticated traffic.
+
+## Rewards and daily check-in
+
+Ad rewards require a verified Google SSV signature, a matching server-issued
+session, an allowed ad unit, server-time checks, and transaction receipts that
+prevent double credit. Client ad callbacks never add spendable coins. Redemption
+checks and subtracts the server wallet atomically with idempotency receipts.
+
+`POST /api/rewards/daily` grants five coins once per signed-in, non-anonymous
+account per UTC day. The server supplies the day and amount. A Firestore
+transaction serializes claims across devices and retries; account-deletion fences
+prevent claims. Daily claims remain available when ad acquisition is disabled.
+Flutter displays the returned server wallet. Device dates and preferences cannot
+grant credits. Old local-only bonuses are not imported as trusted funds.
+
+## Firestore and account deletion
+
+Repository rules deny access to unspecified collections. Forum writes validate
+membership, ownership and fields; moderation requires a server-managed claim.
+Wallets, receipts and deletion records are backend owned. Forum posts are publicly
+readable by design. Blocking limits interactions, not access to public posts.
+
+Account deletion requires recent authentication and a durable deletion fence.
+See [rollout instructions](docs/account-deletion-rollout.md). A rules file in Git
+does not prove it is deployed. Verify the active project and deployed rules
+separately. Admin credentials bypass client rules: use a dedicated runtime
+identity with minimum required IAM permissions.
+
+## Outstanding work
+
+- Register platform providers for Firebase App Check, add client tokens and backend
+  verification, and test real devices before enforcement. App Check is not yet
+  implemented. Existing installed versions need a rollout plan.
+- Verify deployed Firestore rules and runtime IAM. Configure host-level abuse
+  controls, monitoring and alerts. One reward per account does not prevent
+  multi-account abuse; forum and account-creation abuse also need monitoring.
+- Harden Wambesha source-cache memory and provider response sizes separately from
+  the bounded public metadata cache. Source replies have a five-minute backend
+  TTL and a 30-second Flutter cache; URLs without expiry metadata cannot prove
+  continued validity.
+- Review dependency advisories and test supported devices, hostile inputs and
+  proxy/network failures before publication.
+
+Run Flutter analysis/tests, backend regressions, and isolated database/rules
+integration checks. Passing tests is not a penetration test or a capacity test
+for 50,000 concurrent users. Certificate pinning, universal request signing and
+an independent production security audit are not claimed.
+
+## Dependency installs
+
+Use `npm ci` from `backend` to reproduce the checked-in lockfile. Generated
+`node_modules` files are not source-controlled. The `qs` and `rimraf` overrides
+select patched query parsing and cleanup dependencies; the runtime requires
+Node 22 or newer. Audit production dependencies separately from developer tools
+and retest backend bundles after dependency changes. A clean production audit
+does not imply that developer tooling or mobile dependencies have been audited.
+
+The 2026-11-05 backend audit reports zero production dependency advisories.
+Developer tooling still reports seven advisories (one low and six moderate).
+Those require separate compatible tooling upgrades; do not apply an automatic
+forced CLI downgrade to hide them. Recheck advisories for each release.

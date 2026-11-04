@@ -1,3 +1,4 @@
+import 'backend_url.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -128,7 +129,7 @@ class RewardsService extends ChangeNotifier with WidgetsBindingObserver {
       throw StateError(
           'Cinema Rewards is being prepared. Please check back later.');
     }
-    final uri = Uri.parse('$base/api/rewards/$path');
+    final uri = Uri.parse('${validateBackendUrl(base)}/api/rewards/$path');
     final headers = {
       'Authorization': 'Bearer $token',
       'Content-Type': 'application/json'
@@ -155,14 +156,40 @@ class RewardsService extends ChangeNotifier with WidgetsBindingObserver {
     return data;
   }
 
-  /// Adds bonus coins immediately and notifies listeners
-  void addBonusCoins(int amount) {
-    if (amount <= 0) return;
-    coins += amount;
-    _notify();
+  Future<int>? _dailyClaim;
+  String? _dailyClaimUid;
+  int _walletVersion = 0;
+
+  Future<int> claimDailyBonus() {
+    if (_uid == null || _disposed) return Future.value(0);
+    if (_dailyClaimUid == _uid && _dailyClaim != null) return _dailyClaim!;
+    _dailyClaimUid = _uid;
+    final task = _claimDailyBonus(_uid!);
+    _dailyClaim = task;
+    return task.whenComplete(() {
+      if (identical(_dailyClaim, task)) _dailyClaim = null;
+    });
+  }
+
+  Future<int> _claimDailyBonus(String uid) async {
+    try {
+      await refresh();
+      if (_uid != uid || _disposed) return 0;
+      final data = await _request('daily', uid: uid, body: const {});
+      _wallet(data, uid);
+      _notify();
+      return (data['awardedCoins'] as num).toInt();
+    } catch (error) {
+      if (_uid == uid && !_disposed) {
+        message = _friendly(error);
+        _notify();
+      }
+      return 0;
+    }
   }
 
   void _wallet(Map<String, dynamic> data, String uid) {
+    _walletVersion++;
     coins = (data['coins'] as num).toInt();
     coinsPerAd = (data['coinsPerAd'] as num).toInt();
     enabled = data['enabled'] == true;
@@ -191,8 +218,9 @@ class RewardsService extends ChangeNotifier with WidgetsBindingObserver {
     refreshing = true;
     _notify();
     try {
+      final version = _walletVersion;
       final data = await _request('wallet', uid: uid);
-      if (busy) return;
+      if (busy || version != _walletVersion) return;
       _wallet(data, uid);
       refreshFailed = false;
       message = null;

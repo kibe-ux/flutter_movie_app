@@ -1,3 +1,4 @@
+import 'backend_url.dart';
 import 'dart:math';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -21,16 +22,7 @@ class TmdbApi {
                 : (kDebugMode ? 'http://127.0.0.1:3000' : '')))
         .trim()
         .replaceAll(RegExp(r'/+$'), '');
-    final parsed = Uri.tryParse(value);
-    if (parsed == null ||
-        !['https', 'http'].contains(parsed.scheme) ||
-        parsed.host.isEmpty ||
-        parsed.userInfo.isNotEmpty ||
-        parsed.hasQuery ||
-        parsed.hasFragment) {
-      throw StateError('The movie information backend is not configured.');
-    }
-    return '$value/api/catalogue/3';
+    return '${validateBackendUrl(value)}/api/catalogue/3';
   }
 
   static Uri uri(String path, [Map<String, String> parameters = const {}]) =>

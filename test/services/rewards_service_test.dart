@@ -88,11 +88,58 @@ void main() {
   }
 
   test('guests cannot load rewarded ads or redeem coins', () async {
+    expect(await service.claimDailyBonus(), 0);
     await service.watch(isActive: () => true);
     await service.watchTestAd(isActive: () => true);
     await service.redeem(const RewardOffer('hour', 30, 1));
     expect(calls, isEmpty);
     expect(gateway.loads, 0);
+  });
+
+  test('daily bonus uses the server wallet and coalesces concurrent claims',
+      () async {
+    await signIn();
+    final response = Completer<http.Response>();
+    handle = (request) {
+      if (request.url.path.endsWith('/daily')) {
+        expect(request.method, 'POST');
+        expect(jsonDecode(request.body), isEmpty);
+        return response.future;
+      }
+      return json(wallet());
+    };
+    var notifications = 0;
+    service.addListener(() => notifications++);
+    final first = service.claimDailyBonus();
+    final second = service.claimDailyBonus();
+    await Future<void>.delayed(Duration.zero);
+    expect(calls.where((request) => request.url.path.endsWith('/daily')),
+        hasLength(1));
+    response.complete(json({...wallet(coins: 15), 'awardedCoins': 5}));
+    expect(await Future.wait([first, second]), [5, 5]);
+    expect(service.coins, 15);
+    expect(notifications, greaterThan(0));
+    handle = (_) => json({...wallet(coins: 15), 'awardedCoins': 0});
+    expect(await service.claimDailyBonus(), 0);
+    expect(service.coins, 15);
+  });
+
+  test(
+      'failed daily claims and responses after sign-out never grant local coins',
+      () async {
+    await signIn();
+    handle = (_) => json({'error': 'Try again later'}, 503);
+    expect(await service.claimDailyBonus(), 0);
+    expect(service.coins, 0);
+    final response = Completer<http.Response>();
+    handle = (request) =>
+        request.url.path.endsWith('/daily') ? response.future : json(wallet());
+    final claim = service.claimDailyBonus();
+    await Future<void>.delayed(Duration.zero);
+    service.setUser(null);
+    response.complete(json({...wallet(coins: 500), 'awardedCoins': 5}));
+    expect(await claim, 0);
+    expect(service.coins, 0);
   });
   test(
       'test rewarded preview works without enabled rewards and never grants coins',

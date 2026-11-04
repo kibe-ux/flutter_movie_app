@@ -7,6 +7,7 @@ const OFFERS = Object.freeze([
   { id: "marathon", coins: 150, hours: 6 },
 ]);
 const COINS_PER_AD = 10;
+const DAILY_BONUS_COINS = 5;
 const KEYS_URL = "https://www.gstatic.com/admob/reward/verifier-keys.json";
 
 class RewardsError extends Error {
@@ -73,6 +74,22 @@ function createRewards({ db, now = Date.now, units = () => [], enabled = () => f
   }
   return {
     async wallet(uid) { return publicWallet((await account(uid).get()).data()); },
+    async daily(uid) {
+      const ref = account(uid);
+      return database().runTransaction(async (tx) => {
+        await requireActive(tx, uid);
+        const wallet = (await tx.get(ref)).data() || {};
+        const day = Math.floor(now() / 86400000);
+        // The transaction serializes claims across devices and instances.
+        // A clock rollback never reopens a previously claimed day.
+        const claimed = Number.isInteger(wallet.lastDailyClaimDay)
+          && wallet.lastDailyClaimDay >= day;
+        const awardedCoins = claimed ? 0 : DAILY_BONUS_COINS;
+        const updated = { ...wallet, coins: (wallet.coins || 0) + awardedCoins };
+        if (!claimed) tx.set(ref, { coins: updated.coins, lastDailyClaimDay: day }, { merge: true });
+        return { ...publicWallet(updated), awardedCoins };
+      });
+    },
     async session(uid, unitId) {
       requireEnabled();
       if (!units().includes(unitId)) throw new RewardsError(400, "This rewarded ad is not available.");
@@ -175,6 +192,7 @@ function registerRewardsRoutes(app, { authenticate, firebaseApp }) {
     next();
   };
   app.get("/api/rewards/wallet", authenticate, member, route((req) => rewards.wallet(req.firebaseUser.uid)));
+  app.post("/api/rewards/daily", authenticate, member, route((req) => rewards.daily(req.firebaseUser.uid)));
   app.post("/api/rewards/session", authenticate, member, route((req) => rewards.session(req.firebaseUser.uid, req.body?.unitId)));
   app.post("/api/rewards/cancel", authenticate, member, route((req) => rewards.cancel(req.firebaseUser.uid, req.body?.sessionId)));
   app.post("/api/rewards/redeem", authenticate, member, route((req) => rewards.redeem(req.firebaseUser.uid, req.body?.offerId, req.body?.requestId)));

@@ -74,4 +74,9 @@ test('PostgreSQL cache budget: migration, concurrent writers, oversized response
   await a.cleanup(1003);
   await usage();
   assert.equal((await a.read('refreshing')).body, null);
+  // Shared Wambesha quotas reuse these atomic buckets across instances.
+  const quota = await Promise.all(Array.from({ length: 20 }, (_, index) =>
+    (index % 2 ? a : b).consume('wambesha:concurrent-test', 900001, 3)));
+  assert.equal(quota.filter(retry => retry === 0).length, 3);
+  assert.ok(quota.filter(retry => retry > 0).every(retry => retry === 60));
 });

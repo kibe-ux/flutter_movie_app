@@ -2,13 +2,15 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const express = require('express');
 const { registerWambeshaRoutes } = require('../wambesha');
+const { createWambeshaLimits } = require('../wambesha_limits');
+const { memoryRateStore } = require('../test_support/memory_rate_store');
 
-async function fixture(t, fetchImpl, fixedUid) {
+async function fixture(t, fetchImpl, fixedUid, limits = createWambeshaLimits({ store: memoryRateStore() })) {
   const app = express();
   registerWambeshaRoutes(app, {
     authenticate: (req, res, next) => req.header('authorization') === 'Bearer firebase-token'
       ? (req.firebaseUser = { uid: fixedUid || req.header('x-test-user') || 'test-user' }, next()) : res.status(401).json({ error: 'Sign in required.' }),
-    fetchImpl,
+    fetchImpl, limits,
   });
   const server = app.listen(0);
   t.after(() => new Promise(resolve => server.close(resolve)));
@@ -135,7 +137,7 @@ test('empty sources are briefly reused and per-user metering is limited', async 
   assert.equal(calls, 8);
 });
 
-test('lookup and episode resolution are unmetered and source failures are not retried or cached', async t => {
+test('lookup and episode resolution use the general budget and source failures are not retried or cached', async t => {
   let calls = 0;
   const request = await fixture(t, async () => {
     calls++;
@@ -213,4 +215,36 @@ test('duplicate source taps share one verification without consuming extra rate 
   const responses = await Promise.all(Array.from({ length: 12 }, () => request('/titles/mv_123/sources')));
   assert.ok(responses.every(response => response.status === 200));
   assert.equal(calls, 1);
+});
+
+test('search and lookup share user and upstream quotas across server instances', async t => {
+  const store = memoryRateStore();
+  const options = { store, clientLimit: 2, upstreamLimit: 3 };
+  let calls = 0;
+  const provider = async () => { calls++; return Response.json({ items: [] }); };
+  const a = await fixture(t, provider, undefined, createWambeshaLimits(options));
+  const b = await fixture(t, provider, undefined, createWambeshaLimits(options));
+  assert.equal((await a('/search?q=Arrival')).status, 200);
+  assert.equal((await b('/lookup?tmdb_id=42')).status, 200);
+  const clientLimited = await a('/genres');
+  assert.equal(clientLimited.status, 429);
+  assert.ok(Number(clientLimited.headers.get('retry-after')) > 0);
+  assert.equal((await b('/genres', { headers: { 'x-test-user': 'other' } })).status, 200);
+  const globalLimited = await a('/genres', { headers: { 'x-test-user': 'third' } });
+  assert.equal(globalLimited.status, 503);
+  assert.ok(Number(globalLimited.headers.get('retry-after')) > 0);
+  assert.equal(calls, 3);
+});
+
+test('quota failures stop all upstream access and errors remain private', async t => {
+  let calls = 0;
+  const limits = createWambeshaLimits({ store: {
+    consume: async () => { throw new Error('database-password'); },
+  } });
+  const request = await fixture(t, async () => { calls++; }, undefined, limits);
+  const response = await request('/search?q=Arrival');
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get('retry-after'), '15');
+  assert.doesNotMatch(await response.text(), /database-password/);
+  assert.equal(calls, 0);
 });

@@ -13,7 +13,6 @@ import 'legal_screen.dart';
 import 'profile_screen.dart';
 import 'share_screen.dart';
 import 'rewards_screen.dart';
-import '../services/daily_reward_service.dart';
 import '../services/rewards_service.dart';
 import '../services/auth_service.dart';
 import '../services/home_startup_service.dart';
@@ -42,10 +41,10 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _checkDailyReward() async {
     final auth = context.read<AuthService>();
     final user = auth.currentUser;
-    final uid = user?.uid;
-    final coinsEarned = await DailyRewardService.claimDailyBonus(uid: uid);
-    if (coinsEarned > 0 && mounted) {
-      context.read<RewardsService>().addBonusCoins(coinsEarned);
+    if (user == null || user.isAnonymous) return;
+    final uid = user.uid;
+    final coinsEarned = await context.read<RewardsService>().claimDailyBonus();
+    if (coinsEarned > 0 && mounted && auth.currentUser?.uid == uid) {
       _showSnackBar(
           '\u{1F389} Daily Check-in Bonus: +$coinsEarned Cinema Coins added to your balance!');
     }

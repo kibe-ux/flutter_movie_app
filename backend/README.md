@@ -42,7 +42,12 @@ on each Firebase UID and title. The Flutter cache lasts up to 30 seconds and
 requires signed links to have more than 30 seconds remaining. The backend
 currently retains nonempty source replies for five minutes and empty replies for
 30 seconds; the app still checks supplied link expiry before using a source.
-Each user is limited to eight new source checks per minute per backend process; this is not a distributed quota across instances.
+PostgreSQL shares limits across instances: 60 valid requests per UID/minute,
+eight new source checks per UID/minute, and 120 actual provider calls globally
+per minute. Configure WAMBESHA_CLIENT_LIMIT, WAMBESHA_SOURCE_LIMIT and
+WAMBESHA_UPSTREAM_LIMIT. Cache hits and local followers avoid new source/provider
+checks; they still count as client requests. Client limits return 429; global
+budget exhaustion and database failures return 503. Both include Retry-After.
 Failed upstream requests are not automatically retried or cached. API errors
 are generic; source URLs, response bodies and credentials are not logged.
 Torrent listings and evidence are removed from client responses; `form=uri`
@@ -74,7 +79,8 @@ deployments default both deletion flags to false.
 
 ## Setup
 
-1. Run `npm install` from `backend`.
+1. Run `npm ci` from `backend` using Node 22 or newer. Commit dependency updates
+   through `package.json` and `package-lock.json`; do not commit `node_modules`.
 2. Copy `backend/.env.example` to `backend/.env` and configure:
    - `FIREBASE_PROJECT_ID`
    - `WAMBESHA_API_KEY` for search and playback/download source verification
@@ -114,6 +120,15 @@ From `backend`, use:
 connection. Movie files are transferred directly from the Wambesha delivery URL
 to the phone. Shared metadata caching has a 100 MB response-data budget; see
 [cache behavior and limits](CATALOGUE_CACHE.md).
+
+## Daily check-in
+
+POST /api/rewards/daily requires a verified, non-anonymous Firebase account.
+It atomically adds five coins once per account per UTC day to the server wallet,
+independently of the ad-acquisition flag. Concurrent devices and retries cannot
+multiply the award. Client amounts, dates and local preferences are not trusted.
+The response contains the wallet and awardedCoins (five or zero). Deleted or
+deleting accounts cannot claim.
 
 ## Cinema Rewards activation
 
@@ -176,7 +191,7 @@ Firebase-authenticated endpoints include:
 - `GET /api/database/health`
 - `GET /api/wambesha/search`, `/titles`, `/genres` and `/lookup`
 - `GET /api/wambesha/titles/:titleRef`, `/episodes` and `/sources`
-- Rewards wallet/session/redemption and account-deletion operations
+- Rewards wallet/daily/session/redemption and account-deletion operations
 - Legacy local-file `GET /api/movies`, `GET /api/movies/:id` and
   `POST /api/download/request`
 

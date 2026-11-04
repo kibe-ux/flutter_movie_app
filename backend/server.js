@@ -94,7 +94,7 @@ async function requireFirebaseUser(req, res, next) {
   }
 }
 
-registerWambeshaRoutes(app, { authenticate: requireFirebaseUser });
+registerWambeshaRoutes(app, { authenticate: requireFirebaseUser, database });
 registerCatalogueRoutes(app, { authenticate: requireFirebaseUser, database });
 
 app.use(express.json());

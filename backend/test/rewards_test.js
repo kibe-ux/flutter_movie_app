@@ -41,6 +41,7 @@ test('deletion fence prevents new sessions, cancellations, redemptions and late 
   for (const action of [
     () => rewards.session('viewer', unit),
     () => rewards.cancel('viewer', session.id),
+    () => rewards.daily('viewer'),
     () => rewards.redeem('viewer', 'hour', 'valid_request_123456'),
     () => rewards.credit(event(session, now())),
   ]) await assert.rejects(action(), { status: 403 });
@@ -66,7 +67,7 @@ test("reward routes reject guests and anonymous accounts before database access"
   await new Promise((resolve) => server.once("listening", resolve));
   t.after(() => { server.closeAllConnections(); server.close(); });
   const base = `http://127.0.0.1:${server.address().port}`;
-  for (const [path, method] of [["wallet", "GET"], ["session", "POST"], ["cancel", "POST"], ["redeem", "POST"]]) {
+  for (const [path, method] of [["wallet", "GET"], ["daily", "POST"], ["session", "POST"], ["cancel", "POST"], ["redeem", "POST"]]) {
     assert.equal((await fetch(`${base}/api/rewards/${path}`, { method })).status, 401);
     assert.equal((await fetch(`${base}/api/rewards/${path}`, { method, headers: { authorization: "anonymous" } })).status, 403);
   }
@@ -89,6 +90,32 @@ test("wallet is account-bound and configured offers are server-owned", async () 
   assert.equal(wallet.coinsPerAd, 10);
   assert.equal(wallet.offers[0].coins, 30);
   assert.equal((await rewards.wallet("other")).adFreeUntil, 0);
+});
+
+test('concurrent daily claims credit once per UTC day and preserve wallet fields', async () => {
+  const { rewards, db, advance } = setup();
+  db.documents.set('reward_accounts/viewer', { coins: 30, adFreeUntil: 12345 });
+  const claims = await Promise.all(Array.from({ length: 20 }, () => rewards.daily('viewer')));
+  assert.equal(claims.reduce((sum, claim) => sum + claim.awardedCoins, 0), 5);
+  assert.equal((await rewards.wallet('viewer')).coins, 35);
+  assert.equal((await rewards.wallet('viewer')).adFreeUntil, 12345);
+  assert.equal((await rewards.daily('other')).coins, 5);
+  advance(86400000);
+  assert.equal((await rewards.daily('viewer')).awardedCoins, 5);
+  advance(-86400000);
+  assert.equal((await rewards.daily('viewer')).awardedCoins, 0);
+});
+
+test('daily credits remain redeemable server balance without ad acquisition enabled', async () => {
+  const db = store();
+  let time = 1700000000000;
+  const rewards = createRewards({ db, now: () => time });
+  for (let day = 0; day < 6; day++) {
+    await rewards.daily('viewer'); time += 86400000;
+  }
+  const wallet = await rewards.redeem('viewer', 'hour', 'daily_redemption_1234');
+  assert.equal(wallet.coins, 0);
+  assert.ok(wallet.adFreeUntil > time);
 });
 test("disabled rewards never start an ad session", async () => {
   const rewards = createRewards({ db: store() });
