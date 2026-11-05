@@ -449,7 +449,6 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     final detailsRating = details['voteAverage'];
     final displayRating =
         detailsRating is num ? detailsRating.toDouble() : rating;
-    final voteCount = details['voteCount'];
     final mpaRating =
         details['mpaRating'] is String ? (details['mpaRating'] as String) : '';
     final imdbId =
@@ -513,8 +512,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(
-                    '\u2605 ${displayRating.toStringAsFixed(1)}'
-                    '${voteCount is num ? ' (${voteCount.toInt()} votes)' : ''}',
+                    '\u2605 ${displayRating.toStringAsFixed(1)}',
                     style: TextStyle(
                       color: CinemaPalette.gold,
                       fontSize: 14,
