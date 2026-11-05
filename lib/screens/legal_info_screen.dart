@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../utils/cinema_palette.dart';
+import '../utils/contact_email.dart';
 
 enum LegalPageType { about, copyright, terms }
 
@@ -289,15 +289,8 @@ class _LegalContactTextState extends State<_LegalContactText> {
   late final _emailTap = TapGestureRecognizer()..onTap = _openEmail;
 
   Future<void> _openEmail() async {
-    try {
-      if (await launchUrl(Uri(scheme: 'mailto', path: _email))) return;
-    } catch (_) {}
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      backgroundColor: CinemaPalette.wine,
-      content: Text('Could not open an email app. Please email $_email.',
-          style: TextStyle(color: CinemaPalette.ivory)),
-    ));
+    await openContactEmail(context,
+        email: _email, subject: 'Movie Hub Legal Inquiry');
   }
 
   @override

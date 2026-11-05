@@ -1,6 +1,6 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../utils/cinema_palette.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../utils/contact_email.dart';
 
 class SupportScreen extends StatefulWidget {
   const SupportScreen({super.key});
@@ -18,50 +18,15 @@ class _SupportScreenState extends State<SupportScreen> {
   final Color _accent = CinemaPalette.gold;
   static const String _supportEmail = 'supportmoviehub@gmail.com';
 
-  Future<void> _launchUrlHelper(Uri uri, String fallbackMessage) async {
-    try {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(fallbackMessage),
-              backgroundColor: CinemaPalette.surface,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-            ),
-          );
-        }
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(fallbackMessage),
-            backgroundColor: CinemaPalette.surface,
-            behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
-      }
-    }
-  }
-
   void _launchEmail({String subject = '', String body = ''}) {
-    final emailUri = Uri(
-      scheme: 'mailto',
-      path: _supportEmail,
-      queryParameters: {
-        'subject': subject.isNotEmpty ? subject : 'Movie Hub Support Request',
-        'body': body.isNotEmpty
-            ? body
-            : 'Hello Movie Hub Team,\n\nI need assistance with:'
-      },
+    openContactEmail(
+      context,
+      email: _supportEmail,
+      subject: subject.isNotEmpty ? subject : 'Movie Hub Support Request',
+      body: body.isNotEmpty
+          ? body
+          : 'Hello Movie Hub Team,\n\nI need assistance with:',
     );
-    _launchUrlHelper(emailUri, 'Please email us directly at $_supportEmail');
   }
 
   void _showBugReportSheet(BuildContext context) {
@@ -215,16 +180,6 @@ class _SupportScreenState extends State<SupportScreen> {
                             'Category: $selectedCategory\n\nDescription:\n${descController.text.trim()}\n\nDevice: Mobile App',
                       );
                       Navigator.pop(ctx);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content:
-                              const Text('Your email draft is ready to send.'),
-                          backgroundColor: const Color(0xFF00C853),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                        ),
-                      );
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -393,16 +348,6 @@ class _SupportScreenState extends State<SupportScreen> {
                           'Requested title: ${titleController.text.trim()}$yrStr\n\nPlease add any helpful details below:\n',
                     );
                     Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content:
-                            const Text('Your request email is ready to send.'),
-                        backgroundColor: _accent,
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                      ),
-                    );
                   }
                 },
                 style: ElevatedButton.styleFrom(

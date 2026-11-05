@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../utils/cinema_palette.dart';
+import '../utils/contact_email.dart';
 import '../widgets/ad_privacy_choices.dart';
+import '../widgets/contact_email_text.dart';
 
 class PrivacyPolicyScreen extends StatelessWidget {
   const PrivacyPolicyScreen({super.key});
@@ -272,8 +273,10 @@ class PrivacyPolicyScreen extends StatelessWidget {
                 height: 1.4,
                 fontSize: 15)),
         subtitle: icon == Icons.child_care_rounded
-            ? const SelectableText(
-                _privacyEmail,
+            ? const ContactEmailText(
+                text: _privacyEmail,
+                email: _privacyEmail,
+                subject: 'Movie Hub Privacy Request',
                 style: TextStyle(
                   color: _accent,
                   fontSize: 13,
@@ -286,7 +289,10 @@ class PrivacyPolicyScreen extends StatelessWidget {
         collapsedIconColor: CinemaPalette.muted,
         children: [
           for (final paragraph in paragraphs) ...[
-            Text(paragraph,
+            ContactEmailText(
+                text: paragraph,
+                email: _privacyEmail,
+                subject: 'Movie Hub Privacy Request',
                 style:
                     const TextStyle(color: CinemaPalette.muted, height: 1.5)),
             const SizedBox(height: 12),
@@ -334,15 +340,8 @@ class PrivacyPolicyScreen extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
-              onPressed: () async {
-                await Clipboard.setData(
-                    const ClipboardData(text: _privacyEmail));
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('Privacy email copied to clipboard.')),
-                );
-              },
+              onPressed: () => openContactEmail(context,
+                  email: _privacyEmail, subject: 'Movie Hub Privacy Request'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: _accent,
                 padding:
@@ -358,7 +357,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                           textAlign: TextAlign.center,
                           style: TextStyle(fontSize: 13, height: 1.5))),
                   SizedBox(width: 8),
-                  Icon(Icons.copy_rounded, size: 18),
+                  Icon(Icons.open_in_new_rounded, size: 18),
                 ],
               ),
             ),
