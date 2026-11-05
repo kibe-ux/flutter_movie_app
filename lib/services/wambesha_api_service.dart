@@ -276,7 +276,9 @@ class WambeshaSources {
         : 'No confirmed playback source is available for this title.');
   }
 
-  /// Returns all available download sources with human-readable quality labels
+  /// Returns all available download sources with human-readable quality labels.
+  /// Labels are sourced from provider metadata when available, URL patterns when
+  /// detectable, and a neutral 'Source N' index otherwise.
   List<Map<String, String>> get downloadQualities {
     final list = <Map<String, String>>[];
     for (final s in sources) {
@@ -286,14 +288,14 @@ class WambeshaSources {
         String label;
         if (rawQuality != null && rawQuality.isNotEmpty) {
           label = rawQuality.toUpperCase();
-        } else if (url.contains('1080') || url.contains('FHD')) {
+        } else if (url.contains('1080') || url.contains('FHD') || url.contains('fhd')) {
           label = '1080p (Full HD)';
-        } else if (url.contains('720') || url.contains('HD')) {
+        } else if (url.contains('720') || url.contains('hd720') || url.contains('HD720')) {
           label = '720p (HD)';
-        } else if (url.contains('480') || url.contains('SD')) {
+        } else if (url.contains('480') || url.contains('SD') || url.contains('sd480')) {
           label = '480p (Data Saver)';
         } else {
-          label = list.isEmpty ? '1080p (Full HD)' : '720p (HD)';
+          label = 'Source ' + (list.length + 1).toString();
         }
         list.add({'url': url, 'label': label});
       }

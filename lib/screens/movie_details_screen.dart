@@ -1184,8 +1184,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
         movieId: episodeDownloadId((episode['id'] as num).toInt()),
         movieTitle: episodeTitle,
         posterPath: widget.movie['poster_path'],
-        downloadUrl: (await _sourceService.sources(sources.id!))
-            .requireUrl('file_holding'),
+        downloadUrl: url,
       ));
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -1248,7 +1247,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
           movieId: tmdbId,
           movieTitle: movie['title'] ?? 'Unknown',
           posterPath: movie['poster_path'],
-          downloadUrl: downloadUrl,
+          downloadUrl: chosenUrl,
         ),
       );
 
