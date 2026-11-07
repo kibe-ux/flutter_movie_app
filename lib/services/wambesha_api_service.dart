@@ -80,7 +80,11 @@ class WambeshaApiService {
   }
 
   Future<String> resolveTitle(
-      {required int tmdbId, required String type, String? titleRef}) async {
+      {required int tmdbId,
+      required String type,
+      String? titleRef,
+      String? title,
+      String? releaseDate}) async {
     final prefix = type == 'movie' ? 'mv_' : 'sr_';
     if (titleRef != null &&
         titleRef.startsWith(prefix) &&
@@ -91,7 +95,8 @@ class WambeshaApiService {
     if (token == null || token.trim().isEmpty) {
       throw const WambeshaRequestException(401);
     }
-    final scope = '${_baseUrlProvider?.call() ?? ''}|$token|$type|$tmdbId';
+    final scope =
+        '${_baseUrlProvider?.call() ?? ''}|$token|$type|$tmdbId|${title ?? ''}|${releaseDate ?? ''}';
     final cached = _titleCache[scope];
     if (cached != null && cached.expiresAt.isAfter(DateTime.now())) {
       return cached.id;
@@ -99,8 +104,8 @@ class WambeshaApiService {
     final pending = _pendingTitles[scope];
     if (pending != null) return pending;
     final future = () async {
-      final id =
-          await _resolveTitle(tmdbId: tmdbId, type: type, titleRef: titleRef);
+      final id = await _resolveTitle(
+          tmdbId: tmdbId, type: type, title: title, releaseDate: releaseDate);
       if (_titleCache.length >= 64) _titleCache.remove(_titleCache.keys.first);
       _titleCache[scope] = (
         id: id,
@@ -117,24 +122,101 @@ class WambeshaApiService {
   }
 
   Future<String> _resolveTitle(
-      {required int tmdbId, required String type, String? titleRef}) async {
+      {required int tmdbId,
+      required String type,
+      String? title,
+      String? releaseDate}) async {
     final prefix = type == 'movie' ? 'mv_' : 'sr_';
-    final record = await _get('lookup', {'tmdb_id': '$tmdbId'});
-    final id = record['id'];
-    if (id is! String ||
-        !RegExp(r'^(mv|sr)_[A-Za-z0-9]{1,40}$').hasMatch(id) ||
-        !id.startsWith(prefix) ||
-        record['type'] != (type == 'movie' ? 'movie' : 'series')) {
+    final recordType = type == 'movie' ? 'movie' : 'series';
+    final validId = RegExp(r'^(mv|sr)_[A-Za-z0-9]{1,40}$');
+    try {
+      final record = await _get('lookup', {'tmdb_id': '$tmdbId'});
+      final id = record['id'];
+      if (id is String &&
+          validId.hasMatch(id) &&
+          id.startsWith(prefix) &&
+          record['type'] == recordType) {
+        return id;
+      }
+    } on WambeshaRequestException catch (error) {
+      // Authentication, ambiguity, quota and server failures must remain visible.
+      if (error.statusCode != 404 || title == null || title.trim().length < 2) {
+        rethrow;
+      }
+    }
+    if (title == null || title.trim().length < 2) {
       throw const WambeshaSourceUnavailable(
           'This title could not be matched in the source catalogue.');
     }
-    return id;
+    final searchBody =
+        await _get('search', {'q': title.trim(), 'language': 'en'});
+    final cards = searchBody['titles']?['items'] as List? ?? [];
+    final ids = <String>{
+      for (final card in cards)
+        if (card is Map &&
+            card['type'] == recordType &&
+            card['id'] is String &&
+            validId.hasMatch(card['id']) &&
+            (card['id'] as String).startsWith(prefix))
+          card['id'] as String,
+    }.take(100).toList();
+    if (ids.isEmpty) {
+      throw const WambeshaSourceUnavailable(
+          'This title could not be matched in the source catalogue.');
+    }
+    // Batch full records: search cards may omit external IDs and release dates.
+    final body = await _get('titles', {'ids': ids.join(','), 'language': 'en'});
+    final exactIds = <String>{};
+    final titleMatches = <String>{};
+    final year = DateTime.tryParse(releaseDate ?? '')?.year;
+    String normalize(String value) => value
+        .toLowerCase()
+        .replaceAll(RegExp(r"[\s:.,!?_'’\-–—]+"), ' ')
+        .trim();
+    for (final record in body['items'] as List? ?? []) {
+      if (record is! Map ||
+          record['type'] != recordType ||
+          !ids.contains(record['id'])) {
+        continue;
+      }
+      final id = record['id'] as String;
+      final external = record['external_ids'];
+      final linkedId = external is Map ? external['tmdb_id'] : null;
+      if (linkedId != null && '$linkedId'.isNotEmpty) {
+        if (int.tryParse('$linkedId') == tmdbId) exactIds.add(id);
+        continue;
+      }
+      final recordYear = int.tryParse('${record['year']}') ??
+          DateTime.tryParse(
+                  '${record[type == 'movie' ? 'release_date' : 'first_air_date']}')
+              ?.year;
+      final names =
+          [record['title'], record['original_title']].whereType<String>();
+      if (year != null &&
+          recordYear == year &&
+          names.any((name) => normalize(name) == normalize(title))) {
+        titleMatches.add(id);
+      }
+    }
+    final matches = exactIds.isNotEmpty ? exactIds : titleMatches;
+    if (matches.length == 1) return matches.single;
+    throw WambeshaSourceUnavailable(matches.length > 1
+        ? 'More than one catalogue title matches this title and year. Please report this movie.'
+        : 'This title could not be matched in the source catalogue.');
   }
 
   Future<WambeshaSources> movieSources(
-      {required int tmdbId, String? titleRef, bool refresh = false}) async {
-    final id =
-        await resolveTitle(tmdbId: tmdbId, type: 'movie', titleRef: titleRef);
+      {required int tmdbId,
+      String? titleRef,
+      String? title,
+      String? releaseDate,
+      bool refresh = false}) async {
+    final id = await resolveTitle(
+        tmdbId: tmdbId,
+        type: 'movie',
+        titleRef: titleRef,
+        title: title,
+        releaseDate: releaseDate);
     return sources(id, refresh: refresh);
   }
 
@@ -143,9 +225,15 @@ class WambeshaApiService {
       required int season,
       required int episode,
       String? seriesRef,
+      String? seriesTitle,
+      String? releaseDate,
       bool refresh = false}) async {
     final id = await resolveTitle(
-        tmdbId: seriesTmdbId, type: 'tv', titleRef: seriesRef);
+        tmdbId: seriesTmdbId,
+        type: 'tv',
+        titleRef: seriesRef,
+        title: seriesTitle,
+        releaseDate: releaseDate);
     String? cursor;
     final visited = <String>{};
     for (var page = 0; page < 20; page++) {

@@ -70,7 +70,13 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     final id = widget.movie['id'];
     if (id is num && id > 0) {
       unawaited(_sourceService
-          .resolveTitle(tmdbId: id.toInt(), type: _mediaType)
+          .resolveTitle(
+              tmdbId: id.toInt(),
+              type: _mediaType,
+              titleRef: _movieSourceId,
+              title: (widget.movie['title'] ?? widget.movie['name']) as String?,
+              releaseDate: (widget.movie['release_date'] ??
+                  widget.movie['first_air_date']) as String?)
           .then<void>((_) {}, onError: (Object _, StackTrace __) {}));
     }
   }
@@ -1135,6 +1141,8 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
       _sourceService.episodeSources(
         seriesTmdbId: (widget.movie['id'] as num).toInt(),
         seriesRef: widget.movie['wambesha_id'] as String?,
+        seriesTitle: (widget.movie['name'] ?? widget.movie['title']) as String?,
+        releaseDate: widget.movie['first_air_date'] as String?,
         season: season,
         episode: episode,
         refresh: refresh,
@@ -1234,6 +1242,8 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
       final sources = await _sourceService.movieSources(
         tmdbId: tmdbId,
         titleRef: _movieSourceId,
+        title: movieTitle,
+        releaseDate: movie['release_date'] as String?,
         refresh: refreshMetadata,
       );
       final downloadUrl = sources.downloadQualities.isNotEmpty
