@@ -10,12 +10,17 @@ class HomeCategory {
   bool get isTv => endpoint.split('/').contains('tv');
 
   Uri uri({int page = 1, DateTime? now}) {
+    final today = now ?? DateTime.now();
+    final digitalCutoff = today
+        .subtract(const Duration(days: 60))
+        .toIso8601String()
+        .split('T')
+        .first;
     return TmdbApi.uri(endpoint, {
       'language': 'en-US',
       ...filters,
-      if (name == 'Latest Movies')
-        'release_date.lte':
-            (now ?? DateTime.now()).toIso8601String().split('T').first,
+      if (endpoint.startsWith('discover/movie'))
+        'release_date.lte': digitalCutoff,
       'page': '$page',
     });
   }
