@@ -1065,15 +1065,11 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     VoidCallback? onPressed;
     Color buttonColor = CinemaPalette.gold;
 
-    final releaseDate = movie['release_date'] ?? movie['first_air_date'];
-    final isInTheatersOnly = !_isTv && isFutureMovieRelease(releaseDate, isDigitalBuffer: true);
-
     switch (status) {
       case DownloadStatus.idle:
-        icon = isInTheatersOnly ? Icons.theaters_outlined : Icons.download_rounded;
-        label = isInTheatersOnly ? 'In Theaters Only' : 'Download Now';
-        onPressed = isInTheatersOnly ? null : () => _startDownload(movie);
-        if (isInTheatersOnly) buttonColor = Colors.white38;
+        icon = Icons.download_rounded;
+        label = 'Download Now';
+        onPressed = () => _startDownload(movie);
         break;
       case DownloadStatus.downloading:
         icon = Icons.pause_rounded;

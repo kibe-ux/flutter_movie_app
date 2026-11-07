@@ -1,15 +1,10 @@
-/// Digital window: theatrical releases typically require ~60 days before
-/// appearing on digital/streaming services with verified file downloads.
-const Duration digitalReleaseWindow = Duration(days: 60);
-
-bool isFutureMovieRelease(Object? releaseDate, {DateTime? now, bool isDigitalBuffer = false}) {
+bool isFutureMovieRelease(Object? releaseDate, {DateTime? now}) {
   if (releaseDate is! String) return false;
   final release = DateTime.tryParse(releaseDate);
   if (release == null) return false;
   final today = now ?? DateTime.now();
-  final threshold = isDigitalBuffer ? today.subtract(digitalReleaseWindow) : today;
   return DateTime(release.year, release.month, release.day)
-      .isAfter(DateTime(threshold.year, threshold.month, threshold.day));
+      .isAfter(DateTime(today.year, today.month, today.day));
 }
 
 bool hasMovieDownloadLink(Map<String, dynamic>? metadata) {
@@ -40,26 +35,15 @@ bool isMovieReleased(Object? releaseDate, {DateTime? now}) {
 }
 
 /// Filters a list of movie objects to exclude unreleased / future releases.
-/// For movies, applies the 60-day digital release buffer so titles shown in feeds
-/// actually have digital files available in the provider catalogue.
 List<Map<String, dynamic>> filterReleasedMovies(
   Iterable<dynamic>? movies, {
   DateTime? now,
-  bool requireDigitalRelease = true,
 }) {
   if (movies == null) return <Map<String, dynamic>>[];
   return movies
       .whereType<Map<String, dynamic>>()
-      .where((m) {
-        final isTv = m['media_type'] == 'tv' || m['first_air_date'] != null;
-        final releaseDate = m['release_date'] ?? m['first_air_date'];
-        // TV episodes stream right after airing; movies require digital release window
-        final applyBuffer = requireDigitalRelease && !isTv;
-        return !isFutureMovieRelease(
-          releaseDate,
-          now: now,
-          isDigitalBuffer: applyBuffer,
-        );
-      })
+      .where((m) => !isFutureMovieRelease(
+          m['release_date'] ?? m['first_air_date'],
+          now: now))
       .toList();
 }
