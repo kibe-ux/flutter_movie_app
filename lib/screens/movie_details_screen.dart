@@ -286,7 +286,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                           colors: [
-                            CinemaPalette.background.withValues(alpha: 0.32),
+                            CinemaPalette.background.withOpacity(0.32),
                             Colors.transparent,
                           ],
                         ),
@@ -302,7 +302,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                 icon: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                      color: CinemaPalette.background.withValues(alpha: 0.75),
+                      color: CinemaPalette.background.withOpacity(0.75),
                       shape: BoxShape.circle),
                   child: const Icon(Icons.arrow_back_rounded,
                       color: CinemaPalette.ivory, size: 20),
@@ -314,7 +314,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                   icon: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: CinemaPalette.background.withValues(alpha: 0.75),
+                      color: CinemaPalette.background.withOpacity(0.75),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -333,7 +333,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                   icon: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: CinemaPalette.background.withValues(alpha: 0.75),
+                      color: CinemaPalette.background.withOpacity(0.75),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -355,7 +355,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                   icon: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: CinemaPalette.background.withValues(alpha: 0.75),
+                      color: CinemaPalette.background.withOpacity(0.75),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -854,8 +854,8 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
-        splashColor: iconColor.withValues(alpha: 0.12),
-        highlightColor: iconColor.withValues(alpha: 0.06),
+        splashColor: iconColor.withOpacity(0.12),
+        highlightColor: iconColor.withOpacity(0.06),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Row(
@@ -1123,7 +1123,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
         backgroundColor: isPrimary ? CinemaPalette.gold : CinemaPalette.surface,
         side: isPrimary
             ? BorderSide.none
-            : BorderSide(color: buttonColor.withValues(alpha: 0.7)),
+            : BorderSide(color: buttonColor.withOpacity(0.7)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         minimumSize: const Size.fromHeight(54),
       ),
@@ -1167,7 +1167,10 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     try {
       final number = (episode['episode_number'] as num).toInt();
       final sources = await _resolveEpisodeSources(season, number);
-      final metadata = {'downloadUrl': sources.requireUrl('file_holding')};
+      final downloadUrl = sources.downloadQualities.isNotEmpty
+          ? sources.downloadQualities.first['url']!
+          : sources.requireUrl('file_holding');
+      final metadata = {'downloadUrl': downloadUrl};
       final code =
           'S${season.toString().padLeft(2, '0')}E${number.toString().padLeft(2, '0')}';
       final episodeTitle =
@@ -1227,14 +1230,22 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
       }
 
       downloadStage = 'wambesha-sources';
+      final movieTitle = movie['title'] ?? movie['name'] ?? 'Movie';
+      final releaseDate = movie['release_date'] as String?;
       final sources = await _sourceService.movieSources(
-          tmdbId: tmdbId, titleRef: _movieSourceId, refresh: refreshMetadata);
-      final downloadUrl = sources.requireUrl('file_holding');
+        tmdbId: tmdbId,
+        titleRef: _movieSourceId,
+        title: movieTitle,
+        releaseDate: releaseDate,
+        refresh: refreshMetadata,
+      );
+      final downloadUrl = sources.downloadQualities.isNotEmpty
+          ? sources.downloadQualities.first['url']!
+          : sources.requireUrl('file_holding');
       final metadata = {'downloadUrl': downloadUrl};
 
       if (!mounted) return;
       downloadStage = 'download-options';
-      final movieTitle = movie['title'] ?? movie['name'] ?? 'Movie';
       final result = await _showDownloadOptions(context, metadata,
           title: movieTitle, qualities: sources.downloadQualities);
       if (!mounted || result == null) return;

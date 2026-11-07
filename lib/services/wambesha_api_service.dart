@@ -356,6 +356,22 @@ class WambeshaSources {
         list.add({'url': url, 'label': label});
       }
     }
+    if (list.isEmpty) {
+      for (final s in sources) {
+        if (s['kind'] == 'playback_holding' && _valid(s)) {
+          final url = s['url'] as String;
+          final rawQuality =
+              (s['quality'] ?? s['label'] ?? s['resolution'])?.toString();
+          String label;
+          if (rawQuality != null && rawQuality.isNotEmpty) {
+            label = '${rawQuality.toUpperCase()} (Stream)';
+          } else {
+            label = 'Stream Source ${list.length + 1}';
+          }
+          list.add({'url': url, 'label': label});
+        }
+      }
+    }
     return list;
   }
 
@@ -392,6 +408,13 @@ class WambeshaSources {
     for (final source in sources) {
       if (source['kind'] == kind && _valid(source)) {
         return source['url'] as String;
+      }
+    }
+    if (kind == 'file_holding') {
+      for (final source in sources) {
+        if (source['kind'] == 'playback_holding' && _valid(source)) {
+          return source['url'] as String;
+        }
       }
     }
     if (kind == 'playback_holding' && hasDownload) {
