@@ -6,6 +6,17 @@ import 'package:moviehub_app/services/wambesha_api_service.dart';
 import 'package:moviehub_app/utils/movie_download_error.dart';
 
 void main() {
+  test('HTTP service failures never blame the internet connection', () {
+    for (final status in [400, 403, 410, 500, 502, 504]) {
+      expect(movieDownloadErrorMessage(WambeshaRequestException(status)),
+          isNot(contains('connection')));
+    }
+    expect(movieDownloadErrorMessage(const WambeshaRequestException(502)),
+        contains('source service'));
+    expect(movieDownloadErrorMessage(const WambeshaRequestException(504)),
+        contains('too long'));
+  });
+
   test('Firebase token expiry gives an actionable sign-in message', () {
     final error = FirebaseAuthException(code: 'user-token-expired');
     expect(movieDownloadErrorMessage(error), contains('Sign out'));
@@ -18,7 +29,7 @@ void main() {
     expect(movieDownloadErrorMessage(error), contains('connection'));
     expect(movieDownloadErrorMessage(error), isNot(contains('API key')));
     expect(movieDownloadErrorMessage(TimeoutException('network timeout')),
-        'Could not reach the download service. Check your connection.');
+        'The download service took too long to respond. Please try again.');
   });
 
   test('source errors provide actionable messages without credentials', () {

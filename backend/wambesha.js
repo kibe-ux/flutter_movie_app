@@ -42,7 +42,9 @@ function registerWambeshaRoutes(app, { authenticate, database,
   }
 
   function sanitizeSources(body) {
-    if (!Array.isArray(body.sources)) throw new Error('Invalid source response.');
+    // Normalize the current provider envelope for existing app clients.
+    const links = body.links !== undefined ? body.links : body.sources;
+    if (!Array.isArray(links)) throw new Error('Invalid source response.');
     const time = now();
     const sanitized = {
       id: typeof body.id === 'string' ? body.id : undefined,
@@ -50,8 +52,8 @@ function registerWambeshaRoutes(app, { authenticate, database,
       unverified: Number.isSafeInteger(body.unverified) && body.unverified >= 0 ? body.unverified : 0,
       sources: [],
     };
-    if (Array.isArray(body.sources)) {
-      for (const source of body.sources) {
+    if (Array.isArray(links)) {
+      for (const source of links) {
         if (!source || typeof source !== 'object') continue;
         const kind = source.kind;
         if (kind !== 'file_holding' && kind !== 'playback_holding') continue;
@@ -68,6 +70,7 @@ function registerWambeshaRoutes(app, { authenticate, database,
         if (source.expires_at) item.expires_at = source.expires_at;
         if (typeof source.host === 'string') item.host = source.host;
         if (typeof source.verified_at === 'string') item.verified_at = source.verified_at;
+        if (typeof source.quality === 'string' && source.quality.length <= 80) item.quality = source.quality;
         sanitized.sources.push(item);
       }
     }

@@ -28,7 +28,10 @@ String movieDownloadErrorMessage(Object error) {
   if (error is StateError && error.message.toString().contains('Sign in')) {
     return 'Sign in to download movies.';
   }
-  if (error is TimeoutException || error is http.ClientException) {
+  if (error is TimeoutException) {
+    return 'The download service took too long to respond. Please try again.';
+  }
+  if (error is http.ClientException) {
     return 'Could not reach the download service. Check your connection.';
   }
   if (error is FormatException || error is TypeError) {

@@ -138,6 +138,72 @@ void main() {
     api.dispose();
   });
 
+  test(
+      'warming identity shares lookup with download without checking files early',
+      () async {
+    final lookup = Completer<http.Response>();
+    final paths = <String>[];
+    final api = service(MockClient((request) async {
+      paths.add(request.url.path);
+      if (request.url.path.endsWith('/lookup')) return lookup.future;
+      return http.Response(
+          jsonEncode({
+            'sources': [source('file_holding', 'movie.mp4')],
+          }),
+          200);
+    }));
+    final warmup = api.resolveTitle(tmdbId: 550, type: 'movie');
+    await Future<void>.delayed(Duration.zero);
+    expect(paths, ['/api/wambesha/lookup']);
+    final download = api.movieSources(tmdbId: 550);
+    lookup.complete(http.Response('{"id":"mv_TEST","type":"movie"}', 200));
+    expect(await warmup, 'mv_TEST');
+    expect((await download).hasDownload, isTrue);
+    await api.movieSources(tmdbId: 550);
+    expect(paths,
+        ['/api/wambesha/lookup', '/api/wambesha/titles/mv_TEST/sources']);
+    api.dispose();
+  });
+
+  test('identity cache stays scoped to the current user and media type',
+      () async {
+    var user = 'first-user';
+    var lookups = 0;
+    final api = service(MockClient((request) async {
+      lookups++;
+      return http.Response(
+          jsonEncode({
+            'id': lookups == 3 ? 'sr_TEST' : 'mv_TEST',
+            'type': lookups == 3 ? 'series' : 'movie',
+          }),
+          200);
+    }), token: (_) async => user);
+    expect(await api.resolveTitle(tmdbId: 550, type: 'movie'), 'mv_TEST');
+    expect(await api.resolveTitle(tmdbId: 550, type: 'movie'), 'mv_TEST');
+    expect(lookups, 1);
+    user = 'second-user';
+    await api.resolveTitle(tmdbId: 550, type: 'movie');
+    expect(lookups, 2);
+    expect(await api.resolveTitle(tmdbId: 550, type: 'tv'), 'sr_TEST');
+    expect(lookups, 3);
+    api.dispose();
+  });
+
+  test('failed identity warmup is not cached and download can retry', () async {
+    var calls = 0;
+    final api = service(MockClient((request) async {
+      calls++;
+      return calls == 1
+          ? http.Response('{}', 502)
+          : http.Response('{"id":"mv_TEST","type":"movie"}', 200);
+    }));
+    await expectLater(api.resolveTitle(tmdbId: 550, type: 'movie'),
+        throwsA(isA<WambeshaRequestException>()));
+    expect(await api.resolveTitle(tmdbId: 550, type: 'movie'), 'mv_TEST');
+    expect(calls, 2);
+    api.dispose();
+  });
+
   test('delivery links without optional expiry can be downloaded and reused',
       () async {
     var calls = 0;
@@ -222,5 +288,12 @@ void main() {
         api.movieSources(tmdbId: 1), throwsA(isA<WambeshaRequestException>()));
     expect(calls, 1);
     api.dispose();
+  });
+
+  test('stream-only sources never appear as downloadable quality options', () {
+    final sources = WambeshaSources(
+        sources: [source('playback_holding', 'playlist.m3u8')], unverified: 0);
+    expect(sources.downloadQualities, isEmpty);
+    expect(sources.urlForQuality('720p'), isNull);
   });
 }

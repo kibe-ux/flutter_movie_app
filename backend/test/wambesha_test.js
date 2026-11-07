@@ -124,6 +124,39 @@ test('sources coalesce duplicate taps, filter kinds and reuse per user without e
   assert.equal(calls, 2);
 });
 
+test('current links envelope returns validated downloads for existing clients', async t => {
+  const expires = new Date(Date.now() + 3600000).toISOString();
+  const request = await fixture(t, async () => Response.json({
+    id: 'mv_123', unverified: 0,
+    links: [
+      { kind: 'file_holding', url: 'https://files.example/movie.mp4', quality: '1080p', expires_at: expires },
+      { kind: 'playback_holding', url: 'https://files.example/play.mp4', expires_at: expires },
+      { kind: 'file_holding', url: 'http://files.example/insecure' },
+      { kind: 'file_holding', url: 'https://files.example/expired', expires_at: '2000-01-01T00:00:00Z' },
+      { kind: 'torrent_listing', url: 'magnet:private' },
+    ],
+    subtitles: [{ url: 'https://private.example/subtitle' }], magnets: ['private-evidence'],
+  }));
+  const response = await request('/titles/mv_123/sources');
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.deepEqual(body.sources.map(s => s.kind), ['file_holding', 'playback_holding']);
+  assert.equal(body.sources[0].quality, '1080p');
+  assert.doesNotMatch(JSON.stringify(body), /private|torrent|insecure|expired/);
+});
+
+test('empty current links are valid but malformed links are not cached', async t => {
+  let calls = 0;
+  const bodies = [{ links: 'invalid' }, { links: [] }];
+  const request = await fixture(t, async () => Response.json(bodies[calls++]));
+  assert.equal((await request('/titles/mv_123/sources')).status, 502);
+  const response = await request('/titles/mv_123/sources');
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).sources, []);
+  assert.equal((await request('/titles/mv_123/sources')).status, 200);
+  assert.equal(calls, 2);
+});
+
 test('empty sources are briefly reused and per-user metering is limited', async t => {
   let calls = 0;
   const request = await fixture(t, async () => { calls++; return Response.json({ sources: [], unverified: 1 }); });

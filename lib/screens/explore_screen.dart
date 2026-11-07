@@ -33,6 +33,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
   Timer? _searchDebounce;
   final _searchController = TextEditingController();
   final _catalogue = CatalogueJsonClient();
+  final _tabResults = <String,
+      ({
+    List<dynamic> genres,
+    List<dynamic> movies,
+    String? genreId,
+    String query
+  })>{};
 
   bool get _isTv => _mediaType == 'tv';
 
@@ -112,6 +119,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             .toList();
         isLoading = false;
       });
+      _rememberTab();
     } catch (_) {
       if (!mounted || generation != _requestGeneration) return;
       setState(() {
@@ -161,15 +169,29 @@ class _ExploreScreenState extends State<ExploreScreen> {
   void _selectMediaType(String mediaType) {
     if (_mediaType == mediaType) return;
     _searchDebounce?.cancel();
-    _searchController.clear();
+    if (!isLoading && _error == null) _rememberTab();
+    ++_requestGeneration;
+    final saved = _tabResults[mediaType];
+    _searchController.text = saved?.query ?? '';
     setState(() {
       _mediaType = mediaType;
-      searchQuery = '';
-      selectedGenreId = null;
-      genres = [];
-      movies = [];
+      searchQuery = saved?.query ?? '';
+      selectedGenreId = saved?.genreId;
+      genres = saved?.genres ?? [];
+      movies = saved?.movies ?? [];
+      isLoading = saved == null;
+      _error = null;
     });
-    fetchGenres();
+    if (saved == null) unawaited(fetchGenres());
+  }
+
+  void _rememberTab() {
+    _tabResults[_mediaType] = (
+      genres: List.of(genres),
+      movies: List.of(movies),
+      genreId: selectedGenreId,
+      query: searchQuery
+    );
   }
 
   Widget _buildMediaTabs() {
@@ -521,6 +543,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
               color: CinemaPalette.gold,
               backgroundColor: CinemaPalette.surface,
               child: CustomScrollView(
+                key: PageStorageKey('explore-$_mediaType'),
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
                   SliverToBoxAdapter(

@@ -49,6 +49,41 @@ void main() {
   http.Response response(List<Map<String, dynamic>> items) =>
       http.Response(jsonEncode({'results': items, 'total_pages': 8}), 200);
 
+  testWidgets(
+      'TV filter loads TV rows only and returning restores movie posters',
+      (tester) async {
+    final paths = <String>[];
+    var id = 100;
+    await http.runWithClient(() async {
+      await openHome(tester);
+      paths.clear();
+      await tester.tap(find.text('TV Shows'));
+      for (var frame = 0; frame < 6; frame++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(paths, contains('/api/catalogue/3/tv/popular'));
+      expect(paths.every((path) => path.contains('/tv/')), isTrue);
+      expect(find.text('Now Playing'), findsNothing);
+      expect(find.text('TV poster'), findsWidgets);
+      await tester.tap(find.text('All Movies'));
+      await tester.pump();
+      expect(find.text('Original poster'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+        () => MockClient((request) async {
+              paths.add(request.url.path);
+              final tv = request.url.path.contains('/tv/');
+              return response([
+                {
+                  'id': id++,
+                  tv ? 'name' : 'title': tv ? 'TV poster' : 'Movie poster',
+                  'media_type': tv ? 'tv' : 'movie'
+                }
+              ]);
+            }));
+  });
+
   testWidgets('refresh keeps extra pages, row position and pagination progress',
       (tester) async {
     final requestedPages = <String>[];

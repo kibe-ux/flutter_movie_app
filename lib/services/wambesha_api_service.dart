@@ -1,4 +1,5 @@
 import 'backend_url.dart';
+import 'http_diagnostics.dart';
 import 'dart:convert';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -20,6 +21,8 @@ class WambeshaApiService {
   final Future<String?> Function(bool)? _tokenProvider;
   final _sourceCache = <String, WambeshaSources>{};
   final _pendingSources = <String, Future<WambeshaSources>>{};
+  final _titleCache = <String, ({String id, DateTime expiresAt})>{};
+  final _pendingTitles = <String, Future<String>>{};
 
   void dispose() => _client.close();
 
@@ -46,9 +49,19 @@ class WambeshaApiService {
     if (token == null || token.trim().isEmpty) {
       throw const WambeshaRequestException(401);
     }
-    Future<http.Response> send() =>
-        _client.get(uri, headers: {'Authorization': 'Bearer $token'}).timeout(
-            const Duration(seconds: 20));
+    Future<http.Response> send() async {
+      final response = await _client.get(uri, headers: {
+        'Authorization': 'Bearer $token'
+      }).timeout(const Duration(seconds: 20));
+      logHttpDiagnostic(
+        endpoint:
+            'wambesha/${path.replaceAll(RegExp(r'(mv|sr|ep)_[A-Za-z0-9]+'), ':id')}',
+        status: response.statusCode,
+        headers: response.headers,
+      );
+      return response;
+    }
+
     var response = await send();
     if (response.statusCode == 401 &&
         response.headers['x-moviehub-response-source'] == 'firebase-auth') {
@@ -74,9 +87,42 @@ class WambeshaApiService {
         RegExp(r'^(mv|sr)_[A-Za-z0-9]{1,40}$').hasMatch(titleRef)) {
       return titleRef;
     }
+    final token = await _token(false);
+    if (token == null || token.trim().isEmpty) {
+      throw const WambeshaRequestException(401);
+    }
+    final scope = '${_baseUrlProvider?.call() ?? ''}|$token|$type|$tmdbId';
+    final cached = _titleCache[scope];
+    if (cached != null && cached.expiresAt.isAfter(DateTime.now())) {
+      return cached.id;
+    }
+    final pending = _pendingTitles[scope];
+    if (pending != null) return pending;
+    final future = () async {
+      final id =
+          await _resolveTitle(tmdbId: tmdbId, type: type, titleRef: titleRef);
+      if (_titleCache.length >= 64) _titleCache.remove(_titleCache.keys.first);
+      _titleCache[scope] = (
+        id: id,
+        expiresAt: DateTime.now().add(const Duration(minutes: 5)),
+      );
+      return id;
+    }();
+    _pendingTitles[scope] = future;
+    try {
+      return await future;
+    } finally {
+      _pendingTitles.remove(scope);
+    }
+  }
+
+  Future<String> _resolveTitle(
+      {required int tmdbId, required String type, String? titleRef}) async {
+    final prefix = type == 'movie' ? 'mv_' : 'sr_';
     final record = await _get('lookup', {'tmdb_id': '$tmdbId'});
     final id = record['id'];
     if (id is! String ||
+        !RegExp(r'^(mv|sr)_[A-Za-z0-9]{1,40}$').hasMatch(id) ||
         !id.startsWith(prefix) ||
         record['type'] != (type == 'movie' ? 'movie' : 'series')) {
       throw const WambeshaSourceUnavailable(
@@ -230,7 +276,10 @@ class WambeshaSources {
   final int unverified;
   final DateTime fetchedAt;
   bool get isReusable =>
-      DateTime.now().difference(fetchedAt) < const Duration(seconds: 30) &&
+      DateTime.now().difference(fetchedAt) <
+          (sources.isEmpty
+              ? const Duration(seconds: 30)
+              : const Duration(minutes: 5)) &&
       sources.every((source) => _valid(source));
   bool _valid(Map<String, dynamic> source) {
     final url = source['url'];
@@ -284,18 +333,25 @@ class WambeshaSources {
     for (final s in sources) {
       if (s['kind'] == 'file_holding' && _valid(s)) {
         final url = s['url'] as String;
-        final rawQuality = (s['quality'] ?? s['label'] ?? s['resolution'])?.toString();
+        final rawQuality =
+            (s['quality'] ?? s['label'] ?? s['resolution'])?.toString();
         String label;
         if (rawQuality != null && rawQuality.isNotEmpty) {
           label = rawQuality.toUpperCase();
-        } else if (url.contains('1080') || url.contains('FHD') || url.contains('fhd')) {
+        } else if (url.contains('1080') ||
+            url.contains('FHD') ||
+            url.contains('fhd')) {
           label = '1080p (Full HD)';
-        } else if (url.contains('720') || url.contains('hd720') || url.contains('HD720')) {
+        } else if (url.contains('720') ||
+            url.contains('hd720') ||
+            url.contains('HD720')) {
           label = '720p (HD)';
-        } else if (url.contains('480') || url.contains('SD') || url.contains('sd480')) {
+        } else if (url.contains('480') ||
+            url.contains('SD') ||
+            url.contains('sd480')) {
           label = '480p (Data Saver)';
         } else {
-          label = 'Source ' + (list.length + 1).toString();
+          label = 'Source ${list.length + 1}';
         }
         list.add({'url': url, 'label': label});
       }
@@ -367,7 +423,16 @@ class WambeshaRequestException implements Exception {
         409 =>
           'This title has an ambiguous catalogue identifier. Please report it.',
         503 => 'Movie service is not available yet. Please try again later.',
-        _ => 'Unable to load results. Check your connection and try again.',
+        502 =>
+          'The movie source service could not provide download information. Please try again later.',
+        408 ||
+        504 =>
+          'The movie source service took too long to respond. Please try again.',
+        403 =>
+          'The movie service denied access to this title. Please report this movie.',
+        410 => 'This title is no longer available in the source catalogue.',
+        _ =>
+          'The movie service could not complete this request. Please try again later.',
       };
   @override
   String toString() => 'Movie search request failed ($statusCode).';

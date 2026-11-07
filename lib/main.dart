@@ -18,6 +18,7 @@ import 'screens/profile_screen.dart';
 import 'screens/my_list_screen.dart';
 import 'utils/my_list.dart';
 import 'utils/cinema_palette.dart';
+import 'widgets/fast_page_transitions.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -113,6 +114,10 @@ class MovieDownloadApp extends StatelessWidget {
             ),
             iconTheme: IconThemeData(color: Colors.white),
           ),
+          pageTransitionsTheme: const PageTransitionsTheme(builders: {
+            TargetPlatform.android: FastPageTransitionsBuilder(),
+            TargetPlatform.iOS: FastPageTransitionsBuilder(),
+          }),
         ),
         home: LogoScreen(
             initialize: initialize, startupService: HomeStartupService()),

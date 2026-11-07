@@ -40,45 +40,49 @@ class SafeNetworkImage extends StatelessWidget {
       );
     }
 
-    final pixelRatio = MediaQuery.devicePixelRatioOf(context);
-    final decodeWidth = width != null && width!.isFinite && width! > 0
-        ? (width! * pixelRatio).ceil().clamp(1, 1600)
-        : null;
-    final decodeHeight = height != null && height!.isFinite && height! > 0
-        ? (height! * pixelRatio).ceil().clamp(1, 1600)
-        : null;
-    Widget image = CachedNetworkImage(
-      imageUrl: imageUrl!,
-      width: width,
-      height: height,
-      fit: fit,
-      memCacheWidth: decodeWidth,
-      memCacheHeight: decodeWidth == null ? decodeHeight : null,
-      fadeInDuration: const Duration(milliseconds: 120),
-      fadeOutDuration: Duration.zero,
-      placeholder: (context, url) => _buildLoadingPlaceholder(),
-      errorWidget: (context, url, error) => Container(
+    return LayoutBuilder(builder: (context, constraints) {
+      final pixelRatio = MediaQuery.devicePixelRatioOf(context);
+      // AspectRatio/grid children usually don't pass an explicit width. Use
+      // their layout bounds so they don't decode full-size images unnecessarily.
+      final layoutWidth =
+          width ?? (constraints.hasBoundedWidth ? constraints.maxWidth : 180);
+      final logicalWidth =
+          layoutWidth.isFinite && layoutWidth > 0 ? layoutWidth : 180.0;
+      // Buckets reuse decoded images when card widths differ by a few pixels.
+      final decodeWidth =
+          ((logicalWidth * pixelRatio / 64).ceil() * 64).clamp(64, 1280);
+      Widget image = CachedNetworkImage(
+        imageUrl: imageUrl!,
         width: width,
         height: height,
-        color: Colors.grey[850],
-        child: Center(
-          child: Icon(
-            Icons.error_outline,
-            color: Colors.white54,
-            size: placeholderIconSize,
+        fit: fit,
+        memCacheWidth: decodeWidth,
+        fadeInDuration: const Duration(milliseconds: 50),
+        fadeOutDuration: Duration.zero,
+        placeholder: (context, url) => _buildLoadingPlaceholder(),
+        errorWidget: (context, url, error) => Container(
+          width: width,
+          height: height,
+          color: Colors.grey[850],
+          child: Center(
+            child: Icon(
+              Icons.error_outline,
+              color: Colors.white54,
+              size: placeholderIconSize,
+            ),
           ),
         ),
-      ),
-    );
-
-    if (borderRadius != null) {
-      return ClipRRect(
-        borderRadius: borderRadius!,
-        child: image,
       );
-    }
 
-    return image;
+      if (borderRadius != null) {
+        return ClipRRect(
+          borderRadius: borderRadius!,
+          child: image,
+        );
+      }
+
+      return image;
+    });
   }
 
   Widget _buildLoadingPlaceholder() {

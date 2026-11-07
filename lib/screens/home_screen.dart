@@ -419,7 +419,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     splashColor: Colors.transparent,
                     highlightColor: Colors.transparent,
                     hoverColor: Colors.transparent,
-                    onTap: () => setState(() => _currentFilter = tab),
+                    onTap: () {
+                      if (_currentFilter == tab) return;
+                      setState(() => _currentFilter = tab);
+                      if (tab == 'TV Shows') {
+                        _requestVisibleCategory('Popular TV Shows');
+                        _requestVisibleCategory('Trending TV Today');
+                      }
+                    },
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(minHeight: 42),
                       child: Padding(
@@ -517,22 +524,30 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    final visibleCategories = _movieCategories.entries
+        .where((entry) =>
+            _currentFilter != 'TV Shows' ||
+            homeCategoriesByName[entry.key]?.isTv == true)
+        .toList();
     return RefreshIndicator(
       color: CinemaPalette.homeAccent,
       backgroundColor: CinemaPalette.surface,
       onRefresh: _loadInitialData,
       child: ListView.builder(
-        key: const PageStorageKey('home-categories'),
+        key: PageStorageKey('home-categories-$_currentFilter'),
         physics: const AlwaysScrollableScrollPhysics(
             parent: BouncingScrollPhysics()),
-        itemCount: _movieCategories.length + 1,
+        itemCount: visibleCategories.length + 1,
         itemBuilder: (context, index) {
           if (index == 0) {
-            final trending = _movieCategories['Trending Today'] ?? [];
+            final trending = _movieCategories[_currentFilter == 'TV Shows'
+                    ? 'Trending TV Today'
+                    : 'Trending Today'] ??
+                [];
             if (trending.isEmpty) return const SizedBox();
             return _buildCarousel(trending);
           } else {
-            final entry = _movieCategories.entries.elementAt(index - 1);
+            final entry = visibleCategories[index - 1];
             _requestVisibleCategory(entry.key);
             final items = _filteredItems(entry.key);
             if (items.isEmpty &&

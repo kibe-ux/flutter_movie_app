@@ -66,6 +66,13 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     _tmdbDetails = _loadTmdbDetails();
     fetchSimilarMovies();
     _checkIfFavorite();
+    // Resolve the identity early, without requesting metered download links.
+    final id = widget.movie['id'];
+    if (id is num && id > 0) {
+      unawaited(_sourceService
+          .resolveTitle(tmdbId: id.toInt(), type: _mediaType)
+          .then<void>((_) {}, onError: (Object _, StackTrace __) {}));
+    }
   }
 
   Future<Map<String, dynamic>?> _loadTmdbDetails({bool refresh = false}) async {
@@ -279,7 +286,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                           colors: [
-                            CinemaPalette.background.withOpacity(0.32),
+                            CinemaPalette.background.withValues(alpha: 0.32),
                             Colors.transparent,
                           ],
                         ),
@@ -295,7 +302,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                 icon: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                      color: CinemaPalette.background.withOpacity(0.75),
+                      color: CinemaPalette.background.withValues(alpha: 0.75),
                       shape: BoxShape.circle),
                   child: const Icon(Icons.arrow_back_rounded,
                       color: CinemaPalette.ivory, size: 20),
@@ -307,7 +314,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                   icon: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: CinemaPalette.background.withOpacity(0.75),
+                      color: CinemaPalette.background.withValues(alpha: 0.75),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -326,7 +333,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                   icon: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: CinemaPalette.background.withOpacity(0.75),
+                      color: CinemaPalette.background.withValues(alpha: 0.75),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -348,7 +355,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                   icon: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: CinemaPalette.background.withOpacity(0.75),
+                      color: CinemaPalette.background.withValues(alpha: 0.75),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -668,161 +675,169 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
         title ?? widget.movie['title'] ?? widget.movie['name'] ?? 'Movie';
     final availableQualities = qualities ?? const [];
     String selectedUrl = metadata['downloadUrl'] as String? ?? '';
-    if (availableQualities.isNotEmpty && !availableQualities.any((q) => q['url'] == selectedUrl)) {
+    if (availableQualities.isNotEmpty &&
+        !availableQualities.any((q) => q['url'] == selectedUrl)) {
       selectedUrl = availableQualities.first['url']!;
     }
     return showModalBottomSheet<({String action, String url})>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF14171C),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 20),
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              Text(
-                displayTitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.inter(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Download Options',
-                style: GoogleFonts.inter(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Choose your preferred method to save this file.',
-                style: GoogleFonts.inter(
-                  color: const Color(0xFF8E95A2),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-              if (availableQualities.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                Text(
-                  'Select Quality',
-                  style: GoogleFonts.inter(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final q in availableQualities) ...[
-                      GestureDetector(
-                        onTap: () => setSheetState(() => selectedUrl = q['url']!),
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: const Color(0xFF14171C),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        builder: (ctx) => StatefulBuilder(
+              builder: (ctx, setSheetState) => SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          width: 40,
+                          height: 4,
+                          margin: const EdgeInsets.only(bottom: 20),
                           decoration: BoxDecoration(
-                            color: selectedUrl == q['url']
-                                ? CinemaPalette.gold
-                                : const Color(0xFF1C2128),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: selectedUrl == q['url']
-                                  ? CinemaPalette.gold
-                                  : Colors.white24,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                selectedUrl == q['url']
-                                    ? Icons.check_circle_rounded
-                                    : Icons.video_library_outlined,
-                                size: 14,
-                                color: selectedUrl == q['url']
-                                    ? Colors.black
-                                    : Colors.white70,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                q['label'] ?? 'HD',
-                                style: GoogleFonts.inter(
-                                  color: selectedUrl == q['url']
-                                      ? Colors.black
-                                      : Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: selectedUrl == q['url']
-                                      ? FontWeight.w700
-                                      : FontWeight.w500,
-                                ),
-                              ),
-                            ],
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
                       ),
+                      Text(
+                        displayTitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Download Options',
+                        style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Choose your preferred method to save this file.',
+                        style: GoogleFonts.inter(
+                          color: const Color(0xFF8E95A2),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                      if (availableQualities.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          'Select Quality',
+                          style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final q in availableQualities) ...[
+                              GestureDetector(
+                                onTap: () => setSheetState(
+                                    () => selectedUrl = q['url']!),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: selectedUrl == q['url']
+                                        ? CinemaPalette.gold
+                                        : const Color(0xFF1C2128),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: selectedUrl == q['url']
+                                          ? CinemaPalette.gold
+                                          : Colors.white24,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        selectedUrl == q['url']
+                                            ? Icons.check_circle_rounded
+                                            : Icons.video_library_outlined,
+                                        size: 14,
+                                        color: selectedUrl == q['url']
+                                            ? Colors.black
+                                            : Colors.white70,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        q['label'] ?? 'HD',
+                                        style: GoogleFonts.inter(
+                                          color: selectedUrl == q['url']
+                                              ? Colors.black
+                                              : Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: selectedUrl == q['url']
+                                              ? FontWeight.w700
+                                              : FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 20),
+                      _buildModernOptionTile(
+                        icon: Icons.open_in_browser_rounded,
+                        iconBg: const Color(0xFF1E293B),
+                        iconColor: const Color(0xFF38BDF8),
+                        title: 'Download in Browser',
+                        subtitle:
+                            'Standard download via your default web browser.',
+                        onTap: () => Navigator.pop(
+                            ctx, (action: 'browser', url: selectedUrl)),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildModernOptionTile(
+                        icon: Icons.file_download_outlined,
+                        iconBg: const Color(0xFF2C1E1E),
+                        iconColor: const Color(0xFFF97316),
+                        title: 'Download with ADM',
+                        subtitle:
+                            'Faster speeds & resume capability using Advanced Download Manager.',
+                        onTap: () => Navigator.pop(
+                            ctx, (action: 'adm', url: selectedUrl)),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildModernOptionTile(
+                        icon: Icons.copy_rounded,
+                        iconBg: const Color(0xFF132A26),
+                        iconColor: const Color(0xFF34D399),
+                        title: 'Copy Download Link',
+                        subtitle:
+                            'Copy the raw URL to clipboard for external tools.',
+                        onTap: () => Navigator.pop(
+                            ctx, (action: 'copy', url: selectedUrl)),
+                      ),
                     ],
-                  ],
+                  ),
                 ),
-              ],
-              const SizedBox(height: 20),
-              _buildModernOptionTile(
-                icon: Icons.open_in_browser_rounded,
-                iconBg: const Color(0xFF1E293B),
-                iconColor: const Color(0xFF38BDF8),
-                title: 'Download in Browser',
-                subtitle: 'Standard download via your default web browser.',
-                onTap: () => Navigator.pop(ctx, (action: 'browser', url: selectedUrl)),
               ),
-              const SizedBox(height: 12),
-              _buildModernOptionTile(
-                icon: Icons.file_download_outlined,
-                iconBg: const Color(0xFF2C1E1E),
-                iconColor: const Color(0xFFF97316),
-                title: 'Download with ADM',
-                subtitle:
-                    'Faster speeds & resume capability using Advanced Download Manager.',
-                onTap: () => Navigator.pop(ctx, (action: 'adm', url: selectedUrl)),
-              ),
-              const SizedBox(height: 12),
-              _buildModernOptionTile(
-                icon: Icons.copy_rounded,
-                iconBg: const Color(0xFF132A26),
-                iconColor: const Color(0xFF34D399),
-                title: 'Copy Download Link',
-                subtitle: 'Copy the raw URL to clipboard for external tools.',
-                onTap: () => Navigator.pop(ctx, (action: 'copy', url: selectedUrl)),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ));
+            ));
   }
 
   Widget _buildModernOptionTile({
@@ -839,8 +854,8 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
-        splashColor: iconColor.withOpacity(0.12),
-        highlightColor: iconColor.withOpacity(0.06),
+        splashColor: iconColor.withValues(alpha: 0.12),
+        highlightColor: iconColor.withValues(alpha: 0.06),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Row(
@@ -1108,7 +1123,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
         backgroundColor: isPrimary ? CinemaPalette.gold : CinemaPalette.surface,
         side: isPrimary
             ? BorderSide.none
-            : BorderSide(color: buttonColor.withOpacity(0.7)),
+            : BorderSide(color: buttonColor.withValues(alpha: 0.7)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         minimumSize: const Size.fromHeight(54),
       ),
