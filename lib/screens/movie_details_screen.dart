@@ -1003,8 +1003,16 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                     localFilePath: localPath,
                     videoUrlProvider: localPath != null
                         ? null
-                        : (refresh) => _movieFiles.requestPlaybackUrl(
-                            movieId: _movieSourceId, refresh: refresh),
+                        : (refresh) async {
+                            final sources = await _sourceService.movieSources(
+                              tmdbId: (movie['id'] as num).toInt(),
+                              titleRef: _movieSourceId,
+                              title: movie['title'] ?? movie['name'],
+                              releaseDate: movie['release_date'] ?? movie['first_air_date'],
+                              refresh: refresh,
+                            );
+                            return sources.requirePlaybackUrl(fallbackToFile: true);
+                          },
                     onGoToDownload: () => _startDownload(movie)),
               ));
         },
@@ -1120,6 +1128,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
       _sourceService.episodeSources(
         seriesTmdbId: (widget.movie['id'] as num).toInt(),
         seriesRef: widget.movie['wambesha_id'] as String?,
+        seriesTitle: widget.movie['title'] ?? widget.movie['name'],
         season: season,
         episode: episode,
         refresh: refresh,
@@ -1212,14 +1221,19 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
       }
 
       downloadStage = 'wambesha-sources';
+      final movieTitle = movie['title'] ?? movie['name'] ?? 'Movie';
       final sources = await _sourceService.movieSources(
-          tmdbId: tmdbId, titleRef: _movieSourceId, refresh: refreshMetadata);
+        tmdbId: tmdbId,
+        titleRef: _movieSourceId,
+        title: movieTitle,
+        releaseDate: movie['release_date'] ?? movie['first_air_date'],
+        refresh: refreshMetadata,
+      );
       final downloadUrl = sources.requireUrl('file_holding');
       final metadata = {'downloadUrl': downloadUrl};
 
       if (!mounted) return;
       downloadStage = 'download-options';
-      final movieTitle = movie['title'] ?? movie['name'] ?? 'Movie';
       final result = await _showDownloadOptions(context, metadata,
           title: movieTitle, qualities: sources.downloadQualities);
       if (!mounted || result == null) return;

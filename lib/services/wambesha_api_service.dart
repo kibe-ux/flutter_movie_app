@@ -67,28 +67,69 @@ class WambeshaApiService {
   }
 
   Future<String> resolveTitle(
-      {required int tmdbId, required String type, String? titleRef}) async {
+      {required int tmdbId,
+      required String type,
+      String? titleRef,
+      String? title,
+      String? releaseDate}) async {
     final prefix = type == 'movie' ? 'mv_' : 'sr_';
     if (titleRef != null &&
         titleRef.startsWith(prefix) &&
         RegExp(r'^(mv|sr)_[A-Za-z0-9]{1,40}$').hasMatch(titleRef)) {
       return titleRef;
     }
-    final record = await _get('lookup', {'tmdb_id': '$tmdbId'});
-    final id = record['id'];
-    if (id is! String ||
-        !id.startsWith(prefix) ||
-        record['type'] != (type == 'movie' ? 'movie' : 'series')) {
-      throw const WambeshaSourceUnavailable(
-          'This title could not be matched in the source catalogue.');
+    try {
+      final record = await _get('lookup', {'tmdb_id': '$tmdbId'});
+      final id = record['id'];
+      if (id is String &&
+          id.startsWith(prefix) &&
+          record['type'] == (type == 'movie' ? 'movie' : 'series')) {
+        return id;
+      }
+    } catch (_) {}
+
+    // Fallback: If tmdb lookup failed or was missing, search by title
+    if (title != null && title.trim().length >= 2) {
+      try {
+        final results = await search(title.trim());
+        for (final item in results) {
+          final isTargetType =
+              type == 'movie' ? item['media_type'] == 'movie' : item['media_type'] == 'tv';
+          if (!isTargetType) continue;
+
+          // Check if TMDB IDs match directly
+          if (item['id'] == tmdbId) {
+            final wId = item['wambesha_id'];
+            if (wId is String && wId.startsWith(prefix)) return wId;
+          }
+
+          // Or match by title similarity and year
+          final candidateTitle = (item['title'] ?? item['name'] ?? '').toString().toLowerCase();
+          if (candidateTitle == title.trim().toLowerCase()) {
+            final wId = item['wambesha_id'];
+            if (wId is String && wId.startsWith(prefix)) return wId;
+          }
+        }
+      } catch (_) {}
     }
-    return id;
+
+    throw const WambeshaSourceUnavailable(
+        'This title is not yet available in the source catalogue.');
   }
 
   Future<WambeshaSources> movieSources(
-      {required int tmdbId, String? titleRef, bool refresh = false}) async {
-    final id =
-        await resolveTitle(tmdbId: tmdbId, type: 'movie', titleRef: titleRef);
+      {required int tmdbId,
+      String? titleRef,
+      String? title,
+      String? releaseDate,
+      bool refresh = false}) async {
+    final id = await resolveTitle(
+      tmdbId: tmdbId,
+      type: 'movie',
+      titleRef: titleRef,
+      title: title,
+      releaseDate: releaseDate,
+    );
     return sources(id, refresh: refresh);
   }
 
@@ -97,9 +138,14 @@ class WambeshaApiService {
       required int season,
       required int episode,
       String? seriesRef,
+      String? seriesTitle,
       bool refresh = false}) async {
     final id = await resolveTitle(
-        tmdbId: seriesTmdbId, type: 'tv', titleRef: seriesRef);
+      tmdbId: seriesTmdbId,
+      type: 'tv',
+      titleRef: seriesRef,
+      title: seriesTitle,
+    );
     String? cursor;
     final visited = <String>{};
     for (var page = 0; page < 20; page++) {
@@ -281,6 +327,7 @@ class WambeshaSources {
   /// detectable, and a neutral 'Source N' index otherwise.
   List<Map<String, String>> get downloadQualities {
     final list = <Map<String, String>>[];
+    // First priority: dedicated file downloads
     for (final s in sources) {
       if (s['kind'] == 'file_holding' && _valid(s)) {
         final url = s['url'] as String;
@@ -295,9 +342,26 @@ class WambeshaSources {
         } else if (url.contains('480') || url.contains('SD') || url.contains('sd480')) {
           label = '480p (Data Saver)';
         } else {
-          label = 'Source ' + (list.length + 1).toString();
+          label = 'Source ${list.length + 1}';
         }
         list.add({'url': url, 'label': label});
+      }
+    }
+
+    // Fallback: if no dedicated file_holding exists, include playback stream sources
+    if (list.isEmpty) {
+      for (final s in sources) {
+        if (s['kind'] == 'playback_holding' && _valid(s)) {
+          final url = s['url'] as String;
+          final rawQuality = (s['quality'] ?? s['label'] ?? s['resolution'])?.toString();
+          String label;
+          if (rawQuality != null && rawQuality.isNotEmpty) {
+            label = rawQuality.toUpperCase();
+          } else {
+            label = 'Stream Source ${list.length + 1}';
+          }
+          list.add({'url': url, 'label': label});
+        }
       }
     }
     return list;
@@ -338,6 +402,15 @@ class WambeshaSources {
         return source['url'] as String;
       }
     }
+    // Fallback: If file_holding was requested but only playback_holding exists,
+    // allow download managers / browser to use the playback URL
+    if (kind == 'file_holding') {
+      for (final source in sources) {
+        if (source['kind'] == 'playback_holding' && _valid(source)) {
+          return source['url'] as String;
+        }
+      }
+    }
     if (kind == 'playback_holding' && hasDownload) {
       throw const WambeshaSourceUnavailable(
           'Online streaming is not available for this title. Please tap Download to save it for offline viewing.');
@@ -346,7 +419,7 @@ class WambeshaSources {
         ? 'Wambesha could not confirm a file source for this title. Please try again later.'
         : kind == 'playback_holding'
             ? 'No confirmed playback source is available for this title.'
-            : 'No confirmed download file is available for this title.');
+            : 'No downloadable source is currently available for this title.');
   }
 }
 
