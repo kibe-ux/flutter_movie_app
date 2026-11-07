@@ -509,10 +509,10 @@ class _HomeScreenState extends State<HomeScreen> {
       return ConnectionNotice(
         title: _categoryErrors.isEmpty
             ? 'No movies available yet'
-            : 'Canâ€™t load movies right now',
+            : 'Can\'t load movies right now',
         message: _categoryErrors.isEmpty
             ? 'Try again in a moment to refresh the catalog.'
-            : 'Movie Hub couldnâ€™t reach the catalog. Check your connection or try again shortly.',
+            : 'Movie Hub couldn\'t reach the catalog. Check your connection or try again shortly.',
         onRetry: _retryConnection,
       );
     }
@@ -732,7 +732,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       },
                       child: CircleAvatar(
                         radius: 14,
-                        backgroundColor: Colors.black.withValues(alpha: 0.7),
+                        backgroundColor: Colors.black.withOpacity(0.7),
                         child: Icon(
                           isInMyList ? Icons.bookmark : Icons.bookmark_border,
                           size: 16,
@@ -741,6 +741,26 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
+                  if (item['wambesha_id'] != null)
+                    Positioned(
+                      bottom: 4,
+                      left: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: CinemaPalette.gold.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          '1080p',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
               const SizedBox(height: 6),
