@@ -113,12 +113,6 @@ class MovieDownloadApp extends StatelessWidget {
             ),
             iconTheme: IconThemeData(color: Colors.white),
           ),
-          pageTransitionsTheme: const PageTransitionsTheme(
-            builders: {
-              TargetPlatform.android: CupertinoPageTransitionsBuilder(),
-              TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-            },
-          ),
         ),
         home: LogoScreen(
             initialize: initialize, startupService: HomeStartupService()),
