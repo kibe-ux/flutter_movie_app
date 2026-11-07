@@ -25,8 +25,9 @@ class TmdbDetailsService {
 
   static const _imageBase = 'https://image.tmdb.org/t/p/w185';
 
-  final _cache = <String, ({DateTime fetchedAt, Map<String, dynamic> data})>{};
-  static const _ttl = Duration(minutes: 5);
+  static final _sharedCache = <String, ({DateTime fetchedAt, Map<String, dynamic> data})>{};
+  final _cache = _sharedCache;
+  static const _ttl = Duration(minutes: 30);
 
   void dispose() => _client.close();
 

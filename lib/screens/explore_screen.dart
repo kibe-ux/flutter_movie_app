@@ -10,7 +10,7 @@ import '../widgets/safe_network_image.dart';
 import '../widgets/movie_hub_banner_ad.dart';
 import '../utils/movie_download_availability.dart';
 
-const String imageBase = 'https://image.tmdb.org/t/p/w500';
+const String imageBase = 'https://image.tmdb.org/t/p/w300';
 
 // Explore Screen
 class ExploreScreen extends StatefulWidget {
