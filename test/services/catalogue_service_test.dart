@@ -45,6 +45,20 @@ void main() {
             200)));
   });
 
+  test(
+      'Wambesha pages retain an opaque next cursor even when no records can display',
+      () async {
+    await http.runWithClient(() async {
+      final page = await const CatalogueService().fetchPage(uri);
+      expect(page.items, isEmpty);
+      expect(page.hasMore, isTrue);
+      expect(page.nextCursor, 'opaque_next');
+    },
+        () => MockClient((_) async => http.Response(
+            '{"results":[],"catalogue_provider":"wambesha","has_more":true,"next_cursor":"opaque_next"}',
+            200)));
+  });
+
   test('empty results stop pagination without total_pages metadata', () async {
     await http.runWithClient(() async {
       expect((await const CatalogueService().fetchPage(uri)).hasMore, isFalse);

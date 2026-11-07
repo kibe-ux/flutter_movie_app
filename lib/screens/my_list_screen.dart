@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/cinema_palette.dart';
+import '../utils/catalogue_artwork.dart';
 import '../utils/my_list.dart';
 import 'movie_details_screen.dart';
 import '../services/ad_service.dart';
@@ -277,7 +278,7 @@ class _MyListScreenState extends State<MyListScreen> {
     final type = movie['media_type'] == 'tv' || movie['first_air_date'] != null
         ? 'TV show'
         : 'Movie';
-    final poster = movie['poster_path'];
+    final poster = catalogueArtwork(movie, size: 'w300');
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       AspectRatio(
           aspectRatio: .75,
@@ -291,10 +292,7 @@ class _MyListScreenState extends State<MyListScreen> {
                   child: Semantics(
                     button: true,
                     label: 'Open $title',
-                    child: SafeNetworkImage(
-                        imageUrl: poster is String && poster.isNotEmpty
-                            ? 'https://image.tmdb.org/t/p/w300$poster'
-                            : null),
+                    child: SafeNetworkImage(imageUrl: poster),
                   )),
             ),
             Positioned(

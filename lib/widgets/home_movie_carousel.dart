@@ -1,6 +1,7 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'safe_network_image.dart';
+import '../utils/catalogue_artwork.dart';
 
 class HomeMovieCarousel extends StatefulWidget {
   const HomeMovieCarousel(
@@ -39,7 +40,7 @@ class _HomeMovieCarouselState extends State<HomeMovieCarousel> {
     if (movies.isEmpty) return SizedBox(height: widget.height);
     final active = TickerMode.valuesOf(context).enabled;
     final configuration = '${widget.height}:$active:'
-        '${movies.map((movie) => '${movie['id']}:${movie['backdrop_path']}:${movie['poster_path']}').join('|')}';
+        '${movies.map((movie) => '${movie['id']}:${catalogueArtwork(movie, backdrop: true)}:${catalogueArtwork(movie)}').join('|')}';
     if (_slider == null || configuration != _configuration) {
       final selected = movies.indexWhere((movie) => movie['id'] == _selectedId);
       final initialPage = selected >= 0 ? selected : 0;
@@ -67,15 +68,10 @@ class _HomeMovieCarouselState extends State<HomeMovieCarousel> {
         ),
         itemBuilder: (context, index, _) {
           final movie = widget.movies[index];
-          final backdrop = movie['backdrop_path'];
-          final poster = movie['poster_path'];
-          final image = backdrop != null
-              ? 'https://image.tmdb.org/t/p/w780$backdrop'
-              : poster != null
-                  ? 'https://image.tmdb.org/t/p/w500$poster'
-                  : null;
+          final image = catalogueArtwork(movie, backdrop: true, size: 'w780') ??
+              catalogueArtwork(movie);
           return Semantics(
-              label: movie['title']?.toString(),
+              label: (movie['title'] ?? movie['name'])?.toString(),
               button: true,
               child: GestureDetector(
                 onTap: () => widget.onMovieTap(widget.movies[index]),

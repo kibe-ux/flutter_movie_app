@@ -1,13 +1,10 @@
-import '../services/tmdb_api.dart';
 import '../widgets/cinema_app_bar_surface.dart';
-import 'dart:convert';
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'movie_details_screen.dart';
 import '../utils/my_list.dart';
-import '../utils/app_theme.dart';
 import '../utils/cinema_palette.dart';
 import '../utils/movie_download_availability.dart';
 import '../services/ad_service.dart';
@@ -462,16 +459,9 @@ class _SearchScreenState extends State<SearchScreen>
     if (_openingTitle) return;
     _openingTitle = true;
     try {
-      // Details still uses TMDB artwork, seasons and identifiers. Fetch its
-      // canonical record instead of handing it Wambesha artwork paths.
-      final uri = TmdbApi.uri(
-          '${item['media_type']}/${item['id']}', {'language': 'en-US'});
-      final response = await TmdbApi.get(uri).timeout(AppTheme.apiTimeout);
-      if (response.statusCode != 200) throw StateError('Title unavailable');
-      final movie = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
-      if (movie['id'] != item['id']) throw StateError('Title mismatch');
-      movie['media_type'] = item['media_type'];
-      movie['wambesha_id'] = item['wambesha_id'];
+      // Open the catalogue record immediately; rich metadata loads in parallel
+      // on the details screen and does not block access to Download.
+      final movie = Map<String, dynamic>.from(item);
       if (!mounted || !(ModalRoute.of(context)?.isCurrent ?? false)) return;
       AdService().onMoviePosterTap(
         () => Navigator.push(

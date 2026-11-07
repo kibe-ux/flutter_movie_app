@@ -9,19 +9,44 @@ class HomeCategory {
 
   bool get isTv => endpoint.split('/').contains('tv');
 
-  Uri uri({int page = 1, DateTime? now}) {
-    final today = now ?? DateTime.now();
-    final digitalCutoff = today
-        .subtract(const Duration(days: 60))
-        .toIso8601String()
-        .split('T')
-        .first;
-    return TmdbApi.uri(endpoint, {
+  Uri uri({int page = 1, DateTime? now, String? cursor}) {
+    const genreSlugs = {
+      '28': 'action',
+      '12': 'adventure',
+      '16': 'animation',
+      '35': 'comedy',
+      '80': 'crime',
+      '99': 'documentary',
+      '18': 'drama',
+      '10751': 'family',
+      '14': 'fantasy',
+      '27': 'horror',
+      '9648': 'mystery',
+      '878': 'science-fiction',
+      '53': 'thriller',
+      '10759': 'action,adventure',
+      '10765': 'science-fiction,fantasy',
+    };
+    final slugs = (filters['with_genres'] ?? '')
+        .split(',')
+        .expand((id) => (genreSlugs[id] ?? '').split(','))
+        .where((slug) => slug.isNotEmpty)
+        .toSet();
+    final sort = endpoint.contains('top_rated')
+        ? 'rating'
+        : endpoint.contains('now_playing') ||
+                endpoint.contains('airing_today') ||
+                endpoint.contains('on_the_air') ||
+                (filters['sort_by'] ?? '').contains('release_date')
+            ? 'newest'
+            : 'popularity';
+    return TmdbApi.uri('wambesha/discover', {
       'language': 'en-US',
-      ...filters,
-      if (endpoint.startsWith('discover/movie'))
-        'release_date.lte': digitalCutoff,
+      'type': isTv ? 'series' : 'movie',
+      'sort': sort,
+      if (slugs.isNotEmpty) 'genre': slugs.join(','),
       'page': '$page',
+      if (cursor != null) 'cursor': cursor,
     });
   }
 }

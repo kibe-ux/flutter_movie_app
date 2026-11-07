@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../utils/cinema_palette.dart';
+import '../utils/catalogue_artwork.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -235,12 +236,8 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
   @override
   Widget build(BuildContext context) {
     final movie = widget.movie;
-    final backdropUrl = movie['backdrop_path'] != null
-        ? '$backdropBase${movie['backdrop_path']}'
-        : null;
-    final posterUrl = movie['poster_path'] != null
-        ? '$imageBase${movie['poster_path']}'
-        : null;
+    final backdropUrl = catalogueArtwork(movie, backdrop: true, size: 'w780');
+    final posterUrl = catalogueArtwork(movie);
     final rating = ((movie['vote_average'] ?? 0.0) as num).toDouble();
     final year =
         _getYearFromDate(movie['release_date'] ?? movie['first_air_date']);

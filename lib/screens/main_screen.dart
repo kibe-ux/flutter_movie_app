@@ -522,7 +522,7 @@ class _MainScreenState extends State<MainScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildBottomNavItem(Icons.home_filled, 'Home', 0),
-              _buildBottomNavItem(Icons.explore, 'Explore', 1),
+              _buildBottomNavItem(Icons.explore, 'Discover', 1),
               _buildBottomNavItem(Icons.search, 'Search', 2),
               _buildBottomNavItem(Icons.forum_rounded, 'Forum', 3),
             ],

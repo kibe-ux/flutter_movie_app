@@ -187,6 +187,7 @@ class AdService {
     bool Function()? isActive,
     bool allowInterstitial = false,
     bool isBrowsingTransition = false,
+    bool skipBrowsingWarmup = false,
   }) async {
     if (_busy || _disposed) return false;
     _busy = true;
@@ -198,8 +199,9 @@ class AdService {
       if (!_isForeground()) return false;
       _browsingTransitions++;
       if (!allowInterstitial ||
-          _now().difference(_sessionStartedAt) < warmup ||
-          _browsingTransitions < minimumBrowsingActions) {
+          (!skipBrowsingWarmup &&
+              (_now().difference(_sessionStartedAt) < warmup ||
+                  _browsingTransitions < minimumBrowsingActions))) {
         return true;
       }
       if (_lastShown != null && _now().difference(_lastShown!) < cooldown) {
@@ -254,8 +256,18 @@ class AdService {
         allowInterstitial: nextOpen % posterOpensPerAd == 0);
   }
 
-  Future<void> onViewAllTap(Function onProceed, {bool Function()? isActive}) =>
-      onActionWithAd(onProceed, isActive: isActive, allowInterstitial: true);
+  Future<void> onViewAllTap(Function onProceed,
+      {bool Function()? isActive}) async {
+    // An explicit category expansion can show a ready ad on the first tap.
+    // Keep shared cooldown, entitlement, foreground and privacy checks.
+    if (await beforeTransition(
+        isActive: isActive,
+        allowInterstitial: true,
+        skipBrowsingWarmup: true)) {
+      if (isActive?.call() ?? true) onProceed();
+    }
+  }
+
   Future<void> onActionWithAd(Function onProceed,
       {bool Function()? isActive,
       bool allowInterstitial = false,

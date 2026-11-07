@@ -385,6 +385,7 @@ class WambeshaApiService {
       'first_air_date': record['first_air_date'],
       'catalogue_status': record['status'],
       'poster_url': record['poster']?['url'],
+      'backdrop_url': record['backdrop']?['url'],
       'genre_ids': [
         for (final genre in record['genres'] as List? ?? []) genre['id'],
       ],
@@ -489,22 +490,6 @@ class WambeshaSources {
         list.add({'url': url, 'label': label});
       }
     }
-    if (list.isEmpty) {
-      for (final s in sources) {
-        if (s['kind'] == 'playback_holding' && _valid(s)) {
-          final url = s['url'] as String;
-          final rawQuality =
-              (s['quality'] ?? s['label'] ?? s['resolution'])?.toString();
-          String label;
-          if (rawQuality != null && rawQuality.isNotEmpty) {
-            label = '${rawQuality.toUpperCase()} (Stream)';
-          } else {
-            label = 'Stream Source ${list.length + 1}';
-          }
-          list.add({'url': url, 'label': label});
-        }
-      }
-    }
     return list;
   }
 
@@ -543,13 +528,6 @@ class WambeshaSources {
         return source['url'] as String;
       }
     }
-    if (kind == 'file_holding') {
-      for (final source in sources) {
-        if (source['kind'] == 'playback_holding' && _valid(source)) {
-          return source['url'] as String;
-        }
-      }
-    }
     if (kind == 'playback_holding' && hasDownload) {
       throw const WambeshaSourceUnavailable(
           'Online streaming is not available for this title. Please tap Download to save it for offline viewing.');
@@ -558,7 +536,7 @@ class WambeshaSources {
         ? 'Wambesha could not confirm a file source for this title. Please try again later.'
         : kind == 'playback_holding'
             ? 'No confirmed playback source is available for this title.'
-            : 'No confirmed download file is available for this title.');
+            : 'No download is available for this title currently. Please try another title.');
   }
 }
 

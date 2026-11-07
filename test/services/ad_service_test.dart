@@ -149,6 +149,47 @@ void main() {
     expect(service.moviePosterOpenCount, 0);
   });
 
+  test(
+      'first View All shows a ready ad before navigating during default warmup',
+      () async {
+    service.dispose();
+    service = AdService.testing(
+        gateway: gateway, isPremium: () async => false, now: () => now);
+    await service.init();
+    await _flush();
+    var navigations = 0;
+    final action = service.onViewAllTap(() => navigations++);
+    await _flush();
+    expect(gateway.ads.first.shown, isTrue);
+    expect(navigations, 0);
+    // Rapid repeated taps must not push another category screen.
+    await service.onViewAllTap(() => navigations++);
+    expect(navigations, 0);
+    gateway.ads.first.closed.complete();
+    await action;
+    expect(navigations, 1);
+    await service.onViewAllTap(() => navigations++);
+    expect(navigations, 2);
+    expect(gateway.ads.where((ad) => ad.shown), hasLength(1));
+  });
+
+  test('first View All proceeds when no ad is ready and never shows a late ad',
+      () async {
+    service.dispose();
+    gateway.pending = Completer<LoadedInterstitial>();
+    service = AdService.testing(
+        gateway: gateway, isPremium: () async => false, now: () => now);
+    await service.init();
+    await _flush();
+    var navigated = false;
+    await service.onViewAllTap(() => navigated = true);
+    expect(navigated, isTrue);
+    final lateAd = _Ad();
+    gateway.pending!.complete(lateAd);
+    await _flush();
+    expect(lateAd.shown, isFalse);
+  });
+
   test('poster, download and View All share a cooldown', () async {
     gateway.autoClose = true;
     await service.init();

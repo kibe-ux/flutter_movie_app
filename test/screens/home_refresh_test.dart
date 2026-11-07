@@ -50,9 +50,113 @@ void main() {
       http.Response(jsonEncode({'results': items, 'total_pages': 8}), 200);
 
   testWidgets(
+      'Home removes the catalogue text and repeats no cards between rows',
+      (tester) async {
+    await http.runWithClient(() async {
+      await tester.pumpWidget(const MaterialApp(
+          home: HomeScreen(
+        myListIds: {},
+        initialData: HomeStartupData(connected: true, categories: {
+          'Trending Today': [
+            {'id': 1, 'title': 'Shared movie'}
+          ],
+          'Top Rated': [
+            {'id': 1, 'title': 'Shared movie'},
+            {'id': 2, 'title': 'Top rated exclusive'}
+          ],
+        }),
+      )));
+      for (var frame = 0; frame < 6; frame++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.textContaining('Wambesha catalogue'), findsNothing);
+      final topRated =
+          find.byKey(const PageStorageKey('home-posters-Top Rated'));
+      await tester.scrollUntilVisible(topRated, 200,
+          scrollable: find
+              .descendant(
+                  of: find.byKey(
+                      const PageStorageKey('home-categories-All Movies')),
+                  matching: find.byType(Scrollable))
+              .first);
+      expect(find.descendant(of: topRated, matching: find.text('Shared movie')),
+          findsNothing);
+      expect(
+          find.descendant(
+              of: topRated, matching: find.text('Top rated exclusive')),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }, () => MockClient((_) async => response([])));
+  });
+
+  testWidgets('duplicate-heavy seeded rows refill through bounded cursor pages',
+      (tester) async {
+    final ratingRequests = <Uri>[];
+    final repeated = [
+      for (var id = 1; id <= 6; id++) {'id': id, 'title': 'Shared $id'}
+    ];
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(
+          home: HomeScreen(
+        myListIds: const {},
+        initialData: HomeStartupData(connected: true, categories: {
+          'Trending Today': repeated,
+          'Top Rated': repeated,
+        }, hasMore: const {
+          'Trending Today': false,
+          'Top Rated': true
+        }, nextCursors: const {
+          'Top Rated': 'cursor1'
+        }),
+      )));
+      for (var frame = 0; frame < 12; frame++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(
+          ratingRequests.map((uri) => uri.queryParameters['page']), ['2', '3']);
+      expect(ratingRequests.map((uri) => uri.queryParameters['cursor']),
+          ['cursor1', 'cursor2']);
+      final row = find.byKey(const PageStorageKey('home-posters-Top Rated'));
+      await tester.scrollUntilVisible(row, 200,
+          scrollable: find
+              .descendant(
+                  of: find.byKey(
+                      const PageStorageKey('home-categories-All Movies')),
+                  matching: find.byType(Scrollable))
+              .first);
+      expect(find.descendant(of: row, matching: find.text('Distinct movie')),
+          findsOneWidget);
+      expect(find.descendant(of: row, matching: find.text('Shared 1')),
+          findsNothing);
+      expect(ratingRequests, hasLength(2));
+      await tester.pumpWidget(const SizedBox());
+    },
+        () => MockClient((request) async {
+              if (request.url.queryParameters['sort'] != 'rating') {
+                return response([]);
+              }
+              ratingRequests.add(request.url);
+              final page = request.url.queryParameters['page'];
+              return http.Response(
+                  jsonEncode({
+                    'results': page == '2'
+                        ? repeated
+                        : [
+                            {'id': 7, 'title': 'Distinct movie'}
+                          ],
+                    'catalogue_provider': 'wambesha',
+                    'has_more': true,
+                    'next_cursor': page == '2' ? 'cursor2' : 'cursor3',
+                  }),
+                  200);
+            }));
+  });
+
+  testWidgets(
       'TV filter loads TV rows only and returning restores movie posters',
       (tester) async {
-    final paths = <String>[];
+    final paths = <Uri>[];
     var id = 100;
     await http.runWithClient(() async {
       await openHome(tester);
@@ -61,10 +165,17 @@ void main() {
       for (var frame = 0; frame < 6; frame++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
-      expect(paths, contains('/api/catalogue/3/tv/popular'));
-      expect(paths.every((path) => path.contains('/tv/')), isTrue);
+      expect(paths, isNotEmpty);
+      expect(
+          paths.every((uri) =>
+              uri.path == '/api/catalogue/3/wambesha/discover' &&
+              uri.queryParameters['type'] == 'series'),
+          isTrue);
       expect(find.text('Now Playing'), findsNothing);
-      expect(find.text('TV poster'), findsWidgets);
+      expect(
+          find.byWidgetPredicate((widget) =>
+              widget is Semantics && widget.properties.label == 'TV poster'),
+          findsWidgets);
       await tester.tap(find.text('All Movies'));
       await tester.pump();
       expect(find.text('Original poster'), findsOneWidget);
@@ -72,8 +183,8 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
         () => MockClient((request) async {
-              paths.add(request.url.path);
-              final tv = request.url.path.contains('/tv/');
+              paths.add(request.url);
+              final tv = request.url.queryParameters['type'] == 'series';
               return response([
                 {
                   'id': id++,
@@ -95,7 +206,7 @@ void main() {
       for (var i = 0; i < 4; i++) {
         await tester.pump();
       }
-      expect(find.text('Extra page poster'), findsOneWidget);
+      expect(find.text('Extra page poster'), findsWidgets);
       final row = find.byKey(const PageStorageKey('home-posters-Now Playing'));
       final scroll = tester.state<ScrollableState>(
           find.descendant(of: row, matching: find.byType(Scrollable)).first);
@@ -108,16 +219,16 @@ void main() {
           .onRefresh();
       await tester.pump();
       expect(find.text('Original poster'), findsOneWidget);
-      expect(find.text('Extra page poster'), findsOneWidget);
+      expect(find.text('Extra page poster'), findsWidgets);
       pending.complete(response([
         {'id': 1, 'title': 'Updated poster'},
         {'id': 3, 'title': 'New poster'}
       ]));
       await refresh;
       await tester.pump();
-      expect(find.text('Updated poster'), findsOneWidget);
-      expect(find.text('Extra page poster'), findsOneWidget);
-      expect(find.text('New poster'), findsOneWidget);
+      expect(find.text('Updated poster'), findsWidgets);
+      expect(find.text('Extra page poster'), findsWidgets);
+      expect(find.text('New poster'), findsWidgets);
       expect(scroll.position.pixels, offset);
       refreshing = false;
       await tester.drag(row, const Offset(-300, 0));
@@ -130,7 +241,8 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
         () => MockClient((request) async {
-              if (request.url.path != '/api/catalogue/3/movie/now_playing') {
+              if (request.url.queryParameters['sort'] != 'newest' ||
+                  request.url.queryParameters['type'] != 'movie') {
                 return response([]);
               }
               final page = request.url.queryParameters['page']!;
@@ -160,12 +272,13 @@ void main() {
       for (var i = 0; i < 6; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
-      expect(find.text('Updated poster'), findsOneWidget);
+      expect(find.text('Updated poster'), findsWidgets);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },
         () => MockClient((request) async {
-              if (request.url.path != '/api/catalogue/3/movie/now_playing') {
+              if (request.url.queryParameters['sort'] != 'newest' ||
+                  request.url.queryParameters['type'] != 'movie') {
                 return response([]);
               }
               if (fail) return http.Response('Unavailable', 503);

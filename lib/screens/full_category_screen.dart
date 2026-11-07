@@ -1,5 +1,6 @@
 // lib/screens/full_category_screen.dart
 import '../utils/cinema_palette.dart';
+import '../utils/catalogue_artwork.dart';
 import '../widgets/cinema_app_bar_surface.dart';
 import 'package:flutter/material.dart';
 import '../config/home_categories.dart';
@@ -16,12 +17,14 @@ class FullCategoryScreen extends StatefulWidget {
   final List<Map<String, dynamic>> items;
   final int initialPage;
   final bool hasMore;
+  final String? initialCursor;
   const FullCategoryScreen(
       {super.key,
       required this.title,
       required this.items,
       this.initialPage = 1,
-      this.hasMore = true});
+      this.hasMore = true,
+      this.initialCursor});
   @override
   State<FullCategoryScreen> createState() => _FullCategoryScreenState();
 }
@@ -31,6 +34,7 @@ class _FullCategoryScreenState extends State<FullCategoryScreen> {
   int _currentPage = 1;
   bool _isLoading = false;
   late bool _hasMore;
+  String? _nextCursor;
   String? _loadError;
   final ScrollController _scrollController = ScrollController();
   final Set<int> _loadedIds = {};
@@ -40,6 +44,7 @@ class _FullCategoryScreenState extends State<FullCategoryScreen> {
     _allItems = List.from(widget.items);
     _currentPage = widget.items.isEmpty ? 0 : widget.initialPage;
     _hasMore = widget.hasMore;
+    _nextCursor = widget.initialCursor;
     _loadedIds.addAll(_allItems.map((item) => item['id'] ?? 0));
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
@@ -72,7 +77,7 @@ class _FullCategoryScreenState extends State<FullCategoryScreen> {
     final category = homeCategoriesByName[widget.title];
     final uri =
         (category ?? const HomeCategory('Popular Movies', 'movie/popular'))
-            .uri(page: nextPage);
+            .uri(page: nextPage, cursor: _nextCursor);
     try {
       final result = await const CatalogueService().fetchPage(uri);
       if (!mounted) return;
@@ -81,6 +86,7 @@ class _FullCategoryScreenState extends State<FullCategoryScreen> {
             result.items.where((item) => _loadedIds.add(item['id'] as int)));
         _currentPage = nextPage;
         _hasMore = result.hasMore;
+        _nextCursor = result.nextCursor;
       });
     } on CatalogueLoadException catch (error) {
       if (mounted) setState(() => _loadError = error.message);
@@ -189,9 +195,7 @@ class _FullCategoryScreenState extends State<FullCategoryScreen> {
                 );
               }
               final item = _allItems[index];
-              final poster = item['poster_path'] != null
-                  ? '$imageBase${item['poster_path']}'
-                  : '';
+              final poster = catalogueArtwork(item, size: 'w300') ?? '';
               final isInMyList = MyList().contains(item['id'] ?? 0); // ADDED
               return GestureDetector(
                 onTap: () {

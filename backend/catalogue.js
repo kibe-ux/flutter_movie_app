@@ -2,6 +2,7 @@ const express = require('express');
 const { createHash, randomUUID } = require('node:crypto');
 const { setTimeout: delay } = require('node:timers/promises');
 const { createCatalogueStore } = require('./catalogue_store');
+const { discoveryParameters, fetchWambeshaCatalogue } = require('./wambesha_catalogue');
 
 class CatalogueError extends Error {
   constructor(status, message, retryAfter = 0) {
@@ -18,6 +19,12 @@ const boundedSetting = (name, fallback, max) => {
 // A fixed host, finite routes and validated parameters prevent an open proxy
 // and avoid using random query parameters to defeat the shared cache.
 function catalogueRequest(path, query) {
+  if (path === '/wambesha/discover') {
+    let params;
+    try { params = discoveryParameters(query); }
+    catch { throw new CatalogueError(400, 'Invalid Wambesha catalogue parameters.'); }
+    return { path, params, key: digest(`${path}?${params}`), provider: 'wambesha' };
+  }
   const lists = /^\/(?:movie\/(?:popular|now_playing|top_rated|upcoming)|tv\/(?:popular|top_rated|airing_today|on_the_air)|trending\/(?:movie|tv)\/(?:day|week)|discover\/(?:movie|tv)|search\/(?:movie|tv)|genre\/(?:movie|tv)\/list)$/;
   const details = /^\/(?:movie|tv)\/[1-9]\d{0,9}(?:\/(?:credits|videos|similar|recommendations|watch\/providers|release_dates|content_ratings|external_ids))?$/;
   const seasons = /^\/tv\/[1-9]\d{0,9}\/season\/(?:0|[1-9]\d{0,2})$/;
@@ -75,6 +82,7 @@ async function readJson(response) {
 
 function createCatalogue({ store, fetchImpl = fetch, now = Date.now,
   sleep = delay, keyProvider = () => process.env.TMDB_API_KEY?.trim(),
+  wambeshaKeyProvider = () => process.env.WAMBESHA_API_KEY?.trim(),
   ttlMs = 15 * 60000, staleMs = 60 * 60000,
   userLimit = 120, upstreamLimit = 600, waitMs = 20000,
 } = {}) {
@@ -122,18 +130,28 @@ function createCatalogue({ store, fetchImpl = fetch, now = Date.now,
       throw unavailable();
     }
     try {
-      const retry = await store.consume('tmdb:upstream', now(), upstreamLimit);
+      const isWambesha = request.provider === 'wambesha';
+      const retry = isWambesha ? 0 : await store.consume('tmdb:upstream', now(), upstreamLimit);
       if (retry) {
         console.log(JSON.stringify({ endpoint: '/api/catalogue', event: 'upstream-budget-rejected' }));
         throw new CatalogueError(503, 'Movie information is busy. Please try again shortly.', retry);
       }
-      const url = new URL(`https://api.themoviedb.org/3${request.path}`);
-      url.search = request.params.toString();
-      url.searchParams.set('api_key', keyProvider());
       console.log(JSON.stringify({ endpoint: '/api/catalogue', event: 'upstream-request' }));
-      const response = await fetchImpl(url, { signal: AbortSignal.timeout(15000), redirect: 'error' });
-      if (!response.ok) throw unavailable();
-      const body = await readJson(response);
+      let body;
+      if (isWambesha) {
+        body = await fetchWambeshaCatalogue(request, { fetchImpl, key: wambeshaKeyProvider(), now,
+          beforeFetch: async () => {
+            const retryAfter = await store.consume('wambesha:upstream', now(), boundedSetting('WAMBESHA_UPSTREAM_LIMIT', 120, 1800));
+            if (retryAfter) throw unavailable();
+          } });
+      } else {
+        const url = new URL(`https://api.themoviedb.org/3${request.path}`);
+        url.search = request.params.toString();
+        url.searchParams.set('api_key', keyProvider());
+        const response = await fetchImpl(url, { signal: AbortSignal.timeout(15000), redirect: 'error' });
+        if (!response.ok) throw unavailable();
+        body = await readJson(response);
+      }
       // Reject incomplete successful responses instead of caching provider errors.
       const isList = /\/(?:popular|now_playing|top_rated|upcoming|airing_today|on_the_air|similar|recommendations|videos)$/.test(request.path) ||
         /^\/(?:discover|search|trending)\//.test(request.path);
@@ -153,7 +171,9 @@ function createCatalogue({ store, fetchImpl = fetch, now = Date.now,
   }
   return {
     async get(request, identity) {
-      if (!keyProvider()) throw new CatalogueError(503, 'Movie information is not configured.');
+      if (!(request.provider === 'wambesha' ? wambeshaKeyProvider() : keyProvider())) {
+        throw new CatalogueError(503, 'Movie information is not configured.');
+      }
       // Never accept a UID from a header; the route supplies verified auth or
       // a guest installation ID. A global provider budget also covers guests
       // who reset their installation ID.

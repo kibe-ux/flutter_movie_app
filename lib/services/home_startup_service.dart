@@ -1,4 +1,5 @@
-import 'tmdb_api.dart';
+import '../config/home_categories.dart';
+import '../utils/catalogue_artwork.dart';
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -11,10 +12,14 @@ class HomeStartupData {
     required this.connected,
     required this.categories,
     this.categoryErrors = const {},
+    this.nextCursors = const {},
+    this.hasMore = const {},
   });
   final bool connected;
   final Map<String, List<Map<String, dynamic>>> categories;
   final Map<String, String> categoryErrors;
+  final Map<String, String?> nextCursors;
+  final Map<String, bool> hasMore;
 }
 
 class HomeStartupService {
@@ -34,13 +39,14 @@ class HomeStartupService {
       return const HomeStartupData(connected: false, categories: {});
     }
     final errors = <String, String>{};
+    final cursors = <String, String?>{};
+    final more = <String, bool>{};
     final responses = await Future.wait(endpoints.entries.map((entry) async {
-      final uri = TmdbApi.uri(entry.value, {
-        'language': 'en-US',
-        'page': '1',
-      });
+      final uri = homeCategoriesByName[entry.key]!.uri();
       try {
         final page = await catalogue.fetchPage(uri);
+        cursors[entry.key] = page.nextCursor;
+        more[entry.key] = page.hasMore;
         return MapEntry(entry.key, page.items);
       } on CatalogueLoadException catch (error) {
         errors[entry.key] = error.message;
@@ -50,15 +56,18 @@ class HomeStartupService {
     if (errors.length == endpoints.length) {
       throw CatalogueLoadException(errors.values.first);
     }
-    final seen = <int>{};
+    List<Map<String, dynamic>> unique(List<Map<String, dynamic>> items) {
+      final seen = <int>{};
+      return items.where((movie) => seen.add(movie['id'] as int)).toList();
+    }
+
     return HomeStartupData(
         connected: true,
         categoryErrors: errors,
+        nextCursors: cursors,
+        hasMore: more,
         categories: {
-          for (final entry in responses)
-            entry.key: entry.value
-                .where((movie) => seen.add(movie['id'] as int))
-                .toList(),
+          for (final entry in responses) entry.key: unique(entry.value),
         });
   }
 
@@ -75,16 +84,17 @@ class HomeStartupService {
     final count = ((width / (cardWidth + 10)).ceil() + 1).clamp(1, 4);
     final urls = <String>{};
     final trending = data.categories['Trending Today'] ?? [];
-    if (trending.isNotEmpty && trending.first['backdrop_path'] != null) {
-      urls.add(
-          'https://image.tmdb.org/t/p/w780${trending.first['backdrop_path']}');
+    if (trending.isNotEmpty) {
+      final image =
+          catalogueArtwork(trending.first, backdrop: true, size: 'w780') ??
+              catalogueArtwork(trending.first);
+      if (image != null) urls.add(image);
     }
     for (final movies
         in data.categories.values.where((items) => items.isNotEmpty).take(1)) {
       for (final movie in movies.take(count)) {
-        if (movie['poster_path'] != null) {
-          urls.add('https://image.tmdb.org/t/p/w300${movie['poster_path']}');
-        }
+        final image = catalogueArtwork(movie, size: 'w300');
+        if (image != null) urls.add(image);
       }
     }
     await Future.wait(urls.map((url) async {

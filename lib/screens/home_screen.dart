@@ -1,6 +1,8 @@
 import 'dart:async';
 import '../config/home_categories.dart';
 import '../utils/cinema_palette.dart';
+import '../utils/catalogue_artwork.dart';
+import '../utils/home_catalogue_rows.dart';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'movie_details_screen.dart';
@@ -47,9 +49,51 @@ class _HomeScreenState extends State<HomeScreen> {
   final Set<String> _requestedCategories = {};
   final Map<String, String> _categoryErrors = {};
   final Map<String, bool> _hasMore = {};
+  final Map<String, String?> _nextCursors = {};
   final Set<String> _resetRetries = {};
   int _loadGeneration = 0;
   bool _isRefreshing = false;
+  HomeCatalogueLayout _allLayout = HomeCatalogueLayout.build(const {});
+  HomeCatalogueLayout _tvLayout =
+      HomeCatalogueLayout.build(const {}, tvOnly: true);
+  bool _refillScheduled = false;
+
+  HomeCatalogueLayout get _activeLayout =>
+      _currentFilter == 'TV Shows' ? _tvLayout : _allLayout;
+
+  void _rebuildHomeLayouts() {
+    _allLayout = HomeCatalogueLayout.build(_movieCategories);
+    _tvLayout = HomeCatalogueLayout.build(_movieCategories, tvOnly: true);
+    _allLoadedMovies
+      ..clear()
+      ..addAll(_movieCategories.values.expand((items) => items));
+  }
+
+  void _scheduleRowRefills() {
+    if (!mounted || _isRefreshing || !_isConnected || _refillScheduled) return;
+    _refillScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refillScheduled = false;
+      if (!mounted || _isRefreshing || !_isConnected) return;
+      for (final category in _requestedCategories.toList()) {
+        if (_currentFilter == 'TV Shows' &&
+            homeCategoriesByName[category]?.isTv != true) {
+          continue;
+        }
+        if ((_currentPage[category] ?? 0) < 1 ||
+            (_currentPage[category] ?? 0) >= 3 ||
+            _isLoadingMore[category] == true ||
+            _categoryErrors.containsKey(category) ||
+            _hasMore[category] != true ||
+            _nextCursors[category] == null) {
+          continue;
+        }
+        if ((_activeLayout.rows[category]?.length ?? 0) < 6) {
+          unawaited(_loadMore(category));
+        }
+      }
+    });
+  }
 
   final Color _netflixBlack = const Color(0xFF141414);
   final Color _netflixRed = const Color(0xFFE50914);
@@ -62,16 +106,21 @@ class _HomeScreenState extends State<HomeScreen> {
       _isConnected = initialData.connected;
       for (final entry in initialData.categories.entries) {
         _movieCategories[entry.key] = List.of(entry.value);
-        _allLoadedMovies.addAll(entry.value);
         _currentPage[entry.key] = 1;
+        _hasMore[entry.key] =
+            initialData.hasMore[entry.key] ?? entry.value.isNotEmpty;
         _requestedCategories.add(entry.key);
       }
       _categoryErrors.addAll(initialData.categoryErrors);
+      _nextCursors.addAll(initialData.nextCursors);
+      _hasMore.addAll(initialData.hasMore);
+      _rebuildHomeLayouts();
       _resetRetries.addAll(initialData.categoryErrors.keys);
       isLoading = false;
       _isInitialized = true;
       _connectivitySubscription =
           Connectivity().onConnectivityChanged.listen(_updateConnectionStatus);
+      _scheduleRowRefills();
       return;
     }
     _initializeApp();
@@ -167,6 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _requestedCategories.clear();
           _categoryErrors.clear();
           _hasMore.clear();
+          _nextCursors.clear();
           _resetRetries.clear();
           _isLoadingMore.clear();
         });
@@ -217,12 +267,12 @@ class _HomeScreenState extends State<HomeScreen> {
       }));
       if (!mounted || generation != _loadGeneration) return;
       setState(() {
-        final usedIds = _allLoadedMovies.map((movie) => movie['id']).toSet();
         for (final category in categories) {
           final result = refreshed[category];
           if (result == null) continue;
           final entry = MapEntry(category, result);
           final existing = _movieCategories[entry.key]!;
+          final usedIds = existing.map((movie) => movie['id']).toSet();
           final updates = {
             for (final item in entry.value.items) item['id']: item
           };
@@ -235,17 +285,17 @@ class _HomeScreenState extends State<HomeScreen> {
           if ((_currentPage[entry.key] ?? 1) <= 1) {
             _currentPage[entry.key] = 1;
             _hasMore[entry.key] = entry.value.hasMore;
+            _nextCursors[entry.key] = entry.value.nextCursor;
           }
           _categoryErrors.remove(entry.key);
           _resetRetries.remove(entry.key);
         }
-        _allLoadedMovies
-          ..clear()
-          ..addAll(_movieCategories.values.expand((movies) => movies));
+        _rebuildHomeLayouts();
       });
       if (failed) _showRefreshError();
     } finally {
       _isRefreshing = false;
+      _scheduleRowRefills();
     }
   }
 
@@ -292,24 +342,22 @@ class _HomeScreenState extends State<HomeScreen> {
       _categoryErrors.remove(category);
     });
     try {
-      final result =
-          await const CatalogueService().fetchPage(definition.uri(page: page));
+      final result = await const CatalogueService().fetchPage(definition.uri(
+          page: page, cursor: reset ? null : _nextCursors[category]));
       if (!mounted || generation != _loadGeneration) return;
-      final usedIds = _movieCategories.entries
-          .where((entry) => !reset || entry.key != category)
-          .expand((entry) => entry.value)
-          .map((movie) => movie['id'])
-          .toSet();
+      final usedIds =
+          (reset ? <Map<String, dynamic>>[] : _movieCategories[category]!)
+              .map((movie) => movie['id'])
+              .toSet();
       final items =
           result.items.where((movie) => usedIds.add(movie['id'])).toList();
       setState(() {
         if (reset) _movieCategories[category]?.clear();
         _movieCategories[category]?.addAll(items);
-        _allLoadedMovies
-          ..clear()
-          ..addAll(_movieCategories.values.expand((movies) => movies));
+        _rebuildHomeLayouts();
         _currentPage[category] = page;
         _hasMore[category] = result.hasMore;
+        _nextCursors[category] = result.nextCursor;
         _resetRetries.remove(category);
       });
     } on CatalogueLoadException catch (error) {
@@ -323,6 +371,9 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted && generation == _loadGeneration) {
         setState(() => _isLoadingMore[category] = false);
       }
+    }
+    if (mounted && generation == _loadGeneration) {
+      _scheduleRowRefills();
     }
   }
 
@@ -540,10 +591,7 @@ class _HomeScreenState extends State<HomeScreen> {
         itemCount: visibleCategories.length + 1,
         itemBuilder: (context, index) {
           if (index == 0) {
-            final trending = _movieCategories[_currentFilter == 'TV Shows'
-                    ? 'Trending TV Today'
-                    : 'Trending Today'] ??
-                [];
+            final trending = _activeLayout.featured;
             if (trending.isEmpty) return const SizedBox();
             return _buildCarousel(trending);
           } else {
@@ -552,6 +600,7 @@ class _HomeScreenState extends State<HomeScreen> {
             final items = _filteredItems(entry.key);
             if (items.isEmpty &&
                 _currentPage.containsKey(entry.key) &&
+                (_hasMore[entry.key] == false || entry.value.isNotEmpty) &&
                 !_categoryErrors.containsKey(entry.key) &&
                 _isLoadingMore[entry.key] != true) {
               return const SizedBox();
@@ -604,9 +653,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         MaterialPageRoute(
                           builder: (_) => FullCategoryScreen(
                             title: title,
-                            items: items,
+                            items: _movieCategories[title] ?? items,
                             initialPage: _currentPage[title] ?? 1,
                             hasMore: _hasMore[title] ?? true,
+                            initialCursor: _nextCursors[title],
                           ),
                         ),
                       );
@@ -691,8 +741,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildItemCard(Map<String, dynamic> item) {
-    final poster =
-        item['poster_path'] != null ? '$imageBase${item['poster_path']}' : '';
+    final poster = catalogueArtwork(item, size: 'w300') ?? '';
     final isInMyList = MyList().contains(item['id']);
 
     return Builder(
@@ -778,13 +827,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<Map<String, dynamic>> _filteredItems(String category) {
-    final items = _movieCategories[category] ?? [];
-
-    if (_currentFilter == 'TV Shows') {
-      return homeCategoriesByName[category]?.isTv == true ? items : [];
-    }
-
-    return items;
+    return _activeLayout.rows[category] ?? [];
   }
 
   void _showInterstitialAd(Function rewardedAction) {

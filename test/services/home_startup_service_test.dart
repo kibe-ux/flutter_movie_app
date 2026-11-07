@@ -22,17 +22,20 @@ void main() {
   tearDown(() => messenger.setMockMethodCallHandler(connectivity, null));
 
   test(
-      'initial feed loads four categories and filters future and duplicate movies',
+      'startup shares catalogue requests and preserves each category independently',
       () async {
     var requests = 0;
     await http.runWithClient(() async {
       final result = await HomeStartupService().load();
       expect(result.connected, isTrue);
-      expect(requests, 4);
+      expect(requests, 3);
       expect(result.categories.keys, HomeStartupService.endpoints.keys);
       final movies = result.categories.values.expand((items) => items).toList();
-      expect(movies.length, 5);
-      expect(movies.where((movie) => movie['id'] == 1), hasLength(1));
+      expect(movies.length, 8);
+      expect(
+          result.categories.values.every((items) =>
+              items.map((item) => item['id']).toSet().length == items.length),
+          isTrue);
       expect(movies.any((movie) => movie['id'] == 999), isFalse);
     },
         () => MockClient((request) async {
@@ -79,7 +82,7 @@ void main() {
       expect(result.categories['Popular Movies'], isNotEmpty);
     },
         () => MockClient((request) async {
-              if (request.url.path.endsWith('/now_playing')) {
+              if (request.url.queryParameters['sort'] == 'newest') {
                 return http.Response('Unavailable', 503);
               }
               return http.Response(

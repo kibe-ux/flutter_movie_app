@@ -18,10 +18,12 @@ class CatalogueLoadException implements Exception {
 }
 
 class CataloguePage {
-  const CataloguePage({required this.items, required this.hasMore});
+  const CataloguePage(
+      {required this.items, required this.hasMore, this.nextCursor});
 
   final List<Map<String, dynamic>> items;
   final bool hasMore;
+  final String? nextCursor;
 }
 
 class CatalogueService {
@@ -51,8 +53,10 @@ class CatalogueService {
         items: filterReleasedMovies(results)
             .where((item) => item['id'] is int)
             .toList(),
-        hasMore:
-            results.isNotEmpty && (totalPages is! num || page < totalPages),
+        nextCursor: data['next_cursor'] as String?,
+        hasMore: data['catalogue_provider'] == 'wambesha'
+            ? data['has_more'] == true && data['next_cursor'] is String
+            : results.isNotEmpty && (totalPages is! num || page < totalPages),
       );
     } on TimeoutException {
       throw const CatalogueLoadException(

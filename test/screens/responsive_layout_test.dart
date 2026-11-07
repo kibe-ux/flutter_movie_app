@@ -154,7 +154,11 @@ void main() {
               ),
               2));
           // Seeded content is available on the very first frame.
-          expect(find.text('Preloaded movie'), findsWidgets);
+          expect(
+              find.byWidgetPredicate((widget) =>
+                  widget is Semantics &&
+                  widget.properties.label == 'Preloaded movie'),
+              findsWidgets);
           for (var frame = 0; frame < 5; frame++) {
             await tester.pump(const Duration(milliseconds: 100));
           }
@@ -167,6 +171,7 @@ void main() {
           await tester.pump();
 
           // An empty successful initial feed must still allow lazy rows to load.
+          CatalogueService.resetCacheForTesting();
           requestedPaths.clear();
           await tester.pumpWidget(app(
             const HomeScreen(
@@ -183,7 +188,8 @@ void main() {
           for (var frame = 0; frame < 5; frame++) {
             await tester.pump(const Duration(milliseconds: 100));
           }
-          expect(requestedPaths, contains('/api/catalogue/3/discover/movie'));
+          expect(
+              requestedPaths, contains('/api/catalogue/3/wambesha/discover'));
           expect(tester.takeException(), isNull);
           await tester.pumpWidget(const SizedBox());
           await tester.pump();

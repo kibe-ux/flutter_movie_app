@@ -114,9 +114,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
           await _getData(path, parameters: parameters, refresh: refresh);
       if (!mounted || generation != _requestGeneration) return;
       setState(() {
-        movies = filterReleasedMovies(data['results'])
-            .map((item) => {...item, 'media_type': mediaType})
-            .toList();
+        movies =
+            filterReleasedMovies(data['results'], applyDigitalBuffer: false)
+                .map((item) => {...item, 'media_type': mediaType})
+                .toList();
         isLoading = false;
       });
       _rememberTab();
@@ -523,7 +524,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
           ),
         ),
         title: const Text(
-          'Explore',
+          'Discover Movies',
           style: TextStyle(
             color: CinemaPalette.appBarText,
             fontSize: 22,
@@ -533,6 +534,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
       ),
       body: Column(
         children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Text(
+                'Browse more movies and TV shows. Download availability varies.',
+                style: TextStyle(color: CinemaPalette.muted, fontSize: 12)),
+          ),
           if (!isLoading && movies.isNotEmpty)
             const MovieHubBannerAd(placement: 'explore'),
           Expanded(
