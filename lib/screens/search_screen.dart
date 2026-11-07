@@ -540,6 +540,19 @@ class _SearchScreenState extends State<SearchScreen>
                                       fontSize: 10,
                                       fontWeight: FontWeight.w800,
                                       letterSpacing: .5))),
+                          if (item['wambesha_id'] != null)
+                            Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                    color: CinemaPalette.gold.withOpacity(0.18),
+                                    borderRadius: BorderRadius.circular(6)),
+                                child: const Text('VERIFIED',
+                                    style: TextStyle(
+                                        color: CinemaPalette.gold,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: .5))),
                           Text(_getYear(item),
                               style: const TextStyle(
                                   color: CinemaPalette.muted, fontSize: 12)),

@@ -231,6 +231,51 @@ class WambeshaApiService {
     return results;
   }
 
+  /// Fetches verified, available titles directly from Wambesha's /discover endpoint.
+  Future<List<Map<String, dynamic>>> discover({
+    String type = 'movie',
+    String? genre,
+    String? year,
+    String? cursor,
+    int limit = 20,
+  }) async {
+    try {
+      final body = await _get('discover', {
+        'type': type,
+        'limit': '$limit',
+        if (genre != null && genre.isNotEmpty) 'genre': genre,
+        if (year != null && year.isNotEmpty) 'year': year,
+        if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+      });
+      final rawItems =
+          (body['items'] ?? body['titles']?['items']) as List? ?? [];
+      final ids = rawItems
+          .whereType<Map>()
+          .map((card) => card['id'] as String?)
+          .whereType<String>()
+          .take(limit)
+          .toList();
+      if (ids.isEmpty) return [];
+      final records =
+          await _get('titles', {'ids': ids.join(','), 'language': 'en'});
+      final byId = {
+        for (final record
+            in List<Map<String, dynamic>>.from(records['items'] as List? ?? []))
+          record['id']: record,
+      };
+      final results = <Map<String, dynamic>>[];
+      for (final id in ids) {
+        final record = byId[id];
+        if (record == null) continue;
+        final item = normalizeTitle(record);
+        if (item != null) results.add(item);
+      }
+      return results;
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Existing details, saved lists and downloads identify titles by TMDB ID.
   /// Never substitute a Wambesha ID or a made-up numeric ID for that identity.
   static Map<String, dynamic>? normalizeTitle(Map<String, dynamic> record) {
