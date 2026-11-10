@@ -413,3 +413,71 @@ test('deadlines cover stalled headers and bodies, clear pending work, and do not
     assert.equal(calls, 2);
   }
 });
+
+
+test('source usage distinguishes cached responses and verification metadata without secrets', async t => {
+  const events = [];
+  let calls = 0;
+  const request = await fixture(t, async () => {
+    calls++;
+    return Response.json({ verification_spent: true, links: [{ kind: 'file_holding',
+      url: 'https://files.example/private?sig=secret', expires_at: new Date(Date.now() + 120000).toISOString() }] });
+  }, undefined, undefined, { onUsage: event => events.push(event) });
+  assert.equal((await request('/titles/mv_123/sources')).status, 200);
+  const cached = await request('/titles/mv_123/sources');
+  assert.equal(cached.headers.get('x-moviehub-source-cache'), 'HIT');
+  assert.equal(calls, 1);
+  assert.equal(events.filter(row => row.event === 'upstream-request').length, 1);
+  assert.equal(events.find(row => row.event === 'verification').spent, 1);
+  assert.equal(events.filter(row => row.event === 'cache-hit').length, 1);
+  assert.doesNotMatch(JSON.stringify(events), /sig=|secret|firebase-token|test-user|private-provider-key/);
+});
+
+test('source cache identities separate language variants', async t => {
+  let calls = 0;
+  const request = await fixture(t, async () => {
+    calls++;
+    return Response.json({ verification_spent: false, links: [] });
+  }, undefined, undefined, { onUsage: () => {} });
+  await request('/titles/mv_123/sources?language=en');
+  await request('/titles/mv_123/sources?language=fr');
+  await request('/titles/mv_123/sources?language=en');
+  assert.equal(calls, 2);
+});
+
+
+test('opt-in route cache reuses explicit-expiry sources across users and instances', async t => {
+  const rows = new Map();
+  const store = {
+    async read(key) { return rows.get(key); },
+    async acquire(key, owner, now, lease) {
+      const row = rows.get(key);
+      if (row && (row.lease_until > now || row.fresh_until > now)) return false;
+      rows.set(key, { ...row, owner, lease_until: now + lease });
+      return true;
+    },
+    async publish(key, owner, body, fresh_until) {
+      assert.equal(rows.get(key).owner, owner);
+      rows.set(key, { body, fresh_until, lease_until: 0 });
+    },
+    async release(key, owner, retry_at) {
+      rows.set(key, { ...rows.get(key), lease_until: 0, retry_at });
+    },
+  };
+  let calls = 0;
+  const provider = async () => {
+    calls++;
+    await new Promise(resolve => setTimeout(resolve, 20));
+    return Response.json({ verification_spent: true, links: [{ kind: 'file_holding',
+      url: 'https://files.example/signed', expires_at: new Date(Date.now() + 120000).toISOString() }] });
+  };
+  const config = { sharedSources: true, sourceStore: store, onUsage: () => {} };
+  const a = await fixture(t, provider, 'user-a', undefined, config);
+  const b = await fixture(t, provider, 'user-b', undefined, config);
+  const responses = await Promise.all([a('/titles/mv_123/sources'), b('/titles/mv_123/sources')]);
+  assert.deepEqual(responses.map(response => response.status), [200, 200]);
+  assert.equal(calls, 1);
+  assert.deepEqual(await responses[0].json(), await responses[1].json());
+  assert.equal(rows.size, 1);
+  assert.ok([...rows.keys()][0].startsWith('wambesha-source:v1:'));
+});

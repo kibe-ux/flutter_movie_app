@@ -5,9 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moviehub_app/screens/search_screen.dart';
 import 'package:moviehub_app/services/cache_service.dart';
-import 'package:moviehub_app/services/wambesha_api_service.dart';
+import 'package:moviehub_app/services/tmdb_search_service.dart';
 
-class FakeSearch extends WambeshaApiService {
+class FakeSearch extends TmdbSearchService {
   Future<List<Map<String, dynamic>>> Function(String) handler = (_) async => [];
   final queries = <String>[];
   @override
@@ -147,11 +147,11 @@ void main() {
   });
 
   testWidgets('quota errors show retry rather than no results', (tester) async {
-    service.handler = (_) async => throw const WambeshaRequestException(429);
+    service.handler = (_) async => throw StateError('Unavailable');
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
     await search(tester, 'Orbit');
-    expect(find.text('Source check limit reached. Please try again later.'),
+    expect(find.text('Unable to load results. Check your connection and try again.'),
         findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
     service.handler = (_) async => [];

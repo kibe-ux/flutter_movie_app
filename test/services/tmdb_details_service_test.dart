@@ -11,6 +11,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    TmdbDetailsService.resetCacheForTesting();
     dotenv.testLoad(
         fileInput: 'MOVIE_DOWNLOAD_API_BASE_URL=https://backend.test');
   });
@@ -54,10 +55,41 @@ void main() {
     expect(data?['imdbId'], 'tt123');
     expect(data?['genres'], ['Science Fiction']);
     expect((data?['casts'] as List).single['name'], 'Actor');
-    expect(((data?['videos'] as Map)['results'] as List).single['key'], 'trailer');
+    expect(
+        ((data?['videos'] as Map)['results'] as List).single['key'], 'trailer');
     await service.fetchDetails(tmdbId: 42, mediaType: 'movie');
     expect(calls, 1);
     await service.fetchDetails(tmdbId: 42, mediaType: 'movie', refresh: true);
+    expect(calls, 2);
+  });
+
+  test('details coalesce across services and survive cache recreation',
+      () async {
+    TmdbDetailsService.resetCacheForTesting(persist: true);
+    var calls = 0;
+    Future<http.Response> respond(http.Request request) async {
+      calls++;
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      return http.Response(
+          jsonEncode({'runtime': 90, 'overview': 'Cached'}), 200);
+    }
+
+    final first = TmdbDetailsService(client: MockClient(respond));
+    final second = TmdbDetailsService(client: MockClient(respond));
+    addTearDown(first.dispose);
+    addTearDown(second.dispose);
+    final results = await Future.wait([
+      first.fetchDetails(tmdbId: 99, mediaType: 'movie'),
+      second.fetchDetails(tmdbId: 99, mediaType: 'movie'),
+    ]);
+    expect(calls, 1);
+    expect(results.first?['runtime'], 90);
+    TmdbDetailsService.resetCacheForTesting(persist: true);
+    expect(
+        (await second.fetchDetails(tmdbId: 99, mediaType: 'movie'))?['runtime'],
+        90);
+    expect(calls, 1);
+    await second.fetchDetails(tmdbId: 99, mediaType: 'tv');
     expect(calls, 2);
   });
 

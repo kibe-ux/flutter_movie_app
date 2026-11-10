@@ -9,12 +9,12 @@ import '../utils/cinema_palette.dart';
 import '../utils/movie_download_availability.dart';
 import '../services/ad_service.dart';
 import '../services/cache_service.dart';
-import '../services/wambesha_api_service.dart';
+import '../services/tmdb_search_service.dart';
 import '../widgets/safe_network_image.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key, this.searchService});
-  final WambeshaApiService? searchService;
+  final TmdbSearchService? searchService;
   @override
   State<SearchScreen> createState() => _SearchScreenState();
 }
@@ -26,7 +26,7 @@ class _SearchScreenState extends State<SearchScreen>
   late final AnimationController _shimmerController;
   List<Map<String, dynamic>> _searchResults = [];
   bool _isSearching = false;
-  late final WambeshaApiService _searchService;
+  late final TmdbSearchService _searchService;
   bool _openingTitle = false;
   String _searchQuery = '';
   List<String> _searchHistory = [];
@@ -52,7 +52,7 @@ class _SearchScreenState extends State<SearchScreen>
   @override
   void initState() {
     super.initState();
-    _searchService = widget.searchService ?? WambeshaApiService();
+    _searchService = widget.searchService ?? TmdbSearchService();
     _shimmerController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -88,7 +88,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   Future<void> _loadGenres() async {
     try {
-      const cacheKey = 'wambesha_genres';
+      const cacheKey = 'tmdb_genres_v1';
       var genres =
           CacheService.getMemCache<List<Map<String, dynamic>>>(cacheKey);
       genres ??= await _searchService.genres();
@@ -211,9 +211,7 @@ class _SearchScreenState extends State<SearchScreen>
         _shimmerController.stop();
         _searchError = error is TimeoutException
             ? 'Search timed out. Please try again.'
-            : error is WambeshaRequestException
-                ? error.message
-                : 'Unable to load results. Check your connection and try again.';
+            : 'Unable to load results. Check your connection and try again.';
       });
     }
   }

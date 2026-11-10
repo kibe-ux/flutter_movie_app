@@ -1,4 +1,6 @@
 import 'tmdb_api.dart';
+import 'catalogue_page_cache.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -25,8 +27,16 @@ class TmdbDetailsService {
 
   static const _imageBase = 'https://image.tmdb.org/t/p/w185';
 
-  final _cache = <String, ({DateTime fetchedAt, Map<String, dynamic> data})>{};
-  static const _ttl = Duration(minutes: 5);
+  static CataloguePageCache _cache = CataloguePageCache(
+      persistenceKey: 'tmdb_details_v1', ttl: const Duration(minutes: 15));
+
+  @visibleForTesting
+  static void resetCacheForTesting({bool persist = false}) {
+    _cache = CataloguePageCache(
+        persist: persist,
+        persistenceKey: 'tmdb_details_v1',
+        ttl: const Duration(minutes: 15));
+  }
 
   void dispose() => _client.close();
 
@@ -35,15 +45,7 @@ class TmdbDetailsService {
     required String mediaType, // 'movie' or 'tv'
     bool refresh = false,
   }) async {
-    final key = '${mediaType}_$tmdbId';
-    if (!refresh) {
-      final cached = _cache[key];
-      if (cached != null &&
-          DateTime.now().difference(cached.fetchedAt) < _ttl) {
-        return cached.data;
-      }
-    }
-
+    if (tmdbId < 1 || !['movie', 'tv'].contains(mediaType)) return null;
     try {
       final append = mediaType == 'movie'
           ? 'credits,videos,watch/providers,release_dates,external_ids'
@@ -54,14 +56,22 @@ class TmdbDetailsService {
         'append_to_response': append,
       });
 
-      final response = await TmdbApi.get(uri, client: _client)
-          .timeout(const Duration(seconds: 20));
-      if (response.statusCode != 200) return null;
-
-      final raw = jsonDecode(response.body) as Map<String, dynamic>;
-      final data = _normalize(raw, mediaType);
-      _cache[key] = (fetchedAt: DateTime.now(), data: data);
-      return data;
+      final body = await _cache.get(uri, () async {
+        final response = await TmdbApi.get(uri, client: _client)
+            .timeout(const Duration(seconds: 20));
+        if (response.statusCode != 200) {
+          throw StateError('Metadata unavailable');
+        }
+        final raw = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = _normalize(raw, mediaType);
+        // Use the cache's validated list envelope for persistent records.
+        return jsonEncode({
+          'results': [data]
+        });
+      }, refresh: refresh);
+      final envelope = jsonDecode(body) as Map<String, dynamic>;
+      return Map<String, dynamic>.from(
+          (envelope['results'] as List).single as Map);
     } catch (_) {
       return null;
     }

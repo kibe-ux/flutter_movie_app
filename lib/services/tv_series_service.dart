@@ -1,5 +1,4 @@
-import 'tmdb_api.dart';
-import 'dart:convert';
+import 'metadata_list_service.dart';
 
 bool isTvSeries(Map<String, dynamic> item) {
   final type = item['media_type'] ?? item['type'];
@@ -49,32 +48,11 @@ Map<String, dynamic>? episodeDownloadMetadata(
 }
 
 class TvSeriesService {
-  Future<Map<String, dynamic>> _get(String path) async {
-    final uri = TmdbApi.uri(path, {
-      'language': 'en-US',
-    });
-    final response =
-        await TmdbApi.get(uri).timeout(const Duration(seconds: 20));
-    if (response.statusCode != 200) {
-      throw StateError('Unable to load TV information');
-    }
-    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
-  }
+  final _metadata = MetadataListService();
 
-  Future<List<Map<String, dynamic>>> seasons(int seriesId) async {
-    final details = await _get('tv/$seriesId');
-    return _maps(details['seasons']);
-  }
+  Future<List<Map<String, dynamic>>> seasons(int seriesId) =>
+      _metadata.fetch('tv/$seriesId', field: 'seasons');
 
-  Future<List<Map<String, dynamic>>> episodes(int seriesId, int season) async {
-    final details = await _get('tv/$seriesId/season/$season');
-    return _maps(details['episodes']);
-  }
-
-  List<Map<String, dynamic>> _maps(dynamic value) => value is List
-      ? value
-          .whereType<Map>()
-          .map((item) => Map<String, dynamic>.from(item))
-          .toList()
-      : [];
+  Future<List<Map<String, dynamic>>> episodes(int seriesId, int season) =>
+      _metadata.fetch('tv/$seriesId/season/$season', field: 'episodes');
 }

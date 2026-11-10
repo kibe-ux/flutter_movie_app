@@ -1,7 +1,6 @@
-import '../services/tmdb_api.dart';
+import '../services/metadata_list_service.dart';
 // -------------------- MovieDetailsScreen.dart --------------------
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../utils/cinema_palette.dart';
 import '../utils/catalogue_artwork.dart';
@@ -15,9 +14,8 @@ import '../utils/movie_download_availability.dart';
 import '../utils/movie_download_error.dart';
 import '../services/ad_service.dart';
 import '../services/download_service.dart';
-import '../services/movie_download_service.dart';
+import '../services/download_ad_gate.dart';
 import '../services/wambesha_api_service.dart';
-import 'video_player_screen.dart';
 import '../services/tmdb_details_service.dart';
 
 import '../services/favorites_service.dart';
@@ -45,12 +43,14 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     with WidgetsBindingObserver {
   List<Map<String, dynamic>> similarMovies = [];
   bool isLoadingSimilar = true;
+  bool _similarRequested = false;
+  bool _similarFailed = false;
+  bool _seasonsOpened = false;
   late DownloadService _downloadService;
   late Future<Map<String, dynamic>?> _tmdbDetails;
   bool _isFavorite = false;
   bool _resolvingDownload = false;
   final _sourceService = WambeshaApiService();
-  final _movieFiles = MovieDownloadService();
   final _detailsService = TmdbDetailsService();
   String get _movieSourceId => widget.movie['wambesha_id'] is String
       ? widget.movie['wambesha_id'] as String
@@ -65,21 +65,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     WidgetsBinding.instance.addObserver(this);
     _refreshSavedDownload();
     _tmdbDetails = _loadTmdbDetails();
-    fetchSimilarMovies();
     _checkIfFavorite();
-    // Resolve the identity early, without requesting metered download links.
-    final id = widget.movie['id'];
-    if (id is num && id > 0) {
-      unawaited(_sourceService
-          .resolveTitle(
-              tmdbId: id.toInt(),
-              type: _mediaType,
-              titleRef: _movieSourceId,
-              title: (widget.movie['title'] ?? widget.movie['name']) as String?,
-              releaseDate: (widget.movie['release_date'] ??
-                  widget.movie['first_air_date']) as String?)
-          .then<void>((_) {}, onError: (Object _, StackTrace __) {}));
-    }
   }
 
   Future<Map<String, dynamic>?> _loadTmdbDetails({bool refresh = false}) async {
@@ -165,28 +151,28 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
 
   // -------------------- API Fetch --------------------
   Future<void> fetchSimilarMovies() async {
+    setState(() {
+      _similarRequested = true;
+      _similarFailed = false;
+      isLoadingSimilar = true;
+    });
     try {
-      final movieId = widget.movie['id'];
-      final response =
-          await TmdbApi.get(TmdbApi.uri('$_mediaType/$movieId/similar'));
+      final rows = await MetadataListService()
+          .fetch('$_mediaType/${widget.movie['id']}/similar');
       if (!mounted) return;
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        setState(() {
-          similarMovies = (data['results'] as List?)
-                  ?.take(12)
-                  .map((e) =>
-                      {...e as Map<String, dynamic>, 'media_type': _mediaType})
-                  .toList() ??
-              [];
-          isLoadingSimilar = false;
-        });
-      } else {
-        setState(() => isLoadingSimilar = false);
-      }
+      setState(() {
+        similarMovies = rows
+            .take(12)
+            .map((row) => {...row, 'media_type': _mediaType})
+            .toList();
+        isLoadingSimilar = false;
+      });
     } catch (_) {
       if (!mounted) return;
-      setState(() => isLoadingSimilar = false);
+      setState(() {
+        isLoadingSimilar = false;
+        _similarFailed = true;
+      });
     }
   }
 
@@ -419,7 +405,16 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                         }),
                       ),
                     const SizedBox(height: 24),
-                    _buildSimilarMoviesSection(),
+                    ExpansionTile(
+                      title: const Text('Similar titles'),
+                      maintainState: true,
+                      onExpansionChanged: (open) {
+                        if (open && !_similarRequested) fetchSimilarMovies();
+                      },
+                      children: [
+                        if (_similarRequested) _buildSimilarMoviesSection(),
+                      ],
+                    ),
                     const SizedBox(height: 28),
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16),
@@ -990,46 +985,28 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
   // -------------------- Primary actions --------------------
   Widget _buildPrimaryActions(Map<String, dynamic> movie) {
     if (_isTv) {
-      return TvSeasonsSection(
-        seriesId: (movie['id'] as num).toInt(),
-        seriesTitle: movie['title'] ?? movie['name'] ?? 'TV Series',
-        posterPath: movie['poster_path'],
-        metadata: _tmdbDetails,
-        onDownload: _startEpisodeDownload,
-        onPlay: _playEpisode,
-        resolveOnDemand: true,
-        onRefresh: () =>
-            setState(() => _tmdbDetails = _loadTmdbDetails(refresh: true)),
+      return ExpansionTile(
+        title: const Text('Seasons & episodes'),
+        maintainState: true,
+        onExpansionChanged: (open) {
+          if (open && !_seasonsOpened) setState(() => _seasonsOpened = true);
+        },
+        children: [
+          if (_seasonsOpened)
+            TvSeasonsSection(
+              seriesId: (movie['id'] as num).toInt(),
+              seriesTitle: movie['title'] ?? movie['name'] ?? 'TV Series',
+              posterPath: movie['poster_path'],
+              metadata: _tmdbDetails,
+              onDownload: _startEpisodeDownload,
+              resolveOnDemand: true,
+              onRefresh: () => setState(
+                  () => _tmdbDetails = _loadTmdbDetails(refresh: true)),
+            )
+        ],
       );
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      OutlinedButton.icon(
-        onPressed: () async {
-          final rawId = movie['id'];
-          final movieId = rawId is num ? rawId.toInt() : null;
-          String? localPath;
-          if (movieId != null) {
-            localPath = await _downloadService.getDownloadedFilePath(movieId);
-          }
-          if (!mounted) return;
-          final title = movie['title'] ?? movie['name'] ?? 'Movie';
-          Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => VideoPlayerScreen(
-                    title: title,
-                    localFilePath: localPath,
-                    videoUrlProvider: localPath != null
-                        ? null
-                        : (refresh) => _movieFiles.requestPlaybackUrl(
-                            movieId: _movieSourceId, refresh: refresh),
-                    onGoToDownload: () => _startDownload(movie)),
-              ));
-        },
-        icon: const Icon(Icons.play_circle_outline),
-        label: const Text('Watch now'),
-      ),
-      const SizedBox(height: 12),
       Text('SAVE OFFLINE',
           style: TextStyle(
               color: CinemaPalette.muted,
@@ -1145,31 +1122,13 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
         refresh: refresh,
       );
 
-  Future<void> _playEpisode(int season, Map<String, dynamic> episode) async {
-    if (isFutureMovieRelease(episode['air_date'])) return;
-    final episodeNumber = (episode['episode_number'] as num).toInt();
-    final seriesTitle =
-        widget.movie['title'] ?? widget.movie['name'] ?? 'TV Series';
-    final code =
-        'S${season.toString().padLeft(2, '0')}E${episodeNumber.toString().padLeft(2, '0')}';
-    final title = '$seriesTitle $code';
-    await Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (_) => VideoPlayerScreen(
-                title: title,
-                videoUrlProvider: (refresh) async =>
-                    (await _resolveEpisodeSources(season, episodeNumber,
-                            refresh: refresh))
-                        .requirePlaybackUrl(),
-                onGoToDownload: () => _startEpisodeDownload(season, episode))));
-  }
-
   Future<void> _startEpisodeDownload(
       int season, Map<String, dynamic> episode) async {
     if (_resolvingDownload || isFutureMovieRelease(episode['air_date'])) return;
     setState(() => _resolvingDownload = true);
     try {
+      if (!await DownloadAdGate.authorize(context)) return;
+      if (!mounted) return;
       final number = (episode['episode_number'] as num).toInt();
       final sources = await _resolveEpisodeSources(season, number);
       final downloadUrl = sources.downloadQualities.isNotEmpty
@@ -1199,7 +1158,6 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
         await _openAdmDownload(url, '$episodeTitle.mp4');
         return;
       }
-      if (!await AdService().beforeTransition(isActive: () => mounted)) return;
       if (!mounted) return;
       unawaited(_downloadService.downloadMovie(
         movieId: episodeDownloadId((episode['id'] as num).toInt()),
@@ -1234,6 +1192,9 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
         throw StateError('Movie is missing a valid TMDB ID.');
       }
 
+      downloadStage = 'download-ad';
+      if (!await DownloadAdGate.authorize(context)) return;
+      if (!mounted) return;
       downloadStage = 'wambesha-sources';
       final movieTitle = movie['title'] ?? movie['name'] ?? 'Movie';
       final sources = await _sourceService.movieSources(
@@ -1267,8 +1228,6 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
         await _openAdmDownload(chosenUrl, '$movieTitle.mp4');
         return;
       }
-      downloadStage = 'download-ad';
-      if (!await AdService().beforeTransition(isActive: () => mounted)) return;
       if (!mounted) return;
       unawaited(
         _downloadService.downloadMovie(
@@ -1332,6 +1291,11 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
 
   // -------------------- Similar Movies --------------------
   Widget _buildSimilarMoviesSection() {
+    if (_similarFailed) {
+      return TextButton(
+          onPressed: fetchSimilarMovies,
+          child: const Text('Unable to load similar titles. Retry'));
+    }
     if (isLoadingSimilar) {
       return const SizedBox(
           height: 200,

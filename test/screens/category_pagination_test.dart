@@ -30,14 +30,14 @@ void main() {
       );
 
   final tvRoutes = {
-    'Airing Today': ('newest', null),
-    'On the Air': ('newest', null),
-    'Action & Adventure TV': ('popularity', 'action,adventure'),
-    'Comedy TV': ('popularity', 'comedy'),
-    'Crime TV': ('popularity', 'crime'),
-    'Drama TV': ('popularity', 'drama'),
-    'Animation TV': ('popularity', 'animation'),
-    'Documentary TV': ('popularity', 'documentary'),
+    'Airing Today': ('tv/airing_today', null),
+    'On the Air': ('tv/on_the_air', null),
+    'Action & Adventure TV': ('discover/tv', '10759'),
+    'Comedy TV': ('discover/tv', '35'),
+    'Crime TV': ('discover/tv', '80'),
+    'Drama TV': ('discover/tv', '18'),
+    'Animation TV': ('discover/tv', '16'),
+    'Documentary TV': ('discover/tv', '99'),
   };
 
   for (final entry in tvRoutes.entries) {
@@ -50,11 +50,9 @@ void main() {
         await tester.pump();
         await tester.pump();
         expect(requests, hasLength(1));
-        expect(requests.single.path, '/api/catalogue/3/wambesha/discover');
-        expect(requests.single.queryParameters['type'], 'series');
-        expect(requests.single.queryParameters['sort'], entry.value.$1);
-        expect(requests.single.queryParameters['genre'], entry.value.$2);
-        expect(requests.single.queryParameters['cursor'], 'cursor3');
+        expect(requests.single.path, '/api/catalogue/3/${entry.value.$1}');
+        expect(requests.single.queryParameters['with_genres'], entry.value.$2);
+        expect(requests.single.queryParameters['cursor'], isNull);
         expect(requests.single.queryParameters['page'], '4');
         expect(tester.takeException(), isNull);
       },

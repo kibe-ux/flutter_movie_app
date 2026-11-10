@@ -116,7 +116,7 @@ void main() {
       expect(
           ratingRequests.map((uri) => uri.queryParameters['page']), ['2', '3']);
       expect(ratingRequests.map((uri) => uri.queryParameters['cursor']),
-          ['cursor1', 'cursor2']);
+          [null, null]);
       final row = find.byKey(const PageStorageKey('home-posters-Top Rated'));
       await tester.scrollUntilVisible(row, 200,
           scrollable: find
@@ -133,7 +133,7 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
         () => MockClient((request) async {
-              if (request.url.queryParameters['sort'] != 'rating') {
+              if (!request.url.path.endsWith('/movie/top_rated')) {
                 return response([]);
               }
               ratingRequests.add(request.url);
@@ -145,7 +145,7 @@ void main() {
                         : [
                             {'id': 7, 'title': 'Distinct movie'}
                           ],
-                    'catalogue_provider': 'wambesha',
+                    'total_pages': 20,
                     'has_more': true,
                     'next_cursor': page == '2' ? 'cursor2' : 'cursor3',
                   }),
@@ -168,8 +168,9 @@ void main() {
       expect(paths, isNotEmpty);
       expect(
           paths.every((uri) =>
-              uri.path == '/api/catalogue/3/wambesha/discover' &&
-              uri.queryParameters['type'] == 'series'),
+              (uri.path.startsWith('/api/catalogue/3/tv/') ||
+                  uri.path.startsWith('/api/catalogue/3/trending/tv/') ||
+                  uri.path == '/api/catalogue/3/discover/tv')),
           isTrue);
       expect(find.text('Now Playing'), findsNothing);
       expect(
@@ -184,7 +185,7 @@ void main() {
     },
         () => MockClient((request) async {
               paths.add(request.url);
-              final tv = request.url.queryParameters['type'] == 'series';
+              final tv = request.url.path.contains('/tv/') || request.url.path.endsWith('/tv');
               return response([
                 {
                   'id': id++,
@@ -241,8 +242,7 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
         () => MockClient((request) async {
-              if (request.url.queryParameters['sort'] != 'newest' ||
-                  request.url.queryParameters['type'] != 'movie') {
+              if (!request.url.path.endsWith('/movie/now_playing')) {
                 return response([]);
               }
               final page = request.url.queryParameters['page']!;
@@ -277,8 +277,7 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
         () => MockClient((request) async {
-              if (request.url.queryParameters['sort'] != 'newest' ||
-                  request.url.queryParameters['type'] != 'movie') {
+              if (!request.url.path.endsWith('/movie/now_playing')) {
                 return response([]);
               }
               if (fail) return http.Response('Unavailable', 503);

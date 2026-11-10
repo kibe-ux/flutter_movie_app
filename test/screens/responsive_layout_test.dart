@@ -189,7 +189,7 @@ void main() {
             await tester.pump(const Duration(milliseconds: 100));
           }
           expect(
-              requestedPaths, contains('/api/catalogue/3/wambesha/discover'));
+              requestedPaths.where((path) => path.startsWith('/api/catalogue/3/') && !path.contains('wambesha')), isNotEmpty);
           expect(tester.takeException(), isNull);
           await tester.pumpWidget(const SizedBox());
           await tester.pump();

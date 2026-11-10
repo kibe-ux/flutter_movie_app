@@ -181,8 +181,8 @@ class AdService {
     }
   }
 
-  /// Only explicitly eligible browsing transitions can present a preloaded ad.
-  /// Downloads, playback and generic actions proceed without an interstitial.
+  /// Explicitly eligible transitions can present a preloaded interstitial.
+  /// Other actions proceed without one.
   Future<bool> beforeTransition({
     bool Function()? isActive,
     bool allowInterstitial = false,

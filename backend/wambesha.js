@@ -1,3 +1,6 @@
+const { createHash } = require('node:crypto');
+const { createCatalogueStore } = require('./catalogue_store');
+const { createSharedSourceCache } = require('./wambesha_shared_cache');
 const express = require('express');
 const { createWambeshaLimits, WambeshaLimitError } = require('./wambesha_limits');
 const { readProviderJson, withAbort, cancelBody, createSourceCache,
@@ -21,7 +24,9 @@ function sendRequestError(res, error) {
 
 function registerWambeshaRoutes(app, { authenticate, database,
   limits = createWambeshaLimits({ database }), fetchImpl = (...args) => fetch(...args),
-  now = Date.now, providerTimeoutMs = PROVIDER_TIMEOUT_MS } = {}) {
+  now = Date.now, providerTimeoutMs = PROVIDER_TIMEOUT_MS,
+  sharedSources = process.env.WAMBESHA_SHARED_SOURCES === 'true',
+  sourceStore, onUsage = event => console.log(JSON.stringify(event)) } = {}) {
   if (!Number.isInteger(providerTimeoutMs) || providerTimeoutMs < 1 || providerTimeoutMs > PROVIDER_TIMEOUT_MS) {
     throw new RangeError('Invalid provider deadline.');
   }
@@ -36,6 +41,13 @@ function registerWambeshaRoutes(app, { authenticate, database,
   const inFlightSources = new Map();
   const sourcesCache = createSourceCache({ now });
   let activeProviderTasks = 0;
+  let pendingSourceTasks = 0;
+  const sharedCache = sharedSources ? createSharedSourceCache({
+    store: sourceStore || createCatalogueStore(database), now }) : null;
+  function usage(event, fields = {}) {
+    // Never include user IDs, title IDs, signed URLs, credentials or response bodies.
+    try { onUsage({ component: 'wambesha-usage', event, ...fields }); } catch (_) {}
+  }
 
   function getUserId(req) {
     return req.firebaseUser?.uid;
@@ -151,17 +163,24 @@ function registerWambeshaRoutes(app, { authenticate, database,
     }
     try { await limits.client(userId); }
     catch (error) { return sendRequestError(res, error); }
-    const sourceScope = `${userId}:${titleRef}`;
+    const language = req.query.language || 'default';
+    const credentialScope = createHash('sha256').update(key).digest('hex');
+    const sourceScope = `${sharedSources ? 'shared' : userId}:${titleRef}:${language}:${credentialScope}`;
+    const sharedKey = `wambesha-source:v1:${createHash('sha256').update(sourceScope).digest('hex')}`;
 
     if (isSourcesEndpoint) {
       const cached = sourcesCache.get(sourceScope);
       if (cached) {
+        usage('cache-hit');
+        res.set('X-MovieHub-Source-Cache', 'HIT');
         res.set('X-MovieHub-Response-Source', 'wambesha');
         return res.type('application/json').send(cached);
       }
 
       // In-flight coalescing for simultaneous taps
       if (inFlightSources.has(sourceScope)) {
+        usage('coalesced');
+        res.set('X-MovieHub-Source-Cache', 'COALESCED');
         try {
           const sharedData = await inFlightSources.get(sourceScope);
           res.set('X-MovieHub-Response-Source', 'wambesha');
@@ -174,7 +193,7 @@ function registerWambeshaRoutes(app, { authenticate, database,
 
     // Admission precedes async quota/fetch work, bounding both active bodies
     // and the per-process source-promise map. Followers reuse an existing slot.
-    if (activeProviderTasks >= MAX_PROVIDER_TASKS) {
+    if (activeProviderTasks >= MAX_PROVIDER_TASKS || pendingSourceTasks >= MAX_PROVIDER_TASKS) {
       return sendRequestError(res, new WambeshaRequestError(503,
         'Movie service is busy. Please try again later.', 1));
     }
@@ -193,12 +212,14 @@ function registerWambeshaRoutes(app, { authenticate, database,
         timer = setTimeout(() => controller.abort(
           new DOMException('Provider deadline exceeded.', 'TimeoutError')), providerTimeoutMs);
         timer.unref();
+        usage('upstream-request', { sources: isSourcesEndpoint });
         const upstream = await withAbort(fetchImpl(url, {
           headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' },
           redirect: 'error',
           signal: controller.signal,
         }), controller.signal);
 
+        usage('upstream-response', { sources: isSourcesEndpoint, status: upstream.status });
         const retryAfter = upstream.headers.get('retry-after');
         if (retryAfter && /^\d+$/.test(retryAfter)) res.set('Retry-After', retryAfter);
 
@@ -212,6 +233,9 @@ function registerWambeshaRoutes(app, { authenticate, database,
 
         const rawJson = await readProviderJson(upstream, controller.signal);
         if (isSourcesEndpoint) {
+          const spent = rawJson.verification_spent;
+          usage('verification', { spent: spent === true || spent === 1 ? 1
+            : spent === false || spent === 0 ? 0 : null });
           return sanitizeSources(rawJson);
         }
         return rawJson;
@@ -223,15 +247,24 @@ function registerWambeshaRoutes(app, { authenticate, database,
     };
 
     if (isSourcesEndpoint) {
-      const fetchPromise = executeFetch();
+      pendingSourceTasks++;
+      const fetchPromise = sharedCache
+        ? sharedCache.get(sharedKey, executeFetch).then(result => {
+            usage('shared-cache', { cache: result.cache });
+            res.set('X-MovieHub-Source-Cache', result.cache);
+            return result.body;
+          })
+        : executeFetch();
       inFlightSources.set(sourceScope, fetchPromise);
       try {
         const data = await fetchPromise;
         sourcesCache.set(sourceScope, data);
         return res.json(data);
       } catch (err) {
+        usage('source-error');
         return sendRequestError(res, err);
       } finally {
+        pendingSourceTasks--;
         inFlightSources.delete(sourceScope);
       }
     }

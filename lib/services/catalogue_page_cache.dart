@@ -10,12 +10,14 @@ class CataloguePageCache {
     this.ttl = const Duration(minutes: 15),
     this.persist = true,
     this.maxEntries = 32,
+    this.persistenceKey = storageKey,
     this.maxBytes = 1024 * 1024,
   }) : _now = now ?? DateTime.now;
 
   static const storageKey = 'catalogue_pages_v1';
   final DateTime Function() _now;
   final Duration ttl;
+  final String persistenceKey;
   final bool persist;
   final int maxEntries;
   final int maxBytes;
@@ -82,7 +84,7 @@ class CataloguePageCache {
     if (!persist) return;
     try {
       _preferences = await SharedPreferences.getInstance();
-      final saved = _preferences!.getString(storageKey);
+      final saved = _preferences!.getString(persistenceKey);
       if (saved == null) return;
       final entries = jsonDecode(saved) as Map<String, dynamic>;
       for (final entry in entries.entries) {
@@ -111,7 +113,7 @@ class CataloguePageCache {
     return _writing = _writing.then((_) async {
       try {
         await _preferences!.setString(
-            storageKey,
+            persistenceKey,
             jsonEncode({
               for (final entry in _entries.entries)
                 entry.key: {

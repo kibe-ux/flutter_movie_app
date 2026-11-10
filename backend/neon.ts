@@ -23,6 +23,7 @@ export default defineConfig({
         WAMBESHA_CLIENT_LIMIT: process.env.WAMBESHA_CLIENT_LIMIT || "60",
         WAMBESHA_SOURCE_LIMIT: process.env.WAMBESHA_SOURCE_LIMIT || "8",
         WAMBESHA_UPSTREAM_LIMIT: process.env.WAMBESHA_UPSTREAM_LIMIT || "120",
+        WAMBESHA_SHARED_SOURCES: process.env.WAMBESHA_SHARED_SOURCES === "true" ? "true" : "false",
         FIREBASE_PROJECT_ID: projectId,
         ...(adminCredentials ? { FIREBASE_SERVICE_ACCOUNT_JSON: adminCredentials } : {}),
         NODE_ENV: "production",
@@ -37,6 +38,7 @@ export default defineConfig({
       source: "./.neon-build/accountcleanup/index.mjs",
       bundler: "none",
       env: {
+        WAMBESHA_SHARED_SOURCES: process.env.WAMBESHA_SHARED_SOURCES === "true" ? "true" : "false",
         FIREBASE_PROJECT_ID: projectId,
         NODE_ENV: "production",
         ACCOUNT_DELETION_WORKER_ENABLED: workerEnabled ? "true" : "false",
