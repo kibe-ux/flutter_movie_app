@@ -23,6 +23,8 @@ class WambeshaApiService {
   final _pendingSources = <String, Future<WambeshaSources>>{};
   final _titleCache = <String, ({String id, DateTime expiresAt})>{};
   final _pendingTitles = <String, Future<String>>{};
+  static final _titleReference = RegExp(
+      r'^(?:(?:mv|sr|sn|ep)_[A-Za-z0-9]{1,40}|imdb:tt[0-9]{1,20}|tvdb:[0-9]{1,20}|tmdb:(?:movie|tv):[0-9]{1,20})$');
 
   void dispose() => _client.close();
 
@@ -55,7 +57,7 @@ class WambeshaApiService {
       }).timeout(const Duration(seconds: 20));
       logHttpDiagnostic(
         endpoint:
-            'wambesha/${path.replaceAll(RegExp(r'(mv|sr|ep)_[A-Za-z0-9]+'), ':id')}',
+            'wambesha/${path.replaceAll(RegExp(r'titles/[^/]+'), 'titles/:id')}',
         status: response.statusCode,
         headers: response.headers,
       );
@@ -130,7 +132,10 @@ class WambeshaApiService {
     final recordType = type == 'movie' ? 'movie' : 'series';
     final validId = RegExp(r'^(mv|sr)_[A-Za-z0-9]{1,40}$');
     try {
-      final record = await _get('lookup', {'tmdb_id': '$tmdbId'});
+      final record = await _get('lookup', {
+        'tmdb_id': '$tmdbId',
+        'type': recordType,
+      });
       final id = record['id'];
       if (id is String &&
           validId.hasMatch(id) &&
@@ -261,7 +266,7 @@ class WambeshaApiService {
   /// a verification; cached answers expire before any signed URL does.
   Future<WambeshaSources> sources(String titleRef,
       {bool refresh = false}) async {
-    if (!RegExp(r'^(mv|sr|sn|ep)_[A-Za-z0-9]{1,40}$').hasMatch(titleRef)) {
+    if (!_titleReference.hasMatch(titleRef)) {
       throw ArgumentError('Invalid Wambesha title reference.');
     }
     final token = await _token(false);
@@ -394,7 +399,13 @@ class WambeshaApiService {
 }
 
 class WambeshaSources {
-  WambeshaSources({required this.sources, required this.unverified, this.id})
+  WambeshaSources(
+      {required this.sources,
+      required this.unverified,
+      this.id,
+      this.subtitles = const [],
+      this.trailers = const [],
+      this.verificationSpent})
       : fetchedAt = DateTime.now();
   factory WambeshaSources.fromJson(Map<String, dynamic> body) =>
       WambeshaSources(
@@ -404,17 +415,33 @@ class WambeshaSources {
             if (item is Map) Map<String, dynamic>.from(item)
         ],
         unverified: (body['unverified'] as num?)?.toInt() ?? 0,
+        subtitles: _records(body['subtitles']),
+        trailers: _records(body['trailers']),
+        verificationSpent: body['verification_spent'] as bool?,
       );
+  static List<Map<String, dynamic>> _records(dynamic items) => [
+        for (final item in items is List ? items : const [])
+          if (item is Map) Map<String, dynamic>.from(item),
+      ];
   final List<Map<String, dynamic>> sources;
+  final List<Map<String, dynamic>> subtitles;
+  final List<Map<String, dynamic>> trailers;
+  final bool? verificationSpent;
+  Iterable<Map<String, dynamic>> get _allLinks =>
+      [...sources, ...subtitles, ...trailers];
+  List<Map<String, dynamic>> get availableSubtitles =>
+      subtitles.where(_valid).toList();
+  List<Map<String, dynamic>> get availableTrailers =>
+      trailers.where(_valid).toList();
   final String? id;
   final int unverified;
   final DateTime fetchedAt;
   bool get isReusable =>
       DateTime.now().difference(fetchedAt) <
-          (sources.isEmpty
+          (_allLinks.isEmpty
               ? const Duration(seconds: 30)
               : const Duration(minutes: 5)) &&
-      sources.every((source) => _valid(source));
+      _allLinks.every((source) => _valid(source));
   bool _valid(Map<String, dynamic> source) {
     final url = source['url'];
     final uri = url is String ? Uri.tryParse(url) : null;
@@ -487,7 +514,12 @@ class WambeshaSources {
         } else {
           label = 'Source ${list.length + 1}';
         }
-        list.add({'url': url, 'label': label});
+        list.add({
+          'url': url,
+          'label': label,
+          if (s['bytes'] is int && s['bytes'] >= 0) 'bytes': '${s['bytes']}',
+          if (s['locale'] is String) 'locale': s['locale'] as String,
+        });
       }
     }
     return list;

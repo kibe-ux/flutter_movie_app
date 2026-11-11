@@ -17,6 +17,7 @@ import '../services/download_service.dart';
 import '../services/download_ad_gate.dart';
 import '../services/wambesha_api_service.dart';
 import '../services/tmdb_details_service.dart';
+import '../utils/download_source_label.dart';
 
 import '../services/favorites_service.dart';
 import 'share_screen.dart';
@@ -668,7 +669,9 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
 
   Future<({String action, String url})?> _showDownloadOptions(
       BuildContext context, Map<String, dynamic> metadata,
-      {String? title, List<Map<String, String>>? qualities}) {
+      {String? title,
+      List<Map<String, String>>? qualities,
+      List<Map<String, dynamic>> subtitles = const []}) {
     final displayTitle =
         title ?? widget.movie['title'] ?? widget.movie['name'] ?? 'Movie';
     final availableQualities = qualities ?? const [];
@@ -688,7 +691,8 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
               builder: (ctx, setSheetState) => SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
-                  child: Column(
+                  child: SingleChildScrollView(
+                      child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -779,7 +783,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
-                                        q['label'] ?? 'HD',
+                                        downloadSourceLabel(q),
                                         style: GoogleFonts.inter(
                                           color: selectedUrl == q['url']
                                               ? Colors.black
@@ -797,6 +801,53 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                             ],
                           ],
                         ),
+                      ],
+                      if (subtitles.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        const Text('Download subtitles (WebVTT)',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700)),
+                        Wrap(spacing: 8, children: [
+                          for (final track in subtitles)
+                            PopupMenuButton<String>(
+                              tooltip:
+                                  'Subtitle options (${track['language']})',
+                              itemBuilder: (_) => const [
+                                PopupMenuItem(
+                                    value: 'download',
+                                    child: Text('Download subtitle')),
+                                PopupMenuItem(
+                                    value: 'copy',
+                                    child: Text('Copy subtitle link')),
+                              ],
+                              onSelected: (action) async {
+                                final expires =
+                                    DateTime.tryParse('${track['expires_at']}');
+                                if (expires == null ||
+                                    !expires.isAfter(DateTime.now()
+                                        .add(const Duration(seconds: 30)))) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text(
+                                              'Subtitle link expired. Reopen download options to refresh.')));
+                                  return;
+                                }
+                                if (action == 'copy') {
+                                  await _copyDownloadLink(
+                                      track['url'] as String);
+                                } else {
+                                  await _openDownloadLink(
+                                      track['url'] as String);
+                                }
+                              },
+                              child: Chip(
+                                avatar: const Icon(Icons.subtitles_outlined,
+                                    size: 18),
+                                label: Text(track['language'] as String),
+                              ),
+                            ),
+                        ]),
                       ],
                       const SizedBox(height: 20),
                       _buildModernOptionTile(
@@ -832,7 +883,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                             ctx, (action: 'copy', url: selectedUrl)),
                       ),
                     ],
-                  ),
+                  )),
                 ),
               ),
             ));
@@ -1142,7 +1193,9 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
 
       if (!mounted) return;
       final result = await _showDownloadOptions(context, metadata,
-          title: episodeTitle, qualities: sources.downloadQualities);
+          title: episodeTitle,
+          qualities: sources.downloadQualities,
+          subtitles: sources.availableSubtitles);
       if (!mounted || result == null) return;
       final url = result.url;
       final action = result.action;
@@ -1212,7 +1265,9 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
       if (!mounted) return;
       downloadStage = 'download-options';
       final result = await _showDownloadOptions(context, metadata,
-          title: movieTitle, qualities: sources.downloadQualities);
+          title: movieTitle,
+          qualities: sources.downloadQualities,
+          subtitles: sources.availableSubtitles);
       if (!mounted || result == null) return;
       final chosenUrl = result.url;
       final action = result.action;

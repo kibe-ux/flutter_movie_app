@@ -74,6 +74,60 @@ test('batch titles and genres route correctly; missing configuration fails close
   assert.deepEqual(paths, ['/v1/titles', '/v1/titles/mv_123', '/v1/genres']);
 });
 
+test('typed TMDB lookups forward the preference and reject invalid combinations', async t => {
+  const types = [];
+  const request = await fixture(t, async url => {
+    assert.equal(url.pathname, '/v1/lookup');
+    assert.equal(url.searchParams.get('tmdb_id'), '123');
+    types.push(url.searchParams.get('type'));
+    return Response.json({ id: 'mv_123' });
+  });
+  for (const type of ['movie', 'series']) {
+    assert.equal((await request(`/lookup?tmdb_id=123&type=${type}`)).status, 200);
+  }
+  assert.equal((await request('/lookup?tmdb_id=123')).status, 200);
+  for (const query of ['tmdb_id=123&type=invalid', 'imdb_id=tt123&type=movie',
+    'tmdb_id=123&type=movie&type=series']) {
+    assert.equal((await request(`/lookup?${query}`)).status, 400);
+  }
+  assert.deepEqual(types, ['movie', 'series', null]);
+});
+
+test('external title references work in single, batch, episode and cached source requests', async t => {
+  const paths = [];
+  const request = await fixture(t, async url => {
+    assert.equal(url.origin, 'https://api.wambesha.com');
+    paths.push(url.pathname + url.search);
+    return Response.json(url.pathname.endsWith('/sources') ? { sources: [] } : { items: [] });
+  });
+  for (const ref of ['imdb:tt0133093', 'tvdb:123', 'tmdb:movie:603', 'tmdb:tv:1399', 'sn_123', 'ep_123']) {
+    assert.equal((await request(`/titles/${ref}`)).status, 200);
+    assert.equal((await request(`/titles/${encodeURIComponent(ref)}/sources`)).status, 200);
+    const count = paths.length;
+    assert.equal((await request(`/titles/${ref}/sources`)).status, 200);
+    assert.equal(paths.length, count, 'encoded and literal refs share the source cache');
+  }
+  assert.equal((await request('/titles/tmdb%3Atv%3A1399/episodes?season=1')).status, 200);
+  assert.equal((await request('/titles?ids=mv_123,imdb%3Att0133093,tmdb%3Amovie%3A603')).status, 200);
+  assert.ok(paths.includes('/v1/titles/tmdb:tv:1399/episodes?season=1'));
+  assert.ok(paths.includes('/v1/titles/imdb:tt0133093/sources'));
+  assert.equal(new URL(`https://api.wambesha.com${paths.at(-1)}`).searchParams.get('ids'),
+    'mv_123,imdb:tt0133093,tmdb:movie:603');
+});
+
+test('invalid external references never reach the provider', async t => {
+  let calls = 0;
+  const request = await fixture(t, async () => { calls++; return Response.json({}); });
+  for (const ref of ['tmdb:123', 'tmdb:series:123', 'imdb:123', 'tvdb:-1',
+    'tmdb:movie:1/extra', 'imdb:tt1?url=https://evil.example',
+    'tmdb:movie:123\n', 'tvdb:' + '1'.repeat(21), 'https://evil.example', '%3A']) {
+    const encoded = encodeURIComponent(ref);
+    assert.equal((await request(`/titles?ids=${encoded}`)).status, 400);
+    assert.equal((await request(`/titles/${encoded}/sources`)).status, 404);
+  }
+  assert.equal(calls, 0);
+});
+
 test('provider auth failures are not Firebase failures and provider bodies are withheld', async t => {
   let status = 401;
   const request = await fixture(t, async () => new Response('sensitive-provider-diagnostic', {
@@ -143,6 +197,37 @@ test('current links envelope returns validated downloads for existing clients', 
   assert.deepEqual(body.sources.map(s => s.kind), ['file_holding', 'playback_holding']);
   assert.equal(body.sources[0].quality, '1080p');
   assert.doesNotMatch(JSON.stringify(body), /private|torrent|insecure|expired/);
+});
+
+test('source metadata is filtered and the earliest auxiliary expiry refreshes the cache', async t => {
+  let time = Date.now();
+  let calls = 0;
+  const request = await fixture(t, async () => {
+    calls++;
+    const expires_at = new Date(time + 60000).toISOString();
+    return Response.json({ links: [{ kind: 'file_holding', url: 'https://files.example/movie',
+      bytes: 12345, locale: 'en', expires_at: new Date(time + 600000).toISOString() }],
+      subtitles: [{ url: 'https://files.example/sub.vtt', language: 'en', format: 'vtt', expires_at },
+        { url: 'http://files.example/bad', language: 'en', format: 'vtt', expires_at }],
+      trailers: [{ hosted: 'direct', url: 'https://files.example/trailer', expires_at, bytes: 456 },
+        { hosted: 'youtube', url: 'https://www.youtube.com/watch?v=test', expires_at: null },
+        { hosted: 'youtube', url: 'https://evil.example/watch' },
+        { hosted: 'direct', url: 'https://files.example/no-expiry' }],
+      verification_spent: true, magnets: [{ url: 'private-magnet' }] });
+  }, undefined, undefined, { now: () => time });
+  const body = await (await request('/titles/mv_META/sources')).json();
+  assert.equal(body.sources[0].bytes, 12345);
+  assert.equal(body.sources[0].locale, 'en');
+  assert.equal(body.subtitles.length, 1);
+  assert.equal(body.subtitles[0].format, 'vtt');
+  assert.deepEqual(body.trailers.map(item => item.hosted), ['direct', 'youtube']);
+  assert.equal(body.verification_spent, true);
+  assert.equal(body.magnets, undefined);
+  await request('/titles/mv_META/sources');
+  assert.equal(calls, 1);
+  time += 31000;
+  await request('/titles/mv_META/sources');
+  assert.equal(calls, 2, 'subtitle/trailer expiry limits reuse of the whole response');
 });
 
 test('empty current links are valid but malformed links are not cached', async t => {

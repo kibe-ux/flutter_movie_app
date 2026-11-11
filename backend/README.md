@@ -23,9 +23,19 @@ Flutter search uses these Firebase-authenticated GET routes:
 - `/api/wambesha/titles?ids=mv_EXAMPLE,sr_EXAMPLE`
 - `/api/wambesha/titles/:titleRef`
 - `/api/wambesha/genres`
-- `/api/wambesha/lookup?tmdb_id=329865`
+- `/api/wambesha/lookup?tmdb_id=329865&type=movie`
 - `/api/wambesha/titles/:titleRef/episodes?season=1&limit=50`
 - `/api/wambesha/titles/:titleRef/sources`
+
+TMDB resolution sends `type=movie` for films and `type=series` for TV to
+disambiguate overlapping TMDB identifiers. Untyped lookups remain supported.
+
+Title routes and batch `ids` also accept `imdb:tt0133093`, `tvdb:123`,
+`tmdb:movie:603` and `tmdb:tv:1399`. Colons may be URL encoded. Public season
+(`sn_`) and episode (`ep_`) references are supported too. Flutter's `sources`
+method accepts these references; normal movie/episode resolution continues to
+use verified public IDs. Series and season sources contain trailers rather
+than episode files, so downloads must still resolve the individual episode.
 
 Search fetches full records in a batch to map Wambesha IDs to TMDB IDs. Only
 movies and series with a positive TMDB ID appear, since existing details,
@@ -75,6 +85,22 @@ Failed upstream requests are not automatically retried or cached. API errors
 are generic; source URLs, response bodies and credentials are not logged.
 Torrent listings and evidence are removed from client responses; `form=uri`
 and arbitrary source query parameters are rejected.
+
+Source replies preserve validated `subtitles` (WebVTT), `trailers` (direct or
+YouTube), `verification_spent`, and file `bytes`/`locale`. Legacy Flutter
+clients continue receiving the normalized `sources` list from provider `links`.
+Local, shared and Flutter caches respect auxiliary signed-link expiries too.
+Flutter exposes available subtitle/trailer lists and download size/language
+metadata. Trailers remain inline under More info / Trailers & videos using
+the existing metadata flow. Movie and episode download sheets show size/language and
+offer subtitle files by language through the browser. Subtitle files are
+separate downloads. Offline playback detects matching `.vtt` / `.srt` files beside
+the video (`Movie.vtt`, `Movie.en.vtt`, `Movie.pt-PT.srt` for `Movie.mp4`). The
+first readable track loads automatically; the player subtitle menu selects a
+track or turns captions off. Browser downloads can be attached through the
+player's Subtitles / Choose subtitle file menu. Valid UTF-8 VTT/SRT files up to
+2 MiB are copied into app storage and remembered for that video's path.
+The imported track loads first on reopening; Off applies to the current session.
 
 Episode lookup matches season AND episode, following episode cursors before
 spending a verification on that episode. A missing file/playback source shows

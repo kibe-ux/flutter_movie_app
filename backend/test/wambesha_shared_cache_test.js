@@ -66,6 +66,19 @@ test('failed refresh backs off without retrying or serving stale links', async (
   assert.equal(calls, 1);
 });
 
+test('auxiliary signed links bound shared freshness and YouTube needs no expiry', async () => {
+  const store = memoryStore();
+  const cache = createSharedSourceCache({ store, now: () => 1000 });
+  const body = { ...source(600000),
+    subtitles: [{ url: 'https://example.test/sub.vtt', expires_at: new Date(61000).toISOString() }],
+    trailers: [{ hosted: 'youtube', url: 'https://www.youtube.com/watch?v=test' }] };
+  assert.equal((await cache.get('meta', async () => body)).cache, 'MISS');
+  assert.equal(store.rows.get('meta').fresh_until, 31000);
+  body.subtitles[0].expires_at = undefined;
+  assert.equal((await cache.get('unknown', async () => body)).cache, 'UNCACHEABLE');
+  assert.equal(store.rows.get('unknown').body, undefined);
+});
+
 test('different cache keys never share source responses', async () => {
   const store = memoryStore();
   const cache = createSharedSourceCache({ store, now: () => 1000 });

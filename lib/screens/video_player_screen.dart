@@ -6,7 +6,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:video_player/video_player.dart';
+import 'package:file_selector/file_selector.dart';
 import '../services/wambesha_api_service.dart';
+import '../services/local_subtitle_service.dart';
+import '../services/subtitle_import_service.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   const VideoPlayerScreen({
@@ -41,6 +44,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Timer? _controlsHideTimer;
   Duration? _lastReportedPosition;
   bool? _lastReportedPlaying;
+  List<File> _subtitleTracks = [];
+  String? _selectedSubtitle;
+  int _subtitleAttempt = 0;
+  bool _importingSubtitle = false;
+  String? _importedSubtitlePath;
+  final _subtitleImports = SubtitleImportService();
 
   bool get _isPlaying => _controller?.value.isPlaying ?? false;
   Duration get _position => _controller?.value.position ?? Duration.zero;
@@ -75,6 +84,26 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       await controller.initialize();
       await controller.setLooping(false);
       await controller.setPlaybackSpeed(_playbackSpeed);
+
+      if (widget.localFilePath != null) {
+        _subtitleTracks =
+            await LocalSubtitleService.discover(widget.localFilePath!);
+        try {
+          final imported =
+              await _subtitleImports.savedFor(widget.localFilePath!);
+          _importedSubtitlePath = imported?.path;
+          if (imported != null) _subtitleTracks.insert(0, imported);
+        } catch (_) {/* Storage failure must not prevent video playback. */}
+        _selectedSubtitle = null;
+        for (final track in _subtitleTracks) {
+          try {
+            await controller
+                .setClosedCaptionFile(LocalSubtitleService.load(track));
+            _selectedSubtitle = track.path;
+            break;
+          } catch (_) {/* Try the next local track; video remains playable. */}
+        }
+      }
 
       if (!mounted || attempt != _initializationAttempt) {
         await controller.dispose();
@@ -180,6 +209,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
+    _subtitleAttempt++;
     _initializationAttempt++;
     _cancelControlsHide();
     final controller = _controller;
@@ -238,6 +268,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Future<void> _retryVideo() async {
+    _subtitleAttempt++;
     _initializationAttempt++;
     _cancelControlsHide();
     final previousController = _controller;
@@ -264,6 +295,69 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   void _toggleFullscreen() {
     setState(() => _isFullscreen = !_isFullscreen);
     // In a real app, you'd handle orientation changes here
+  }
+
+  Future<void> _selectSubtitle(String path) async {
+    if (path == ':import') {
+      await _importSubtitle();
+      return;
+    }
+    final controller = _controller;
+    if (controller == null) return;
+    final attempt = ++_subtitleAttempt;
+    try {
+      final captions =
+          path.isEmpty ? null : await LocalSubtitleService.load(File(path));
+      if (!mounted ||
+          attempt != _subtitleAttempt ||
+          controller != _controller) {
+        return;
+      }
+      await controller.setClosedCaptionFile(
+          captions == null ? null : Future.value(captions));
+      if (mounted && attempt == _subtitleAttempt) {
+        setState(() => _selectedSubtitle = path.isEmpty ? null : path);
+      }
+    } catch (_) {
+      if (mounted && attempt == _subtitleAttempt) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Could not load this subtitle file.')));
+      }
+    }
+  }
+
+  Future<void> _importSubtitle() async {
+    final videoPath = widget.localFilePath;
+    if (_importingSubtitle || videoPath == null) return;
+    _importingSubtitle = true;
+    _cancelControlsHide();
+    try {
+      final selected = await openFile(acceptedTypeGroups: [
+        const XTypeGroup(
+            label: 'Subtitles',
+            extensions: ['vtt', 'srt'],
+            uniformTypeIdentifiers: ['public.text']),
+      ]);
+      if (selected == null || !mounted) return;
+      final file = await _subtitleImports.importFile(videoPath, selected);
+      if (!mounted) return;
+      setState(() {
+        _subtitleTracks
+            .removeWhere((track) => track.path == _importedSubtitlePath);
+        _importedSubtitlePath = file.path;
+        _subtitleTracks.insert(0, file);
+      });
+      await _selectSubtitle(file.path);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Could not import subtitles. Choose a valid UTF-8 VTT or SRT file under 2 MB.')));
+      }
+    } finally {
+      _importingSubtitle = false;
+      if (mounted && _showControls && _isPlaying) _scheduleControlsHide();
+    }
   }
 
   void _onTapScreen() {
@@ -337,7 +431,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            isStreamingUnavailable ? Icons.offline_pin_outlined : Icons.error_outline,
+            isStreamingUnavailable
+                ? Icons.offline_pin_outlined
+                : Icons.error_outline,
             size: 64,
             color: isStreamingUnavailable ? CinemaPalette.gold : Colors.red,
           ),
@@ -393,6 +489,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           aspectRatio: _controller!.value.aspectRatio,
           child: VideoPlayer(_controller!),
         ),
+        Positioned(
+          left: 16,
+          right: 16,
+          bottom: _showControls ? 120 : 24,
+          child: IgnorePointer(
+              child: ClosedCaption(text: _controller!.value.caption.text)),
+        ),
 
         // Buffering indicator
         if (_isBuffering)
@@ -424,6 +527,28 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     onPressed: _toggleFullscreen,
                   ),
                   const Spacer(),
+                  if (widget.localFilePath != null)
+                    PopupMenuButton<String>(
+                      tooltip: 'Subtitles',
+                      initialValue: _selectedSubtitle ?? '',
+                      icon: Icon(Icons.subtitles_outlined,
+                          color: _selectedSubtitle == null
+                              ? Colors.white70
+                              : CinemaPalette.gold),
+                      onSelected: _selectSubtitle,
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(value: '', child: Text('Off')),
+                        const PopupMenuItem(
+                            value: ':import',
+                            child: Text('Choose subtitle file…')),
+                        for (final track in _subtitleTracks)
+                          PopupMenuItem(
+                              value: track.path,
+                              child: Text(track.path == _importedSubtitlePath
+                                  ? 'Imported subtitles'
+                                  : p.basenameWithoutExtension(track.path))),
+                      ],
+                    ),
                   PopupMenuButton<double>(
                     icon: const Icon(Icons.speed, color: Colors.white),
                     tooltip: 'Playback Speed',

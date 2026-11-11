@@ -6,6 +6,24 @@ import 'package:http/testing.dart';
 import 'package:moviehub_app/services/wambesha_api_service.dart';
 
 void main() {
+  for (final type in ['movie', 'tv']) {
+    test('TMDB lookup sends the correct preference for $type', () async {
+      final expectedType = type == 'movie' ? 'movie' : 'series';
+      final id = type == 'movie' ? 'mv_RIGHT' : 'sr_RIGHT';
+      final api = WambeshaApiService(
+        baseUrlProvider: () => 'https://backend.example',
+        tokenProvider: (_) async => 'test-token',
+        client: MockClient((request) async {
+          expect(request.url.path, '/api/wambesha/lookup');
+          expect(request.url.queryParameters,
+              {'tmdb_id': '123', 'type': expectedType});
+          return http.Response(jsonEncode({'id': id, 'type': expectedType}), 200);
+        }),
+      );
+      addTearDown(api.dispose);
+      expect(await api.resolveTitle(tmdbId: 123, type: type), id);
+    });
+  }
   late List<Uri> requests;
   WambeshaApiService service(List<Map<String, dynamic>> records,
       {int lookupStatus = 404}) {

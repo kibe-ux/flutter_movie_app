@@ -65,6 +65,10 @@ async function readProviderJson(response, signal) {
   }
 }
 
+function sourceLinks(data) {
+  return [...data.sources, ...(data.subtitles || []), ...(data.trailers || [])];
+}
+
 function createSourceCache({ now = Date.now, maxBytes = MAX_CACHE_BYTES,
   maxEntries = MAX_CACHE_ENTRIES } = {}) {
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > MAX_CACHE_BYTES ||
@@ -92,7 +96,7 @@ function createSourceCache({ now = Date.now, maxBytes = MAX_CACHE_BYTES,
     set(key, data) {
       prune();
       const time = now();
-      const sources = data.sources;
+      const sources = sourceLinks(data);
       let expiresAt = time + (sources.length ? SOURCE_TTL_MS : EMPTY_TTL_MS);
       for (const source of sources) {
         if (source.expires_at) expiresAt = Math.min(expiresAt,
@@ -111,6 +115,6 @@ function createSourceCache({ now = Date.now, maxBytes = MAX_CACHE_BYTES,
   };
 }
 
-module.exports = { readProviderJson, withAbort, cancelBody, createSourceCache,
+module.exports = { readProviderJson, withAbort, cancelBody, createSourceCache, sourceLinks,
   MAX_RESPONSE_BYTES, MAX_CACHE_BYTES, MAX_CACHE_ENTRIES, MAX_PROVIDER_TASKS,
   PROVIDER_TIMEOUT_MS, EXPIRY_MARGIN_MS };

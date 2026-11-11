@@ -16,6 +16,75 @@ Map<String, dynamic> source(String kind, String path, {bool expired = false}) =>
     };
 
 void main() {
+  test('metadata survives parsing and expired auxiliary links prevent reuse',
+      () {
+    final expiry =
+        DateTime.now().add(const Duration(minutes: 2)).toIso8601String();
+    final result = WambeshaSources.fromJson({
+      'sources': [
+        {...source('file_holding', 'movie'), 'bytes': 12345, 'locale': 'en'}
+      ],
+      'subtitles': [
+        {
+          'url': 'https://files.example/sub.vtt',
+          'language': 'en',
+          'format': 'vtt',
+          'expires_at': expiry
+        }
+      ],
+      'trailers': [
+        {'hosted': 'youtube', 'url': 'https://www.youtube.com/watch?v=test'}
+      ],
+      'verification_spent': true,
+    });
+    expect(result.downloadQualities.single['bytes'], '12345');
+    expect(result.downloadQualities.single['locale'], 'en');
+    expect(result.availableSubtitles.single['language'], 'en');
+    expect(result.availableTrailers.single['hosted'], 'youtube');
+    expect(result.verificationSpent, isTrue);
+    expect(result.isReusable, isTrue);
+    result.subtitles.single['expires_at'] = '2000-01-01T00:00:00Z';
+    expect(result.availableSubtitles, isEmpty);
+    expect(result.isReusable, isFalse);
+    expect(WambeshaSources.fromJson({'sources': []}).subtitles, isEmpty);
+  });
+  test('sources accept external references and cache repeated requests',
+      () async {
+    var calls = 0;
+    final api = WambeshaApiService(
+      baseUrlProvider: () => 'https://backend.example',
+      tokenProvider: (_) async => 'firebase-token',
+      client: MockClient((request) async {
+        calls++;
+        expect(request.url.pathSegments.last, 'sources');
+        return http.Response('{"sources":[]}', 200);
+      }),
+    );
+    addTearDown(api.dispose);
+    for (final ref in [
+      'imdb:tt0133093',
+      'tvdb:123',
+      'tmdb:movie:603',
+      'tmdb:tv:1399',
+      'sn_123'
+    ]) {
+      await api.sources(ref);
+      await api.sources(ref);
+    }
+    expect(calls, 5);
+    for (final ref in [
+      'tmdb:123',
+      'tmdb:series:123',
+      'imdb:123',
+      'tvdb:-1',
+      'tmdb:movie:1/extra',
+      'imdb:tt1?url=other',
+      'https://evil.example'
+    ]) {
+      await expectLater(api.sources(ref), throwsArgumentError);
+    }
+    expect(calls, 5);
+  });
   WambeshaApiService service(http.Client client,
           {Future<String?> Function(bool)? token}) =>
       WambeshaApiService(

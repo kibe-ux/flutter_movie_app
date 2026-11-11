@@ -1,6 +1,6 @@
 const { randomUUID } = require('node:crypto');
 const { setTimeout: sleep } = require('node:timers/promises');
-const { EXPIRY_MARGIN_MS } = require('./wambesha_resources');
+const { EXPIRY_MARGIN_MS, sourceLinks } = require('./wambesha_resources');
 
 // Enable only after signed-link reuse across users/egress addresses is verified.
 // No stale source links are served, and a store failure never bypasses a lease.
@@ -23,15 +23,19 @@ function createSharedSourceCache({ store, now = Date.now, pause = sleep }) {
       }
       try {
         const body = await fetchSource();
-        let until = now() + (body.sources.length ? 300000 : 30000);
+        const links = sourceLinks(body);
+        const signedLinks = links.filter(link => link.hosted !== 'youtube');
+        let until = now() + (links.length ? 300000 : 30000);
         // Unknown-expiry links cannot enter persistent cross-user storage.
-        const knownExpiry = body.sources.every(source =>
+        const knownExpiry = signedLinks.every(source =>
           typeof source.expires_at === 'string' && Number.isFinite(Date.parse(source.expires_at)));
         if (!knownExpiry) {
           await store.release(key, owner, now() + 1000);
           return { body, cache: 'UNCACHEABLE' };
         }
-        for (const source of body.sources) until = Math.min(until, Date.parse(source.expires_at) - EXPIRY_MARGIN_MS);
+        for (const source of links) {
+          if (source.expires_at) until = Math.min(until, Date.parse(source.expires_at) - EXPIRY_MARGIN_MS);
+        }
         if (until <= now()) throw new Error('Source expired during retrieval.');
         await store.publish(key, owner, body, until, until);
         return { body, cache: 'MISS' };

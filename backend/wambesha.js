@@ -6,6 +6,11 @@ const { createWambeshaLimits, WambeshaLimitError } = require('./wambesha_limits'
 const { readProviderJson, withAbort, cancelBody, createSourceCache,
   MAX_PROVIDER_TASKS, PROVIDER_TIMEOUT_MS, EXPIRY_MARGIN_MS } = require('./wambesha_resources');
 
+// Keep external references bounded and confined to one URL path segment.
+const TITLE_REF_PATTERN = '(?:(?:mv|sr|sn|ep)_[A-Za-z0-9]{1,40}|imdb:tt[0-9]{1,20}|tvdb:[0-9]{1,20}|tmdb:(?:movie|tv):[0-9]{1,20})';
+const TITLE_REF = new RegExp(`^${TITLE_REF_PATTERN}(?![\\s\\S])`);
+const TITLE_PATH = new RegExp(`^/titles/(${TITLE_REF_PATTERN})(?:/(sources|episodes))?(?![\\s\\S])`);
+
 class WambeshaRequestError extends Error {
   constructor(status, message, retryAfter = 0) {
     super(message); this.status = status; this.retryAfter = retryAfter;
@@ -63,7 +68,26 @@ function registerWambeshaRoutes(app, { authenticate, database,
       checked_at: typeof body.checked_at === 'string' ? body.checked_at : undefined,
       unverified: Number.isSafeInteger(body.unverified) && body.unverified >= 0 ? body.unverified : 0,
       sources: [],
+      subtitles: [],
+      trailers: [],
     };
+    function validLink(item, requireExpiry = false) {
+      if (!item || typeof item !== 'object' || typeof item.url !== 'string') return false;
+      try {
+        const parsed = new URL(item.url);
+        if (parsed.protocol !== 'https:' || !parsed.hostname || parsed.username || parsed.password) return false;
+      } catch (_) { return false; }
+      if (item.expires_at == null) return !requireExpiry;
+      return typeof item.expires_at === 'string' &&
+        Date.parse(item.expires_at) > time + EXPIRY_MARGIN_MS;
+    }
+    function metadata(from, to) {
+      for (const field of ['quality', 'locale', 'language']) {
+        if (typeof from[field] === 'string' && from[field].length <= 80) to[field] = from[field];
+      }
+      if (Number.isSafeInteger(from.bytes) && from.bytes >= 0) to.bytes = from.bytes;
+      return to;
+    }
     if (Array.isArray(links)) {
       for (const source of links) {
         if (!source || typeof source !== 'object') continue;
@@ -83,9 +107,28 @@ function registerWambeshaRoutes(app, { authenticate, database,
         if (typeof source.host === 'string') item.host = source.host;
         if (typeof source.verified_at === 'string') item.verified_at = source.verified_at;
         if (typeof source.quality === 'string' && source.quality.length <= 80) item.quality = source.quality;
-        sanitized.sources.push(item);
+        sanitized.sources.push(metadata(source, item));
       }
     }
+    for (const field of ['subtitles', 'trailers']) {
+      if (body[field] !== undefined && !Array.isArray(body[field])) throw new Error('Invalid source metadata.');
+    }
+    for (const item of body.subtitles || []) {
+      if (!validLink(item, true) || item.format !== 'vtt' ||
+          typeof item.language !== 'string' || !item.language || item.language.length > 80) continue;
+      sanitized.subtitles.push({ url: item.url, expires_at: item.expires_at,
+        language: item.language, format: item.format });
+    }
+    for (const item of body.trailers || []) {
+      if (!item || !['direct', 'youtube'].includes(item.hosted) ||
+          !validLink(item, item.hosted === 'direct')) continue;
+      if (item.hosted === 'youtube' &&
+          !['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be'].includes(new URL(item.url).hostname)) continue;
+      const trailer = metadata(item, { hosted: item.hosted, url: item.url });
+      if (item.expires_at != null) trailer.expires_at = item.expires_at;
+      sanitized.trailers.push(trailer);
+    }
+    if (typeof body.verification_spent === 'boolean') sanitized.verification_spent = body.verification_spent;
     return sanitized;
   }
 
@@ -104,9 +147,13 @@ function registerWambeshaRoutes(app, { authenticate, database,
     let isSourcesEndpoint = false;
     let titleRef = '';
 
-    const sourcesMatch = req.path.match(/^\/titles\/((?:mv|sr|ep)_[A-Za-z0-9]{1,40})\/sources$/);
-    const episodesMatch = req.path.match(/^\/titles\/(sr_[A-Za-z0-9]{1,40})\/episodes$/);
-    const singleTitleMatch = req.path.match(/^\/titles\/((?:mv|sr)_[A-Za-z0-9]{1,40})$/);
+    let providerPath;
+    try { providerPath = decodeURIComponent(req.path); }
+    catch (_) { return res.status(400).json({ error: 'Invalid catalogue path.' }); }
+    const titleMatch = providerPath.match(TITLE_PATH);
+    const sourcesMatch = titleMatch?.[2] === 'sources' ? titleMatch : null;
+    const episodesMatch = titleMatch?.[2] === 'episodes' ? titleMatch : null;
+    const singleTitleMatch = titleMatch && !titleMatch[2] ? titleMatch : null;
 
     if (req.path === '/search') {
       allowed.add('q');
@@ -116,16 +163,21 @@ function registerWambeshaRoutes(app, { authenticate, database,
     } else if (req.path === '/titles') {
       allowed.add('ids');
       const ids = typeof req.query.ids === 'string' ? req.query.ids.split(',') : [];
-      if (!ids.length || ids.length > 100 || ids.some(id => !/^(mv|sr)_[A-Za-z0-9]{1,40}$/.test(id))) {
-        return res.status(400).json({ error: 'Supply up to 100 movie or series IDs.' });
+      if (!ids.length || ids.length > 100 || ids.some(id => !TITLE_REF.test(id))) {
+        return res.status(400).json({ error: 'Supply up to 100 valid title references.' });
       }
     } else if (req.path === '/lookup') {
       allowed.add('tmdb_id');
       allowed.add('imdb_id');
+      allowed.add('type');
       const hasTmdb = typeof req.query.tmdb_id === 'string' && /^\d+$/.test(req.query.tmdb_id);
       const hasImdb = typeof req.query.imdb_id === 'string' && /^tt\d+$/.test(req.query.imdb_id);
       if ((hasTmdb && hasImdb) || (!hasTmdb && !hasImdb)) {
         return res.status(400).json({ error: 'Provide either a valid tmdb_id or imdb_id.' });
+      }
+      if (req.query.type !== undefined && (!hasTmdb ||
+          !['movie', 'tv_movie', 'short', 'special', 'series', 'mini_series', 'season', 'episode'].includes(req.query.type))) {
+        return res.status(400).json({ error: 'Supply a valid type with tmdb_id.' });
       }
     } else if (episodesMatch) {
       allowed.add('season');
@@ -198,7 +250,7 @@ function registerWambeshaRoutes(app, { authenticate, database,
         'Movie service is busy. Please try again later.', 1));
     }
 
-    url.pathname = `/v1${req.path}`;
+    url.pathname = `/v1${providerPath}`;
     url.search = new URLSearchParams(req.query).toString();
     res.set('X-MovieHub-Response-Source', 'wambesha');
 

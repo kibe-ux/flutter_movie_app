@@ -1,6 +1,8 @@
 // ignore_for_file: depend_on_referenced_packages
 
 import 'dart:async';
+import 'dart:io';
+import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -23,6 +25,44 @@ void main() {
   tearDown(() async {
     platform.VideoPlayerPlatform.instance = originalPlatform;
     await fakePlatform.disposeAll();
+  });
+
+  testWidgets(
+      'offline playback loads a matching subtitle and allows turning it off',
+      (tester) async {
+    final directory = Directory.systemTemp.createTempSync('player-captions-');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final video = File('${directory.path}/Movie.mp4');
+    File('${directory.path}/Movie.en.vtt').writeAsStringSync(
+        'WEBVTT\n\n00:00:00.000 --> 00:00:30.000\nHello offline\n');
+    await tester.runAsync(() async {
+      await tester.pumpWidget(
+          MaterialApp(home: VideoPlayerScreen(localFilePath: video.path)));
+      // Native player is faked; real directory and subtitle I/O still settle.
+      for (var i = 0; i < 50; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        await tester.pump();
+        if (find.byTooltip('Subtitles').evaluate().isNotEmpty) break;
+      }
+    });
+    await tester.pumpAndSettle();
+    expect(find.text('Hello offline'), findsOneWidget);
+    final previousSelector = FileSelectorPlatform.instance;
+    final selector = CancelSubtitleSelector();
+    FileSelectorPlatform.instance = selector;
+    addTearDown(() => FileSelectorPlatform.instance = previousSelector);
+    await tester.tap(find.byTooltip('Subtitles'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Choose subtitle file…'));
+    await tester.pumpAndSettle();
+    expect(selector.calls, 1);
+    expect(find.text('Hello offline'), findsOneWidget);
+    await tester.tap(find.byTooltip('Subtitles'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Off'));
+    await tester.pumpAndSettle();
+    expect(find.text('Hello offline'), findsNothing);
+    expect(find.byType(VideoPlayer), findsOneWidget);
   });
 
   testWidgets(
@@ -113,6 +153,18 @@ void main() {
     expect(find.textContaining('Playback failed:'), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
   });
+}
+
+class CancelSubtitleSelector extends FileSelectorPlatform {
+  int calls = 0;
+  @override
+  Future<XFile?> openFile(
+      {List<XTypeGroup>? acceptedTypeGroups,
+      String? initialDirectory,
+      String? confirmButtonText}) async {
+    calls++;
+    return null;
+  }
 }
 
 class FakeVideoPlayerPlatform extends platform.VideoPlayerPlatform {
