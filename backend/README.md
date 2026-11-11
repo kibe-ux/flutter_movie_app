@@ -1,5 +1,8 @@
 # Movie Download Backend
 
+Daily/monthly Wambesha quotas, metadata caching, persistent source reuse and
+usage reporting are described in [COST_CONTROLS.md](COST_CONTROLS.md).
+
 For releases and incidents, start with the
 [production runbook](../PRODUCTION_RUNBOOK.md).
 
@@ -62,10 +65,11 @@ retains nonempty source replies for at most five minutes and empty replies for
 30 seconds. A supplied signed expiry shortens the cache lifetime to 30 seconds
 before the earliest link expires. Invalid/near-expired sources and credentials
 embedded in URLs are discarded; the app also checks expiry before using a source.
-Source caches are per API instance, isolated by verified UID and title, and use
+Local source caches are isolated by verified UID and title, and use
 LRU eviction with at most 128 entries and 8 MiB of encoded JSON payloads.
-Expired entries are pruned on cache access/insertion. Signed links are not
-persisted to PostgreSQL. Payload limits do not describe total Node heap usage.
+Expired entries are pruned on cache access/insertion. Known-expiry source replies
+also persist briefly per user across instances; cross-user reuse remains disabled.
+See [COST_CONTROLS.md](COST_CONTROLS.md). Payload limits do not describe total Node heap usage.
 
 Every Wambesha provider response is streamed with a 1 MiB decoded-byte cap,
 regardless of compression or Content-Length. Headers/body reads have a 15-second

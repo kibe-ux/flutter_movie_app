@@ -2,6 +2,7 @@ const express = require('express');
 const { createHash, randomUUID } = require('node:crypto');
 const { setTimeout: delay } = require('node:timers/promises');
 const { createCatalogueStore } = require('./catalogue_store');
+const { createWambeshaBudget } = require('./wambesha_budget');
 const { discoveryParameters, fetchWambeshaCatalogue } = require('./wambesha_catalogue');
 
 class CatalogueError extends Error {
@@ -83,6 +84,7 @@ async function readJson(response) {
 function createCatalogue({ store, fetchImpl = fetch, now = Date.now,
   sleep = delay, keyProvider = () => process.env.TMDB_API_KEY?.trim(),
   wambeshaKeyProvider = () => process.env.WAMBESHA_API_KEY?.trim(),
+  wambeshaBudget,
   ttlMs = 15 * 60000, staleMs = 60 * 60000,
   userLimit = 120, upstreamLimit = 600, waitMs = 20000,
 } = {}) {
@@ -143,6 +145,15 @@ function createCatalogue({ store, fetchImpl = fetch, now = Date.now,
           beforeFetch: async () => {
             const retryAfter = await store.consume('wambesha:upstream', now(), boundedSetting('WAMBESHA_UPSTREAM_LIMIT', 120, 1800));
             if (retryAfter) throw unavailable();
+            if (!wambeshaBudget) throw unavailable();
+            try { await wambeshaBudget.reserve(false); }
+            catch (error) {
+              await wambeshaBudget.record?.('quota-rejected').catch(() => {});
+              throw error;
+            }
+            await wambeshaBudget.record?.('upstream-request', { sources: false }).catch(() => {
+              console.log(JSON.stringify({ component: 'wambesha-usage', event: 'reporting-error' }));
+            });
           } });
       } else {
         const url = new URL(`https://api.themoviedb.org/3${request.path}`);
@@ -200,6 +211,7 @@ function createCatalogue({ store, fetchImpl = fetch, now = Date.now,
 function registerCatalogueRoutes(app, { authenticate, database, service } = {}) {
   const catalogue = service || createCatalogue({
     store: createCatalogueStore(database),
+    wambeshaBudget: createWambeshaBudget({ database }),
     userLimit: boundedSetting('CATALOGUE_CLIENT_LIMIT', 120, 1000),
     upstreamLimit: boundedSetting('CATALOGUE_UPSTREAM_LIMIT', 600, 1800),
   });

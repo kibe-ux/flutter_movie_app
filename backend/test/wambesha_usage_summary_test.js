@@ -11,6 +11,7 @@ test('log summary separates provider-reported charges from unknown responses', (
     { event: 'shared-cache', cache: 'SHARED_HIT' },
     { event: 'verification', spent: 1 }, { event: 'verification', spent: 0 },
     { event: 'verification', spent: null }, { event: 'source-error' },
+    { event: 'metadata-cache-hit' }, { event: 'quota-rejected' }, { event: 'reporting-error' },
   ].map(row => JSON.stringify({ component: 'wambesha-usage', ...row }));
   const result = spawnSync(process.execPath,
     [path.join(__dirname, '../scripts/summarize_wambesha_usage.js')],
@@ -20,5 +21,6 @@ test('log summary separates provider-reported charges from unknown responses', (
     upstreamRequests: 2, sourceRequests: 1, localCacheHits: 1,
     coalescedRequests: 1, sharedCacheHits: 1, sourceErrors: 1,
     reportedVerifications: 1, unknownVerificationResponses: 1,
+    metadataCacheHits: 1, quotaRejections: 1, reportingErrors: 1,
   });
 });

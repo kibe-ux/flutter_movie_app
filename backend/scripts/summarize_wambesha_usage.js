@@ -4,6 +4,7 @@ const counts = {
   upstreamRequests: 0, sourceRequests: 0, localCacheHits: 0,
   coalescedRequests: 0, sharedCacheHits: 0, sourceErrors: 0,
   reportedVerifications: 0, unknownVerificationResponses: 0,
+  metadataCacheHits: 0, quotaRejections: 0, reportingErrors: 0,
 };
 const lines = readline.createInterface({ input: process.stdin });
 lines.on('line', line => {
@@ -18,6 +19,9 @@ lines.on('line', line => {
   if (row.event === 'coalesced') counts.coalescedRequests++;
   if (row.event === 'shared-cache' && ['SHARED_HIT', 'SHARED_COALESCED'].includes(row.cache)) counts.sharedCacheHits++;
   if (row.event === 'source-error') counts.sourceErrors++;
+  if (row.event === 'metadata-cache-hit') counts.metadataCacheHits++;
+  if (row.event === 'quota-rejected') counts.quotaRejections++;
+  if (row.event === 'reporting-error') counts.reportingErrors++;
   if (row.event === 'verification') {
     if (row.spent === 0 || row.spent === 1) counts.reportedVerifications += row.spent;
     else counts.unknownVerificationResponses++;

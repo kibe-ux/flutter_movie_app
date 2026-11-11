@@ -1,6 +1,8 @@
 const { createHash } = require('node:crypto');
 const { createCatalogueStore } = require('./catalogue_store');
 const { createSharedSourceCache } = require('./wambesha_shared_cache');
+const { createWambeshaBudget } = require('./wambesha_budget');
+const { metadataTtl, createWambeshaMetadataCache } = require('./wambesha_metadata_cache');
 const express = require('express');
 const { createWambeshaLimits, WambeshaLimitError } = require('./wambesha_limits');
 const { readProviderJson, withAbort, cancelBody, createSourceCache,
@@ -31,7 +33,10 @@ function registerWambeshaRoutes(app, { authenticate, database,
   limits = createWambeshaLimits({ database }), fetchImpl = (...args) => fetch(...args),
   now = Date.now, providerTimeoutMs = PROVIDER_TIMEOUT_MS,
   sharedSources = process.env.WAMBESHA_SHARED_SOURCES === 'true',
-  sourceStore, onUsage = event => console.log(JSON.stringify(event)) } = {}) {
+  persistentSources = process.env.WAMBESHA_PERSISTENT_SOURCES !== 'false',
+  sourceStore, budget = createWambeshaBudget({ database, now }),
+  metadataCache = createWambeshaMetadataCache({ store: createCatalogueStore(database), now }),
+  onUsage = event => console.log(JSON.stringify(event)) } = {}) {
   if (!Number.isInteger(providerTimeoutMs) || providerTimeoutMs < 1 || providerTimeoutMs > PROVIDER_TIMEOUT_MS) {
     throw new RangeError('Invalid provider deadline.');
   }
@@ -47,11 +52,13 @@ function registerWambeshaRoutes(app, { authenticate, database,
   const sourcesCache = createSourceCache({ now });
   let activeProviderTasks = 0;
   let pendingSourceTasks = 0;
-  const sharedCache = sharedSources ? createSharedSourceCache({
+  const sharedCache = (sharedSources || persistentSources) ? createSharedSourceCache({
     store: sourceStore || createCatalogueStore(database), now }) : null;
-  function usage(event, fields = {}) {
+  async function usage(event, fields = {}) {
     // Never include user IDs, title IDs, signed URLs, credentials or response bodies.
     try { onUsage({ component: 'wambesha-usage', event, ...fields }); } catch (_) {}
+    try { await budget.record(event, fields); }
+    catch (_) { try { onUsage({ component: 'wambesha-usage', event: 'reporting-error' }); } catch (_) {} }
   }
 
   function getUserId(req) {
@@ -223,18 +230,19 @@ function registerWambeshaRoutes(app, { authenticate, database,
     if (isSourcesEndpoint) {
       const cached = sourcesCache.get(sourceScope);
       if (cached) {
-        usage('cache-hit');
+        await usage('cache-hit');
         res.set('X-MovieHub-Source-Cache', 'HIT');
         res.set('X-MovieHub-Response-Source', 'wambesha');
         return res.type('application/json').send(cached);
       }
 
       // In-flight coalescing for simultaneous taps
-      if (inFlightSources.has(sourceScope)) {
-        usage('coalesced');
+      const pendingSource = inFlightSources.get(sourceScope);
+      if (pendingSource) {
+        await usage('coalesced');
         res.set('X-MovieHub-Source-Cache', 'COALESCED');
         try {
-          const sharedData = await inFlightSources.get(sourceScope);
+          const sharedData = await pendingSource;
           res.set('X-MovieHub-Response-Source', 'wambesha');
           return res.json(sharedData);
         } catch (sharedError) {
@@ -261,17 +269,19 @@ function registerWambeshaRoutes(app, { authenticate, database,
       try {
         if (isSourcesEndpoint) await limits.source(userId);
         await limits.upstream();
+        try { await budget.reserve(isSourcesEndpoint); }
+        catch (error) { await usage('quota-rejected'); throw error; }
         timer = setTimeout(() => controller.abort(
           new DOMException('Provider deadline exceeded.', 'TimeoutError')), providerTimeoutMs);
         timer.unref();
-        usage('upstream-request', { sources: isSourcesEndpoint });
+        await usage('upstream-request', { sources: isSourcesEndpoint });
         const upstream = await withAbort(fetchImpl(url, {
           headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' },
           redirect: 'error',
           signal: controller.signal,
         }), controller.signal);
 
-        usage('upstream-response', { sources: isSourcesEndpoint, status: upstream.status });
+        await usage('upstream-response', { sources: isSourcesEndpoint, status: upstream.status });
         const retryAfter = upstream.headers.get('retry-after');
         if (retryAfter && /^\d+$/.test(retryAfter)) res.set('Retry-After', retryAfter);
 
@@ -286,9 +296,16 @@ function registerWambeshaRoutes(app, { authenticate, database,
         const rawJson = await readProviderJson(upstream, controller.signal);
         if (isSourcesEndpoint) {
           const spent = rawJson.verification_spent;
-          usage('verification', { spent: spent === true || spent === 1 ? 1
+          await usage('verification', { spent: spent === true || spent === 1 ? 1
             : spent === false || spent === 0 ? 0 : null });
           return sanitizeSources(rawJson);
+        }
+        const ttl = metadataTtl(providerPath);
+        if (ttl) {
+          const single = providerPath === '/lookup' || /^\/titles\/[^/]+$/.test(providerPath);
+          if (single ? typeof rawJson.id !== 'string' : !Array.isArray(rawJson.items)) {
+            throw new Error('Invalid metadata response.');
+          }
         }
         return rawJson;
       } finally {
@@ -301,8 +318,8 @@ function registerWambeshaRoutes(app, { authenticate, database,
     if (isSourcesEndpoint) {
       pendingSourceTasks++;
       const fetchPromise = sharedCache
-        ? sharedCache.get(sharedKey, executeFetch).then(result => {
-            usage('shared-cache', { cache: result.cache });
+        ? sharedCache.get(sharedKey, executeFetch).then(async result => {
+            await usage('shared-cache', { cache: result.cache });
             res.set('X-MovieHub-Source-Cache', result.cache);
             return result.body;
           })
@@ -313,7 +330,7 @@ function registerWambeshaRoutes(app, { authenticate, database,
         sourcesCache.set(sourceScope, data);
         return res.json(data);
       } catch (err) {
-        usage('source-error');
+        await usage('source-error');
         return sendRequestError(res, err);
       } finally {
         pendingSourceTasks--;
@@ -322,7 +339,20 @@ function registerWambeshaRoutes(app, { authenticate, database,
     }
 
     try {
-      const data = await executeFetch();
+      const ttl = metadataTtl(providerPath);
+      let data;
+      if (metadataCache && ttl) {
+        const params = new URLSearchParams(req.query);
+        params.sort();
+        const metadataKey = `wambesha-metadata:v1:${createHash('sha256')
+          .update(`${credentialScope}:${providerPath}?${params}`).digest('hex')}`;
+        const result = await metadataCache.get(metadataKey, ttl, executeFetch);
+        if (result.hit) await usage('metadata-cache-hit');
+        res.set('X-MovieHub-Metadata-Cache', result.hit ? 'HIT' : 'MISS');
+        data = result.body;
+      } else {
+        data = await executeFetch();
+      }
       return res.json(data);
     } catch (error) {
       return sendRequestError(res, error);

@@ -4,6 +4,7 @@ const { randomBytes } = require('node:crypto');
 const path = require('node:path');
 const { createCatalogueStore } = require('../catalogue_store');
 const { database } = require('../neon_database');
+const { createWambeshaBudget } = require('../wambesha_budget');
 
 // Opt-in: uses an isolated, uniquely named schema, never the app's tables.
 test('PostgreSQL cache budget: migration, concurrent writers, oversized responses and live leases', {
@@ -79,4 +80,18 @@ test('PostgreSQL cache budget: migration, concurrent writers, oversized response
     (index % 2 ? a : b).consume('wambesha:concurrent-test', 900001, 3)));
   assert.equal(quota.filter(retry => retry === 0).length, 3);
   assert.ok(quota.filter(retry => retry > 0).every(retry => retry === 60));
+
+  const settings = { database: db, sourceMonth: 3, sourceDay: 3,
+    callMonth: 50, callDay: 50, now: () => Date.UTC(2026, 10, 11) };
+  const budgetA = createWambeshaBudget(settings), budgetB = createWambeshaBudget(settings);
+  await budgetA.report(); await budgetB.report();
+  const reserved = await Promise.allSettled(Array.from({ length: 20 }, (_, i) =>
+    (i % 2 ? budgetA : budgetB).reserve(true)));
+  assert.equal(reserved.filter(row => row.status === 'fulfilled').length, 3);
+  await budgetA.reserve(false);
+  await a.cleanup(Date.UTC(2026, 10, 11));
+  const report = await budgetB.report();
+  assert.equal(Number(report.reservations.call_month_used), 4);
+  assert.equal(Number(report.reservations.source_month_used), 3);
+  assert.equal(report.remaining.monthlySourceAttempts, 0);
 });

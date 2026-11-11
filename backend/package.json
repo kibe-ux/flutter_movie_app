@@ -7,6 +7,7 @@
     "start": "node server.js",
     "test": "node --test",
     "load:test": "node load/run.js",
+    "wambesha:usage": "node scripts/report_wambesha_usage.js",
     "accounts:retry-deletions": "node scripts/retry_account_deletions.js",
     "db:check": "node scripts/check_neon_database.js",
     "neon:build": "node scripts/deploy_neon.js --build",

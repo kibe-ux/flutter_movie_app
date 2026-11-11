@@ -80,7 +80,9 @@ test('public catalogue coalesces and caches across guests without metered source
     async publish(key, owner, body, fresh_until, stale_until) { entries.set(key, { body, fresh_until, stale_until }); },
   };
   const calls = [];
+  let reserved = 0;
   const service = createCatalogue({ store, keyProvider: () => '', wambeshaKeyProvider: () => 'server-only-key',
+    wambeshaBudget: { reserve: async sources => { assert.equal(sources, false); reserved++; } },
     fetchImpl: provider([record()], calls) });
   const app = express();
   registerCatalogueRoutes(app, { service, authenticate: (req, res) => res.sendStatus(401) });
@@ -94,6 +96,7 @@ test('public catalogue coalesces and caches across guests without metered source
     assert.equal((await response.json()).results[0].wambesha_id, 'mv_ONE');
   }
   assert.equal(calls.length, 2);
+  assert.equal(reserved, 2, 'both catalogue provider calls consume the account budget');
   assert.equal((await fetch(url, { headers: { 'X-MovieHub-Installation': 'c'.repeat(32) } })).headers.get('x-moviehub-cache'), 'HIT');
   assert.equal(calls.length, 2);
   assert.equal((await fetch(url)).status, 400);

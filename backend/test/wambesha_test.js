@@ -5,13 +5,29 @@ const { registerWambeshaRoutes } = require('../wambesha');
 const { createWambeshaLimits } = require('../wambesha_limits');
 const { memoryRateStore } = require('../test_support/memory_rate_store');
 const { MAX_RESPONSE_BYTES, MAX_PROVIDER_TASKS } = require('../wambesha_resources');
+const { createWambeshaMetadataCache, metadataTtl } = require('../wambesha_metadata_cache');
+
+function cacheStore() {
+  const rows = new Map();
+  return { rows,
+    async read(key) { return rows.get(key); },
+    async acquire(key, owner, now, lease) {
+      const row = rows.get(key);
+      if (row && (row.lease_until > now || row.fresh_until > now || row.retry_at > now)) return false;
+      rows.set(key, { ...row, owner, lease_until: now + lease }); return true;
+    },
+    async publish(key, owner, body, fresh_until) { rows.set(key, { body, fresh_until, lease_until: 0 }); },
+    async release(key, owner, retry_at) { rows.set(key, { ...rows.get(key), lease_until: 0, retry_at }); },
+  };
+}
 
 async function fixture(t, fetchImpl, fixedUid, limits = createWambeshaLimits({ store: memoryRateStore() }), options = {}) {
   const app = express();
   registerWambeshaRoutes(app, {
     authenticate: (req, res, next) => req.header('authorization') === 'Bearer firebase-token'
       ? (req.firebaseUser = { uid: fixedUid || req.header('x-test-user') || 'test-user' }, next()) : res.status(401).json({ error: 'Sign in required.' }),
-    fetchImpl, limits, ...options,
+    fetchImpl, limits, budget: { reserve: async () => {}, record: async () => {} },
+    metadataCache: null, persistentSources: false, ...options,
   });
   const server = app.listen(0);
   t.after(() => new Promise(resolve => server.close(resolve)));
@@ -64,7 +80,7 @@ test('batch titles and genres route correctly; missing configuration fails close
   const paths = [];
   const request = await fixture(t, async url => {
     paths.push(url.pathname);
-    return Response.json({ items: [] });
+    return Response.json({ id: 'mv_123', items: [] });
   });
   assert.equal((await request('/titles?ids=mv_123,sr_456')).status, 200);
   assert.equal((await request('/titles/mv_123')).status, 200);
@@ -93,12 +109,67 @@ test('typed TMDB lookups forward the preference and reject invalid combinations'
   assert.deepEqual(types, ['movie', 'series', null]);
 });
 
+test('quota exhaustion blocks upstream but already cached source links still work', async t => {
+  let calls = 0, remaining = 1;
+  const budget = { record: async () => {}, reserve: async () => {
+    if (!remaining--) throw new (require('../wambesha_limits').WambeshaLimitError)(503, 'Allowance reached.', 3600);
+  } };
+  const request = await fixture(t, async () => {
+    calls++; return Response.json({ sources: [{ kind: 'file_holding', url: 'https://files.example/file' }] });
+  }, undefined, undefined, { budget });
+  assert.equal((await request('/titles/mv_ONE/sources')).status, 200);
+  assert.equal((await request('/titles/mv_TWO/sources')).status, 503);
+  assert.equal((await request('/titles/mv_ONE/sources')).status, 200);
+  assert.equal(calls, 1);
+});
+
+test('metadata caching shares identity and episode pages across users and instances', async t => {
+  let time = Date.now(), calls = 0, reservations = 0;
+  const store = cacheStore();
+  const metadataCache = createWambeshaMetadataCache({ store, now: () => time });
+  const budget = { record: async () => {}, reserve: async sources => { assert.equal(sources, false); reservations++; } };
+  const provider = async () => { calls++; await new Promise(resolve => setTimeout(resolve, 10)); return Response.json({ id: 'mv_ONE', items: [] }); };
+  const options = { metadataCache, budget, now: () => time };
+  const a = await fixture(t, provider, 'user-a', undefined, options);
+  const b = await fixture(t, provider, 'user-b', undefined, options);
+  const path = '/lookup?tmdb_id=123&type=movie';
+  const responses = await Promise.all([a(path), b(path)]);
+  assert.deepEqual(responses.map(row => row.status), [200, 200]);
+  assert.equal(calls, 1);
+  await a('/titles/sr_ONE/episodes?season=1');
+  assert.equal((await b('/titles/sr_ONE/episodes?season=1')).headers.get('x-moviehub-metadata-cache'), 'HIT');
+  assert.equal(calls, 2);
+  time += 3600001;
+  await b('/titles/sr_ONE/episodes?season=1');
+  await a(path);
+  assert.equal(calls, 3, 'episodes refresh hourly while identity lasts a day');
+  assert.equal(reservations, 3, 'cache hits spend no provider budget');
+  assert.equal(metadataTtl('/titles/mv_ONE/sources'), 0);
+});
+
+test('persistent source cache reuses links across instances for the same user only', async t => {
+  const sourceStore = cacheStore();
+  let calls = 0;
+  const provider = async () => {
+    calls++; return Response.json({ links: [{ kind: 'file_holding', url: 'https://files.example/file',
+      expires_at: new Date(Date.now() + 120000).toISOString() }] });
+  };
+  const options = { persistentSources: true, sharedSources: false, sourceStore };
+  const a = await fixture(t, provider, 'same-user', undefined, options);
+  const b = await fixture(t, provider, 'same-user', undefined, options);
+  const c = await fixture(t, provider, 'other-user', undefined, options);
+  await a('/titles/mv_ONE/sources');
+  assert.equal((await b('/titles/mv_ONE/sources')).headers.get('x-moviehub-source-cache'), 'SHARED_HIT');
+  await c('/titles/mv_ONE/sources');
+  assert.equal(calls, 2);
+});
+
 test('external title references work in single, batch, episode and cached source requests', async t => {
   const paths = [];
   const request = await fixture(t, async url => {
     assert.equal(url.origin, 'https://api.wambesha.com');
     paths.push(url.pathname + url.search);
-    return Response.json(url.pathname.endsWith('/sources') ? { sources: [] } : { items: [] });
+    return Response.json(url.pathname.endsWith('/sources') ? { sources: [] } : { id: 'mv_123', items: [] });
   });
   for (const ref of ['imdb:tt0133093', 'tvdb:123', 'tmdb:movie:603', 'tmdb:tv:1399', 'sn_123', 'ep_123']) {
     assert.equal((await request(`/titles/${ref}`)).status, 200);
@@ -260,7 +331,7 @@ test('lookup and episode resolution use the general budget and source failures a
   let calls = 0;
   const request = await fixture(t, async () => {
     calls++;
-    return calls <= 2 ? Response.json({ items: [] }) : new Response('{}', { status: 503 });
+    return calls <= 2 ? Response.json({ id: 'mv_123', items: [] }) : new Response('{}', { status: 503 });
   });
   assert.equal((await request('/lookup?tmdb_id=329865')).status, 200);
   assert.equal((await request('/titles/sr_123/episodes?season=1&limit=50&cursor=next')).status, 200);
@@ -340,7 +411,7 @@ test('search and lookup share user and upstream quotas across server instances',
   const store = memoryRateStore();
   const options = { store, clientLimit: 2, upstreamLimit: 3 };
   let calls = 0;
-  const provider = async () => { calls++; return Response.json({ items: [] }); };
+  const provider = async () => { calls++; return Response.json({ id: 'mv_123', items: [] }); };
   const a = await fixture(t, provider, undefined, createWambeshaLimits(options));
   const b = await fixture(t, provider, undefined, createWambeshaLimits(options));
   assert.equal((await a('/search?q=Arrival')).status, 200);
@@ -459,7 +530,7 @@ test('provider capacity bounds new work while followers share a slot and failure
     if (calls === MAX_PROVIDER_TASKS) started.resolve();
     if (calls <= MAX_PROVIDER_TASKS) await gate.promise;
     if (url.pathname.includes('/mv_0/')) throw new Error('private-provider-detail');
-    return Response.json({ sources: [] });
+    return Response.json({ sources: [], items: [] });
   });
   t.after(() => gate.resolve());
   const pending = Array.from({ length: MAX_PROVIDER_TASKS }, (_, i) => request(`/titles/mv_${i}/sources`));
