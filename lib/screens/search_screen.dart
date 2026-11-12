@@ -35,6 +35,10 @@ class _SearchScreenState extends State<SearchScreen>
   final Map<String, List<Map<String, dynamic>>> _genresByType = {};
   String _searchType = 'all';
   String? _searchError;
+  final _queryResults = <String, List<Map<String, dynamic>>>{};
+
+  String _queryKey(String query) =>
+      '$_searchType:${query.trim().toLowerCase()}';
 
   List<Map<String, dynamic>> get _genres {
     final byName = <String, Map<String, dynamic>>{};
@@ -109,6 +113,10 @@ class _SearchScreenState extends State<SearchScreen>
       _resetSearch();
       return;
     }
+    if (_queryResults.containsKey(_queryKey(query))) {
+      unawaited(_performSearch(query));
+      return;
+    }
     // Debounce so we don't fire a request on every keystroke.
     ++_requestToken;
     setState(() {
@@ -118,7 +126,7 @@ class _SearchScreenState extends State<SearchScreen>
       _searchError = null;
     });
     _debounce = Timer(
-      const Duration(milliseconds: 400),
+      const Duration(milliseconds: 250),
       () => _performSearch(query),
     );
   }
@@ -166,8 +174,14 @@ class _SearchScreenState extends State<SearchScreen>
           throw StateError('Genre metadata unavailable');
         }
       }
-      final page = await _searchService.search(sanitizedQuery);
+      final key = _queryKey(sanitizedQuery);
+      final page = _queryResults[key] ??
+          await _searchService.search(sanitizedQuery, type: _searchType);
       if (!mounted || requestToken != _requestToken) return;
+      if (!_queryResults.containsKey(key) && _queryResults.length >= 32) {
+        _queryResults.remove(_queryResults.keys.first);
+      }
+      _queryResults[key] = page;
       final seen = <String>{};
       final results = filterReleasedMovies(page)
           .where((item) => types.contains(item['media_type']))
@@ -480,7 +494,9 @@ class _SearchScreenState extends State<SearchScreen>
   Widget _buildSearchResultItem(Map<String, dynamic> item) {
     final posterPath = item['poster_path'] ?? item['backdrop_path'];
     final imageUrl = item['poster_url'] as String? ??
-        (posterPath != null ? '$imageBase$posterPath' : null);
+        (posterPath != null
+            ? 'https://image.tmdb.org/t/p/w185$posterPath'
+            : null);
     final title = item['title'] ?? item['name'] ?? 'Unknown Title';
     final overview = item['overview'] ?? 'No description available';
     final isInMyList = MyListService().contains(item['id']); // UPDATED

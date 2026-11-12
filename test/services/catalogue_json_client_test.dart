@@ -4,8 +4,41 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:moviehub_app/services/catalogue_json_client.dart';
+import 'package:moviehub_app/services/catalogue_page_cache.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test('restores genres and cards after reopening, while refresh fetches anew',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    var requests = 0;
+    CatalogueJsonClient create(CataloguePageCache cache) => CatalogueJsonClient(
+          pageCache: cache,
+          client: MockClient((request) async {
+            requests++;
+            return http.Response(
+                request.url.path.contains('/genre/')
+                    ? '{"genres":[{"id":28,"name":"Action"}]}'
+                    : '{"results":[{"id":1,"title":"Cached movie"}]}',
+                200);
+          }),
+        );
+    final genres = TmdbApi.uri('genre/movie/list');
+    final cards = TmdbApi.uri('discover/movie');
+    final cache = CataloguePageCache(persistenceKey: 'explore_test');
+    final first = create(cache);
+    await first.get(genres);
+    await first.get(cards);
+    await cache.flush();
+    first.close();
+    final reopened = create(CataloguePageCache(persistenceKey: 'explore_test'));
+    addTearDown(reopened.close);
+    expect((await reopened.get(genres))['genres'], isNotEmpty);
+    expect((await reopened.get(cards))['results'], isNotEmpty);
+    expect(requests, 2);
+    await reopened.get(cards, refresh: true);
+    expect(requests, 3);
+  });
   final uri = TmdbApi.uri('movie/popular');
   test('reuses successful responses, refreshes explicitly and expires old data',
       () async {

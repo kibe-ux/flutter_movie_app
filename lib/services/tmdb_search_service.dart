@@ -19,18 +19,20 @@ class TmdbSearchService {
     return jsonDecode(body) as Map<String, dynamic>;
   }
 
-  Future<List<Map<String, dynamic>>> search(String query) async {
+  Future<List<Map<String, dynamic>>> search(String query,
+      {String type = 'all'}) async {
+    if (!const ['all', 'movie', 'tv'].contains(type)) {
+      throw ArgumentError.value(type, 'type');
+    }
+    final types = type == 'all' ? ['movie', 'tv'] : [type];
     final pages = await Future.wait([
-      for (final type in ['movie', 'tv'])
+      for (final type in types)
         _get('search/$type', {'query': query.trim(), 'page': '1'})
     ]);
     return [
       for (var i = 0; i < pages.length; i++)
         for (final row in pages[i]['results'] as List)
-          {
-            ...Map<String, dynamic>.from(row as Map),
-            'media_type': i == 0 ? 'movie' : 'tv'
-          }
+          {...Map<String, dynamic>.from(row as Map), 'media_type': types[i]}
     ];
   }
 

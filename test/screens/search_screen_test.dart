@@ -16,7 +16,8 @@ class FakeSearch extends TmdbSearchService {
         {'id': 2, 'name': 'Drama'},
       ];
   @override
-  Future<List<Map<String, dynamic>>> search(String query) {
+  Future<List<Map<String, dynamic>>> search(String query,
+      {String type = 'all'}) {
     queries.add(query);
     return handler(query);
   }
@@ -151,7 +152,9 @@ void main() {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
     await search(tester, 'Orbit');
-    expect(find.text('Unable to load results. Check your connection and try again.'),
+    expect(
+        find.text(
+            'Unable to load results. Check your connection and try again.'),
         findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
     service.handler = (_) async => [];
@@ -185,5 +188,22 @@ void main() {
     await search(tester, 'a');
     expect(service.queries, isEmpty);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('repeated search appears without debounce or another request',
+      (tester) async {
+    service.handler = (_) async => [
+          {'id': 1, 'title': 'Swift result', 'media_type': 'movie'}
+        ];
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await search(tester, 'Swift');
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), 'Swift');
+    await tester.pump();
+    expect(find.text('Swift result'), findsOneWidget);
+    expect(service.queries, ['Swift']);
+    await tester.pumpWidget(const SizedBox());
   });
 }

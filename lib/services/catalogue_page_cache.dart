@@ -97,7 +97,11 @@ class CataloguePageCache {
           final at = DateTime.fromMillisecondsSinceEpoch(value['at'] as int);
           final body = value['body'] as String;
           final data = jsonDecode(body);
-          if (!_fresh(at) || data is! Map || data['results'] is! List) continue;
+          if (!_fresh(at) ||
+              data is! Map ||
+              (data['results'] is! List && data['genres'] is! List)) {
+            continue;
+          }
           _entries[entry.key] =
               (at: at, body: body, bytes: utf8.encode(body).length);
         } catch (_) {

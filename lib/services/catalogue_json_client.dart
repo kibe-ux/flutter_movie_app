@@ -1,4 +1,5 @@
 import 'tmdb_api.dart';
+import 'catalogue_page_cache.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
@@ -6,12 +7,14 @@ import 'package:http/http.dart' as http;
 class CatalogueJsonClient {
   CatalogueJsonClient(
       {http.Client? client,
+      this.pageCache,
       DateTime Function()? now,
       this.ttl = const Duration(minutes: 5)})
       : _client = client ?? http.Client(),
         _now = now ?? DateTime.now;
 
   final http.Client _client;
+  final CataloguePageCache? pageCache;
   final DateTime Function() _now;
   final Duration ttl;
   final _cache = <Uri, ({DateTime at, Map<String, dynamic> data})>{};
@@ -25,7 +28,7 @@ class CatalogueJsonClient {
     }
     final pending = _pending[uri];
     if (pending != null) return pending;
-    final request = _fetch(uri);
+    final request = _fetch(uri, refresh: refresh);
     _pending[uri] = request;
     try {
       return await request;
@@ -34,14 +37,22 @@ class CatalogueJsonClient {
     }
   }
 
-  Future<Map<String, dynamic>> _fetch(Uri uri) async {
-    final response = await TmdbApi.get(uri, client: _client)
-        .timeout(const Duration(seconds: 20));
-    if (response.statusCode != 200) throw StateError('Catalogue unavailable');
-    final decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, dynamic>) {
-      throw const FormatException('Invalid catalogue response');
+  Future<Map<String, dynamic>> _fetch(Uri uri, {bool refresh = false}) async {
+    Future<String> fetchBody() async {
+      final response = await TmdbApi.get(uri, client: _client)
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200) throw StateError('Catalogue unavailable');
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) {
+        throw const FormatException('Invalid catalogue response');
+      }
+      return response.body;
     }
+
+    final body = pageCache == null
+        ? await fetchBody()
+        : await pageCache!.get(uri, fetchBody, refresh: refresh);
+    final decoded = jsonDecode(body) as Map<String, dynamic>;
     if (!_closed) {
       _cache.remove(uri);
       if (_cache.length >= 32) _cache.remove(_cache.keys.first);

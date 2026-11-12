@@ -6,6 +6,7 @@ import '../services/my_list_service.dart';
 import '../utils/cinema_palette.dart';
 import '../services/ad_service.dart';
 import '../services/catalogue_json_client.dart';
+import '../services/catalogue_page_cache.dart';
 import '../widgets/safe_network_image.dart';
 import '../widgets/movie_hub_banner_ad.dart';
 import '../utils/movie_download_availability.dart';
@@ -32,7 +33,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
   int _requestGeneration = 0;
   Timer? _searchDebounce;
   final _searchController = TextEditingController();
-  final _catalogue = CatalogueJsonClient();
+  final _catalogue = CatalogueJsonClient(
+      pageCache: CataloguePageCache(persistenceKey: 'explore_catalogue_v1'));
   final _tabResults = <String,
       ({
     List<dynamic> genres,
@@ -155,7 +157,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       searchMovies(query);
       return;
     }
-    _searchDebounce = Timer(const Duration(milliseconds: 400), () {
+    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
       if (mounted) searchMovies(query);
     });
   }
@@ -321,7 +323,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
           (context, index) {
             final movie = movies[index];
             final imageUrl = movie['poster_path'] != null
-                ? '$imageBase${movie['poster_path']}'
+                ? 'https://image.tmdb.org/t/p/w342${movie['poster_path']}'
                 : null;
             final movieId = movie['id'] ?? 0;
             final isInMyList = MyListService().contains(movieId);
