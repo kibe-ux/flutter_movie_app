@@ -536,7 +536,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         children: [
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Text('Browse more movies and TV shows and have fun!',
+            child: Text('Browse more Movies and TV shows and have fun!',
                 style: TextStyle(color: CinemaPalette.muted, fontSize: 12)),
           ),
           if (!isLoading && movies.isNotEmpty)

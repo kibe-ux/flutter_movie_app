@@ -109,6 +109,21 @@ class LegalInfoScreen extends StatelessWidget {
                   'You must use the app lawfully and must not use it to infringe copyright or other rights. You are responsible for deciding whether any third-party service or material is authorized and lawful to access in your jurisdiction.'
             ),
             (
+              heading: 'Account security and deletion',
+              text:
+                  'Provide accurate account information and keep your password and sign-in credentials private. You are responsible for activity you authorize through your account. If you suspect unauthorized access, secure your sign-in account and contact Support. You can request account deletion from your Profile; we may require you to verify your identity or sign in again before processing the request. A deletion request may be confirmed as pending while cleanup continues. The Privacy Policy explains how account information is handled and any applicable retention. Uninstalling Movie Hub does not itself delete your account.'
+            ),
+            (
+              heading: 'Forum rules and account suspension',
+              text:
+                  'Use the forum respectfully. Do not post harassment, hate speech, threats, sexually explicit or exploitative material, scams, spam, impersonation, unlawful content, or another person\u2019s private information without permission. Respect other people\u2019s intellectual-property rights. Use the report and block tools to raise concerns and manage interactions. Moderators may remove content that violates these rules, and serious or repeated violations may result in restrictions or account suspension. If you believe a moderation or account decision is incorrect, contact Support with the relevant details.'
+            ),
+            (
+              heading: 'Cinema Coins, rewarded ads, and redemption',
+              text:
+                  'Cinema Coins are promotional in-app credits, have no cash value, and cannot be sold, transferred, or exchanged for money. They can be used only for eligible rewards displayed in Cinema Rewards. Watching a rewarded ad is optional; each ad requires your choice, and you may decline and continue browsing. In live mode, the disclosed coin reward is credited after the ad is completed and verified; confirmation may take time. Test ads do not award spendable coins. Redemption requires an eligible signed-in account and enough confirmed coins. Review the coin cost and reward duration shown before confirming. A confirmed redemption deducts the stated coins and activates the selected ad-free pass immediately. Pass time continues while the app is closed, and redeeming another pass extends an active pass. Do not use automation, tampering, or fraudulent activity to obtain rewards.'
+            ),
+            (
               heading: 'Limitation of liability',
               text:
                   'To the fullest extent permitted by applicable law, Movie Hub is provided without warranties of availability, accuracy, security, or fitness for a particular purpose. We are not responsible for third-party websites, content, services, downloads, or for losses arising from your use of them.'
@@ -262,10 +277,10 @@ class LegalInfoScreen extends StatelessWidget {
                 color: CinemaPalette.ivory.withValues(alpha: 0.03),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: const Text(
-                'Last updated: 19 October 2026\nKeep this information for your records and review it when using app services.',
+              child: Text(
+                'Last updated: ${type == LegalPageType.terms ? '12 November 2026' : '19 October 2026'}\nKeep this information for your records and review it when using app services.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                     color: CinemaPalette.muted, fontSize: 12, height: 1.45),
               ),
             ),
