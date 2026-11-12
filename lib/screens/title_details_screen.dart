@@ -1,19 +1,21 @@
+import '../models/download_item.dart';
 import '../services/metadata_list_service.dart';
-// -------------------- MovieDetailsScreen.dart --------------------
+// -------------------- TitleDetailsScreen.dart --------------------
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../utils/cinema_palette.dart';
 import '../utils/catalogue_artwork.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../utils/my_list.dart';
+import '../services/my_list_service.dart';
 import '../utils/movie_download_availability.dart';
 import '../utils/movie_download_error.dart';
 import '../services/ad_service.dart';
 import '../services/download_service.dart';
+import '../services/download_source_request.dart';
+import '../widgets/download_progress_details.dart';
 import '../services/download_ad_gate.dart';
 import '../services/wambesha_api_service.dart';
 import '../services/tmdb_details_service.dart';
@@ -32,15 +34,15 @@ import '../services/tv_series_service.dart';
 const String imageBase = 'https://image.tmdb.org/t/p/w500';
 const String backdropBase = 'https://image.tmdb.org/t/p/w780';
 
-class MovieDetailsScreen extends StatefulWidget {
+class TitleDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> movie;
-  const MovieDetailsScreen({super.key, required this.movie});
+  const TitleDetailsScreen({super.key, required this.movie});
 
   @override
-  State<MovieDetailsScreen> createState() => _MovieDetailsScreenState();
+  State<TitleDetailsScreen> createState() => _TitleDetailsScreenState();
 }
 
-class _MovieDetailsScreenState extends State<MovieDetailsScreen>
+class _TitleDetailsScreenState extends State<TitleDetailsScreen>
     with WidgetsBindingObserver {
   List<Map<String, dynamic>> similarMovies = [];
   bool isLoadingSimilar = true;
@@ -67,6 +69,9 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     _refreshSavedDownload();
     _tmdbDetails = _loadTmdbDetails();
     _checkIfFavorite();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) fetchSimilarMovies();
+    });
   }
 
   Future<Map<String, dynamic>?> _loadTmdbDetails({bool refresh = false}) async {
@@ -152,6 +157,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
 
   // -------------------- API Fetch --------------------
   Future<void> fetchSimilarMovies() async {
+    if (_similarRequested && isLoadingSimilar) return;
     setState(() {
       _similarRequested = true;
       _similarFailed = false;
@@ -327,17 +333,17 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      MyList().contains(movie['id'])
+                      MyListService().contains(movie['id'])
                           ? Icons.bookmark
                           : Icons.bookmark_border,
-                      color: MyList().contains(movie['id'])
+                      color: MyListService().contains(movie['id'])
                           ? const Color(0xFFE50914)
                           : CinemaPalette.ivory,
                       size: 22,
                     ),
                   ),
                   onPressed: () {
-                    MyList().toggle(movie['id']);
+                    MyListService().toggle(movie['id']);
                     setState(() {});
                   },
                 ),
@@ -391,13 +397,19 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                         tmdbDetails: snap.data,
                       ),
                     ),
-                    const SizedBox(height: 32),
-                    _buildPrimaryActions(movie),
-                    const SizedBox(height: 28),
+                    if (_isTv) ...[
+                      const SizedBox(height: 32),
+                      _buildPrimaryActions(movie),
+                      const SizedBox(height: 28),
+                    ] else
+                      const SizedBox(height: 20),
                     _buildOverview(movie),
                     const SizedBox(height: 24),
                     if (movie['id'] is num)
                       MovieMoreInfo(
+                        downloadAction: _isTv
+                            ? null
+                            : _buildPrimaryActions(movie, compact: true),
                         movieId: (movie['id'] as num).toInt(),
                         mediaType: _mediaType,
                         metadata: _tmdbDetails,
@@ -406,16 +418,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                         }),
                       ),
                     const SizedBox(height: 24),
-                    ExpansionTile(
-                      title: const Text('Similar titles'),
-                      maintainState: true,
-                      onExpansionChanged: (open) {
-                        if (open && !_similarRequested) fetchSimilarMovies();
-                      },
-                      children: [
-                        if (_similarRequested) _buildSimilarMoviesSection(),
-                      ],
-                    ),
+                    _buildSimilarMoviesSection(),
                     const SizedBox(height: 28),
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16),
@@ -1034,7 +1037,8 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
   }
 
   // -------------------- Primary actions --------------------
-  Widget _buildPrimaryActions(Map<String, dynamic> movie) {
+  Widget _buildPrimaryActions(Map<String, dynamic> movie,
+      {bool compact = false}) {
     if (_isTv) {
       return ExpansionTile(
         title: const Text('Seasons & episodes'),
@@ -1058,16 +1062,8 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
       );
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('SAVE OFFLINE',
-          style: TextStyle(
-              color: CinemaPalette.muted,
-              fontFamily: GoogleFonts.inter().fontFamily,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.6)),
-      const SizedBox(height: 12),
       SizedBox(
-          width: double.infinity,
+          width: compact ? 48 : double.infinity,
           child: StreamBuilder<Map<int, DownloadItem>>(
             stream: _downloadService.downloadsStream,
             initialData: _downloadService.activeDownloads,
@@ -1079,9 +1075,18 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildDownloadButton(
-                        movie, status, download?.progress ?? 0),
-                    if (status == DownloadStatus.failed &&
+                    _buildDownloadButton(movie, status, download?.progress ?? 0,
+                        compact: compact),
+                    if (!compact &&
+                        download != null &&
+                        (status == DownloadStatus.downloading ||
+                            status == DownloadStatus.paused ||
+                            status == DownloadStatus.queued))
+                      Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: DownloadProgressDetails(item: download)),
+                    if (!compact &&
+                        status == DownloadStatus.failed &&
                         download?.errorMessage != null)
                       Padding(
                           padding: const EdgeInsets.only(top: 8),
@@ -1097,7 +1102,8 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
 
   /// Build download button with different states
   Widget _buildDownloadButton(
-      Map<String, dynamic> movie, DownloadStatus status, double progress) {
+      Map<String, dynamic> movie, DownloadStatus status, double progress,
+      {bool compact = false}) {
     IconData icon = Icons.download_rounded;
     String label = 'Download Now';
     VoidCallback? onPressed;
@@ -1108,6 +1114,11 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
         icon = Icons.download_rounded;
         label = 'Download Now';
         onPressed = () => _startDownload(movie);
+        break;
+      case DownloadStatus.queued:
+        icon = Icons.hourglass_top_rounded;
+        label = 'Queued · Cancel';
+        onPressed = () => _downloadService.cancelDownload(movie['id']);
         break;
       case DownloadStatus.downloading:
         icon = Icons.pause_rounded;
@@ -1136,6 +1147,23 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     }
 
     final isPrimary = status == DownloadStatus.idle;
+    if (compact) {
+      return IconButton(
+        tooltip: _resolvingDownload
+            ? 'Finding download...'
+            : status == DownloadStatus.idle
+                ? 'Download movie'
+                : label,
+        onPressed: _resolvingDownload ? null : onPressed,
+        color: buttonColor,
+        icon: _resolvingDownload
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2))
+            : Icon(icon),
+      );
+    }
     return ElevatedButton.icon(
       onPressed: _resolvingDownload ? null : onPressed,
       icon: _resolvingDownload
@@ -1217,10 +1245,18 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
         movieTitle: episodeTitle,
         posterPath: widget.movie['poster_path'],
         downloadUrl: url,
+        sourceRequest: DownloadSourceRequest(
+            original: sources,
+            selectedUrl: url,
+            tmdbId: (widget.movie['id'] as num).toInt(),
+            titleRef: widget.movie['wambesha_id'] as String?,
+            title: widget.movie['name'] as String?,
+            season: season,
+            episode: number),
       ));
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Downloading $code')));
+          .showSnackBar(SnackBar(content: Text('Download added: $code')));
     } catch (error) {
       if (mounted) {
         showMovieDownloadError(context, error);
@@ -1290,6 +1326,13 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
           movieTitle: movie['title'] ?? 'Unknown',
           posterPath: movie['poster_path'],
           downloadUrl: chosenUrl,
+          sourceRequest: DownloadSourceRequest(
+              original: sources,
+              selectedUrl: chosenUrl,
+              tmdbId: tmdbId,
+              titleRef: _movieSourceId,
+              title: movieTitle,
+              releaseDate: movie['release_date'] as String?),
         ),
       );
 
@@ -1349,7 +1392,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
     if (_similarFailed) {
       return TextButton(
           onPressed: fetchSimilarMovies,
-          child: const Text('Unable to load similar titles. Retry'));
+          child: const Text('Could not load more titles. Retry'));
     }
     if (isLoadingSimilar) {
       return const SizedBox(
@@ -1368,48 +1411,44 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen>
                 fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         SizedBox(
-          height: 205,
+          height: 240,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: similarMovies.length,
             itemBuilder: (context, index) {
               final movie = similarMovies[index];
-              final posterUrl = movie['poster_path'] != null
-                  ? '$imageBase${movie['poster_path']}'
-                  : null;
+              final posterUrl = catalogueArtwork(movie, size: 'w300');
               return GestureDetector(
                 onTap: () {
                   _showInterstitialAd(() {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => MovieDetailsScreen(movie: movie),
+                        builder: (context) => TitleDetailsScreen(movie: movie),
                       ),
                     );
                   });
                 },
                 child: Container(
+                  width: 136,
                   margin: const EdgeInsets.only(right: 10),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: posterUrl != null
-                        ? CachedNetworkImage(
-                            imageUrl: posterUrl,
-                            fit: BoxFit.cover,
-                            placeholder: (context, url) => const Center(
-                              child: CircularProgressIndicator(
-                                  color: CinemaPalette.gold),
-                            ),
-                            errorWidget: (context, url, error) =>
-                                const Icon(Icons.error),
-                          )
-                        : Container(
-                            color: CinemaPalette.surface,
-                            child: const Center(
-                              child: Icon(Icons.image_not_supported),
-                            ),
-                          ),
-                  ),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                            child: SafeNetworkImage(
+                                imageUrl: posterUrl,
+                                width: double.infinity,
+                                borderRadius: BorderRadius.circular(8))),
+                        const SizedBox(height: 6),
+                        Text(
+                            (movie['title'] ?? movie['name'] ?? 'Movie')
+                                .toString(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                color: CinemaPalette.ivory, fontSize: 13)),
+                      ]),
                 ),
               );
             },

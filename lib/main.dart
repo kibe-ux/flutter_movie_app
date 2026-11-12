@@ -10,13 +10,13 @@ import 'services/ad_service.dart';
 import 'services/ad_diagnostics.dart';
 import 'services/crash_reporting_service.dart';
 import 'services/home_startup_service.dart';
+import 'services/download_service.dart';
 import 'screens/logo_screen.dart';
 import 'screens/favorites_screen.dart';
 import 'screens/watch_history_screen.dart';
-import 'screens/downloaded_movies_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/my_list_screen.dart';
-import 'utils/my_list.dart';
+import 'services/my_list_service.dart';
 import 'utils/cinema_palette.dart';
 import 'widgets/fast_page_transitions.dart';
 
@@ -26,21 +26,23 @@ void main() {
 }
 
 Future<void> _initializeApp() async {
-  // MyList uses FirebaseAuth, so Firebase must exist before MyList starts.
-  // Running them together caused MyList to occasionally access FirebaseAuth
+  // MyListService uses FirebaseAuth, so Firebase must exist before MyListService starts.
+  // Running them together caused MyListService to occasionally access FirebaseAuth
   // before the default Firebase app had been created.
   await _initializeFirebase();
   await CrashReportingService.initialize();
   try {
     await Future.wait([
       _loadEnvironment(),
-      MyList().init(),
+      MyListService().init(),
     ]);
   } catch (error, stack) {
     await CrashReportingService.recordError(error, stack,
         reason: 'App initialization failed');
     rethrow;
   }
+
+  await DownloadService().initialize();
 
   // Initialize Ads and preload first interstitial
   unawaited(AdService()
@@ -123,7 +125,6 @@ class MovieDownloadApp extends StatelessWidget {
             initialize: initialize, startupService: HomeStartupService()),
         routes: {
           '/favorites': (context) => const FavoritesScreen(),
-          '/downloads': (context) => const DownloadedMoviesScreen(),
           '/watch-history': (context) => const WatchHistoryScreen(),
           '/profile': (context) => const ProfileScreen(),
           '/my-list': (context) => const MyListScreen(),

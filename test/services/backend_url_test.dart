@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:moviehub_app/services/backend_url.dart';
+import 'package:moviehub_app/utils/backend_url.dart';
 
 void main() {
   test('release backends require HTTPS and reject credential-bearing URLs', () {

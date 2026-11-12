@@ -279,7 +279,7 @@ void main() {
       await tester.pumpAndSettle();
       
       // Verify navigation occurred
-      expect(find.byType(MovieDetailsScreen), findsOneWidget);
+      expect(find.byType(TitleDetailsScreen), findsOneWidget);
     });
   });
 }
@@ -365,7 +365,7 @@ void main() {
       await tester.pumpAndSettle();
       
       // Verify detail screen
-      expect(find.byType(MovieDetailsScreen), findsOneWidget);
+      expect(find.byType(TitleDetailsScreen), findsOneWidget);
       
       // Add to favorites
       await tester.tap(find.byIcon(Icons.favorite_border));

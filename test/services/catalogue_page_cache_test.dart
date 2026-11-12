@@ -29,6 +29,7 @@ void main() {
     now = DateTime(2026, 11, 4, 12);
     cache = CataloguePageCache(now: () => now);
   });
+  tearDown(() => cache.flush());
 
   test('screens share requests, return independent data, and refresh on demand',
       () async {
@@ -67,6 +68,7 @@ void main() {
     var calls = 0;
     await http.runWithClient(() async {
       await CatalogueService(cache: cache).fetchPage(uri);
+      await cache.flush();
       now = now.add(const Duration(minutes: 10));
       final restarted =
           CatalogueService(cache: CataloguePageCache(now: () => now));
@@ -75,14 +77,14 @@ void main() {
       now = now.add(const Duration(minutes: 5));
       expect((await restarted.fetchPage(uri)).items.single['id'], 2);
       expect(calls, 2);
+      await cache.flush();
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString(CataloguePageCache.storageKey),
           isNot(contains(uri.toString())));
     }, () => MockClient((_) async => http.Response(body(++calls), 200)));
   });
 
-  test('page, language and filters have separate cache entries',
-      () async {
+  test('page, language and filters have separate cache entries', () async {
     var calls = 0;
     final requests = [
       uri,
@@ -90,7 +92,7 @@ void main() {
       uri.replace(queryParameters: {...uri.queryParameters, 'language': 'sw'}),
       uri.replace(
           queryParameters: {...uri.queryParameters, 'with_genres': '35'}),
-          ];
+    ];
     await http.runWithClient(() async {
       for (final request in requests) {
         await CatalogueService(cache: cache).fetchPage(request);
@@ -150,6 +152,7 @@ void main() {
         await service.fetchPage(uri.replace(
             queryParameters: {...uri.queryParameters, 'page': '$page'}));
       }
+      await cache.flush();
       final prefs = await SharedPreferences.getInstance();
       expect(
           (jsonDecode(prefs.getString(CataloguePageCache.storageKey)!) as Map)
@@ -170,6 +173,7 @@ void main() {
       await service.fetchPage(uri);
       await service.fetchPage(uri);
       expect(calls, 2);
+      await cache.flush();
       final prefs = await SharedPreferences.getInstance();
       expect(
           jsonDecode(prefs.getString(CataloguePageCache.storageKey)!), isEmpty);
@@ -197,6 +201,7 @@ void main() {
     await http.runWithClient(() async {
       final service = CatalogueService(cache: cache);
       await Future.wait([service.fetchPage(uri), service.fetchPage(nextPage)]);
+      await cache.flush();
       final restarted =
           CatalogueService(cache: CataloguePageCache(now: () => now));
       await restarted.fetchPage(uri);

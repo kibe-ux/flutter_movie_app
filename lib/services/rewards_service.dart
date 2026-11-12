@@ -1,4 +1,4 @@
-import 'backend_url.dart';
+import '../utils/backend_url.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';

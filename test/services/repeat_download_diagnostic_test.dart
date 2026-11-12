@@ -1,3 +1,4 @@
+import 'package:moviehub_app/models/download_item.dart';
 import 'dart:async';
 import 'dart:io';
 

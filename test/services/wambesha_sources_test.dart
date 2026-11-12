@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:moviehub_app/services/wambesha_api_service.dart';
-import 'package:moviehub_app/services/movie_download_service.dart';
 
 Map<String, dynamic> source(String kind, String path, {bool expired = false}) =>
     {
@@ -111,12 +110,9 @@ void main() {
           }),
           200);
     }));
-    final downloads = MovieDownloadService.forTesting(sourceService: api);
-    expect(
-        await downloads.requestSignedDownloadUrl(
-            movieId: 'mv_TEST', quality: '1080p'),
+    expect((await api.sources('mv_TEST')).requireUrl('file_holding'),
         contains('/download.mp4'));
-    expect(await downloads.requestPlaybackUrl(movieId: 'mv_TEST'),
+    expect((await api.sources('mv_TEST')).requirePlaybackUrl(),
         contains('/play.mp4'));
     expect(requests, hasLength(1));
     expect(requests.single.url.path, '/api/wambesha/titles/mv_TEST/sources');
@@ -165,10 +161,7 @@ void main() {
           }),
           200);
     }));
-    final downloads = MovieDownloadService.forTesting(sourceService: api);
-    expect(
-        await downloads.requestSignedDownloadUrl(
-            movieId: '329865', quality: ''),
+    expect((await api.movieSources(tmdbId: 329865)).requireUrl('file_holding'),
         contains('movie.mp4'));
     expect(paths,
         ['/api/wambesha/lookup', '/api/wambesha/titles/mv_TEST/sources']);
@@ -292,12 +285,9 @@ void main() {
           }),
           200);
     }));
-    final downloads = MovieDownloadService.forTesting(sourceService: api);
     for (var i = 0; i < 2; i++) {
       expect(
-          await downloads.requestSignedDownloadUrl(
-              movieId: 'mv_GCZQF6WP7B', quality: ''),
-          url);
+          (await api.sources('mv_GCZQF6WP7B')).requireUrl('file_holding'), url);
     }
     expect(calls, 1);
     api.dispose();

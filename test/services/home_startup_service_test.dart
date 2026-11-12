@@ -28,7 +28,7 @@ void main() {
     await http.runWithClient(() async {
       final result = await HomeStartupService().load();
       expect(result.connected, isTrue);
-      expect(requests, 3);
+      expect(requests, 4);
       expect(result.categories.keys, HomeStartupService.endpoints.keys);
       final movies = result.categories.values.expand((items) => items).toList();
       expect(movies.length, 8);
@@ -82,7 +82,7 @@ void main() {
       expect(result.categories['Popular Movies'], isNotEmpty);
     },
         () => MockClient((request) async {
-              if (request.url.queryParameters['sort'] == 'newest') {
+              if (request.url.path.endsWith('/movie/now_playing')) {
                 return http.Response('Unavailable', 503);
               }
               return http.Response(

@@ -2,6 +2,82 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moviehub_app/utils/home_catalogue_rows.dart';
 
 void main() {
+  test('three-title feeds expand the slider without emptying their rows', () {
+    final layout = HomeCatalogueLayout.build({
+      'Trending Today': [
+        for (var id = 1; id <= 3; id++) {'id': id}
+      ],
+      'Popular Movies': [
+        for (var id = 4; id <= 6; id++) {'id': id}
+      ],
+      'Now Playing': [
+        for (var id = 7; id <= 9; id++) {'id': id}
+      ],
+    }, moviesOnly: true, featuredLimit: 15);
+    expect(layout.featured.map((item) => item['id']), [1, 2, 3, 6]);
+    expect(layout.rows['Popular Movies'], hasLength(2));
+    expect(layout.rows['Now Playing'], hasLength(3));
+  });
+  test('short trending feed fills 15 unique posters from matching loaded feeds',
+      () {
+    final categories = <String, List<Map<String, dynamic>>>{
+      'Trending Today': [
+        for (var id = 1; id <= 3; id++) {'id': id, 'media_type': 'movie'}
+      ],
+      'Popular Movies': [
+        {'id': 1, 'media_type': 'movie'},
+        {'id': 99, 'media_type': 'tv'},
+        for (var id = 4; id <= 24; id++) {'id': id, 'media_type': 'movie'},
+      ],
+      'Trending TV Today': [
+        for (var id = 1; id <= 3; id++) {'id': id, 'media_type': 'tv'}
+      ],
+      'Popular TV Shows': [
+        {'id': 1, 'media_type': 'tv'},
+        {'id': 99, 'media_type': 'movie'},
+        for (var id = 4; id <= 24; id++) {'id': id, 'media_type': 'tv'},
+      ],
+    };
+    for (final tv in [false, true]) {
+      final layout = HomeCatalogueLayout.build(categories,
+          tvOnly: tv, moviesOnly: !tv, featuredLimit: 15);
+      expect(layout.featured.map((item) => item['id']),
+          [1, 2, 3, for (var id = 10; id <= 21; id++) id]);
+      expect(
+          layout.featured
+              .every((item) => item['media_type'] == (tv ? 'tv' : 'movie')),
+          isTrue);
+      final featuredIds = layout.featured.map((item) => item['id']).toSet();
+      expect(
+          layout.rows.values
+              .expand((row) => row)
+              .any((item) => featuredIds.contains(item['id'])),
+          isFalse);
+    }
+    expect(categories['Trending Today'], hasLength(3));
+  });
+  test(
+      'movie and TV feeds exclude wrong media and use matching featured fallbacks',
+      () {
+    final categories = <String, List<Map<String, dynamic>>>{
+      'Popular Movies': [
+        {'id': 1, 'media_type': 'movie'},
+        {'id': 2, 'media_type': 'tv'},
+      ],
+      'Popular TV Shows': [
+        {'id': 1, 'media_type': 'tv'},
+        {'id': 3, 'wambesha_id': 'mv_WRONG'},
+      ],
+    };
+    final films = HomeCatalogueLayout.build(categories, moviesOnly: true);
+    final series = HomeCatalogueLayout.build(categories, tvOnly: true);
+    expect(films.featured.single['media_type'], 'movie');
+    expect(series.featured.single['media_type'], 'tv');
+    expect(films.rows.containsKey('Popular TV Shows'), isFalse);
+    expect(series.rows.containsKey('Popular Movies'), isFalse);
+    expect(films.rows.values.expand((row) => row), isEmpty);
+    expect(series.rows.values.expand((row) => row), isEmpty);
+  });
   test('featured movies and category cards never share a title', () {
     final categories = <String, List<Map<String, dynamic>>>{
       'Trending Today': [
@@ -76,7 +152,8 @@ void main() {
     final all = HomeCatalogueLayout.build(categories);
     expect(all.featured.single['id'], 1);
     expect(all.rows['Popular TV Shows'], hasLength(2));
-    final tv = HomeCatalogueLayout.build(categories, tvOnly: true);
+    final tv =
+        HomeCatalogueLayout.build(categories, tvOnly: true, featuredLimit: 1);
     expect(tv.featured.single['id'], 1);
     expect(tv.rows.containsKey('Trending Today'), isFalse);
     expect(tv.rows['Popular TV Shows']!.single['id'], 2);

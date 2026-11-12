@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moviehub_app/screens/my_list_screen.dart';
-import 'package:moviehub_app/utils/my_list.dart';
+import 'package:moviehub_app/services/my_list_service.dart';
 
-class _Saved extends Fake implements MyList {
+class _Saved extends Fake implements MyListService {
   _Saved(Iterable<int> ids) : ids = ids.toSet();
   final Set<int> ids;
   @override

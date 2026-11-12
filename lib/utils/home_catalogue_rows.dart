@@ -11,7 +11,9 @@ class HomeCatalogueLayout {
   factory HomeCatalogueLayout.build(
       Map<String, List<Map<String, dynamic>>> categories,
       {bool tvOnly = false,
+      bool moviesOnly = false,
       int featuredLimit = 5}) {
+    assert(!tvOnly || !moviesOnly);
     final seen = <String>{};
     List<Map<String, dynamic>> takeUnique(
         Iterable<Map<String, dynamic>> items, bool tv,
@@ -19,6 +21,7 @@ class HomeCatalogueLayout {
       final selected = <Map<String, dynamic>>[];
       for (final item in items) {
         if (limit != null && selected.length >= limit) break;
+        if ((tvOnly || moviesOnly) && _isTvTitle(item, tv) != tvOnly) continue;
         final keys = _titleKeys(item, tv);
         if (keys.isEmpty) continue;
         final duplicate = keys.any(seen.contains);
@@ -30,18 +33,68 @@ class HomeCatalogueLayout {
       return List.unmodifiable(selected);
     }
 
-    final featured = takeUnique(
-        categories[tvOnly ? 'Trending TV Today' : 'Trending Today'] ?? [],
-        tvOnly,
-        limit: featuredLimit);
+    final primaryName = tvOnly ? 'Trending TV Today' : 'Trending Today';
+    final popularName = tvOnly ? 'Popular TV Shows' : 'Popular Movies';
+    final featuredCategories = <String>[
+      primaryName,
+      popularName,
+      for (final category in homeCategories)
+        if (category.isTv == tvOnly &&
+            category.name != primaryName &&
+            category.name != popularName)
+          category.name,
+    ];
+    final primary = categories[primaryName];
+    final featured = <Map<String, dynamic>>[
+      ...takeUnique(
+          primary?.isNotEmpty == true
+              ? primary!
+              : categories[popularName] ?? [],
+          tvOnly,
+          limit: featuredLimit),
+    ];
+    // Extend a short hero without emptying small rows or triggering refills
+    // just to replace their posters. Popular feeds can supplement short heroes;
+    // other rows keep their first six titles so new pages remain visible there.
+    for (final name in featuredCategories) {
+      if (featured.length >= featuredLimit) break;
+      final candidateKeys = {...seen};
+      final candidates = <Map<String, dynamic>>[];
+      for (final item in categories[name] ?? <Map<String, dynamic>>[]) {
+        if (_isTvTitle(item, tvOnly) != tvOnly) continue;
+        final keys = _titleKeys(item, tvOnly);
+        final duplicate = keys.any(candidateKeys.contains);
+        candidateKeys.addAll(keys);
+        if (keys.isNotEmpty && !duplicate) candidates.add(item);
+      }
+      final retained =
+          name == popularName ? ((candidates.length + 1) ~/ 2).clamp(2, 6) : 6;
+      final available = (candidates.length - retained)
+          .clamp(0, featuredLimit - featured.length);
+      featured.addAll(
+          takeUnique(candidates.skip(retained), tvOnly, limit: available));
+    }
     final rows = <String, List<Map<String, dynamic>>>{};
     for (final category in homeCategories) {
       if (tvOnly && !category.isTv) continue;
+      if (moviesOnly && category.isTv) continue;
       rows[category.name] =
           takeUnique(categories[category.name] ?? [], category.isTv);
     }
-    return HomeCatalogueLayout._(featured, Map.unmodifiable(rows));
+    return HomeCatalogueLayout._(
+        List.unmodifiable(featured), Map.unmodifiable(rows));
   }
+}
+
+bool _isTvTitle(Map<String, dynamic> item, bool tvCategory) {
+  final ref = item['wambesha_id'];
+  if (ref is String && RegExp(r'^(mv|sr)_[A-Za-z0-9]{1,40}$').hasMatch(ref)) {
+    return ref.startsWith('sr_');
+  }
+  final type = item['media_type'];
+  return type == null
+      ? tvCategory
+      : ['tv', 'series', 'mini_series'].contains(type);
 }
 
 Set<String> _titleKeys(Map<String, dynamic> item, bool tvCategory) {

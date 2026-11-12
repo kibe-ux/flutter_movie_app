@@ -55,7 +55,7 @@ class _MainScreenState extends State<MainScreen> {
   static const Color _drawerText = CinemaPalette.ivory;
   static const Color _drawerMuted = CinemaPalette.muted;
 
-  // Shared set to track "My List" items (REDUNDANT: now using MyList singleton)
+  // Shared set to track "My List" items (REDUNDANT: now using MyListService singleton)
 
   // Colors
   final Color _primaryColor = const Color(0xFF0D0D0D);
@@ -161,6 +161,8 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildNavigationDrawer() {
+    // Keep this drawer open beneath internal pages so Back returns to the menu
+    // at its current scroll position instead of exposing the Home screen.
     return Drawer(
       backgroundColor: _drawerBackground,
       surfaceTintColor: Colors.transparent,
@@ -237,7 +239,6 @@ class _MainScreenState extends State<MainScreen> {
             title: 'Cinema Rewards',
             icon: Icons.toll_rounded,
             onTap: () {
-              Navigator.pop(context);
               Navigator.push(context,
                   MaterialPageRoute(builder: (_) => const RewardsScreen()));
             },
@@ -401,7 +402,6 @@ class _MainScreenState extends State<MainScreen> {
       title: title,
       icon: icon,
       onTap: () {
-        Navigator.pop(context);
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => LegalInfoScreen(type: type)),
@@ -414,7 +414,6 @@ class _MainScreenState extends State<MainScreen> {
         title: 'FAQs & Help',
         icon: Icons.help_outline_rounded,
         onTap: () {
-          Navigator.pop(context);
           _showFAQsScreen();
         },
       );
@@ -423,7 +422,6 @@ class _MainScreenState extends State<MainScreen> {
         title: 'Contact Support',
         icon: Icons.help_center_rounded,
         onTap: () {
-          Navigator.pop(context);
           _showSupportScreen();
         },
       );
@@ -441,7 +439,6 @@ class _MainScreenState extends State<MainScreen> {
         title: 'Privacy Policy',
         icon: Icons.security_rounded,
         onTap: () {
-          Navigator.pop(context);
           _showPrivacyPolicyScreen();
         },
       );
@@ -450,7 +447,6 @@ class _MainScreenState extends State<MainScreen> {
         title: 'Legal & Disclaimer',
         icon: Icons.policy_outlined,
         onTap: () {
-          Navigator.pop(context);
           Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const LegalScreen()),
@@ -579,7 +575,6 @@ class _MainScreenState extends State<MainScreen> {
       title: 'Share App',
       icon: Icons.share_rounded,
       onTap: () {
-        Navigator.pop(context);
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const ShareScreen()),

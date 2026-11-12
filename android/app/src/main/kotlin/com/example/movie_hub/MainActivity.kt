@@ -2,6 +2,8 @@ package com.example.movie_hub
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.embedding.engine.FlutterEngineCache
+import android.content.Context
 import io.flutter.plugin.common.MethodChannel
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -10,8 +12,16 @@ import android.os.Bundle
 import android.view.WindowManager
 
 class MainActivity : FlutterActivity() {
+    override fun provideFlutterEngine(context: Context): FlutterEngine? =
+        FlutterEngineCache.getInstance().get("moviehub")
+
+    override fun shouldDestroyEngineWithHost(): Boolean = false
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        FlutterEngineCache.getInstance().put("moviehub", flutterEngine)
+        DownloadForegroundService.attach(applicationContext,
+            MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "moviehub/downloads"))
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "moviehub/store")
             .setMethodCallHandler { call, result ->
                 if (call.method != "openListing") {

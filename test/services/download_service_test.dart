@@ -1,3 +1,4 @@
+import 'package:moviehub_app/models/download_item.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -33,6 +34,109 @@ void main() {
       movieTitle: 'Some Movie',
       posterPath: null,
       downloadUrl: 'https://provider.example/file?token=private');
+
+  test(
+      'queue serializes transfers, delays URL resolution and skips cancelled items',
+      () async {
+    final body = StreamController<List<int>>();
+    final started = Completer<void>();
+    final requests = <String>[];
+    var resolutions = 0;
+    final downloader = createService(MockClient.streaming((request, _) async {
+      requests.add(request.url.path);
+      if (requests.length == 1) {
+        started.complete();
+        return http.StreamedResponse(body.stream, 200, contentLength: 3);
+      }
+      return http.StreamedResponse(Stream.value([4, 5, 6]), 200,
+          contentLength: 3);
+    }));
+    final first = download(downloader);
+    await started.future;
+    final second = downloader.downloadMovie(
+        movieId: 43,
+        movieTitle: 'Next',
+        posterPath: null,
+        downloadUrl: 'https://provider.example/stale',
+        downloadUrlProvider: () async {
+          resolutions++;
+          return 'https://provider.example/fresh';
+        });
+    final third = downloader.downloadMovie(
+        movieId: 44,
+        movieTitle: 'Cancelled',
+        posterPath: null,
+        downloadUrl: 'https://provider.example/cancelled');
+    expect(downloader.getDownloadStatus(43), DownloadStatus.queued);
+    expect(downloader.queuePosition(43), 1);
+    expect(downloader.queuePosition(44), 2);
+    expect(resolutions, 0);
+    await downloader.refreshDownloadStatus(movieId: 43, movieTitle: 'Next');
+    expect(downloader.getDownloadStatus(43), DownloadStatus.queued);
+    await downloader.cancelDownload(44);
+    await third;
+    expect(requests, ['/file']);
+    body.add([1, 2, 3]);
+    await body.close();
+    await Future.wait([first, second]);
+    expect(resolutions, 1);
+    expect(requests, ['/file', '/fresh']);
+    expect(downloader.getDownloadStatus(43), DownloadStatus.completed);
+  });
+
+  test('failure releases queue slot and duplicate taps share one transfer',
+      () async {
+    var calls = 0;
+    final headers = Completer<http.StreamedResponse>();
+    final downloader = createService(MockClient.streaming((request, _) async {
+      if (++calls == 1) return headers.future;
+      return http.StreamedResponse(Stream.value([1]), 200, contentLength: 1);
+    }));
+    final first = download(downloader);
+    final duplicate = download(downloader);
+    final second = downloader.downloadMovie(
+        movieId: 43,
+        movieTitle: 'Next',
+        posterPath: null,
+        downloadUrl: 'https://provider.example/next');
+    headers.complete(http.StreamedResponse(Stream.value([]), 403));
+    await Future.wait([first, duplicate, second]);
+    expect(calls, 2);
+    expect(downloader.getDownloadStatus(42), DownloadStatus.failed);
+    expect(downloader.getDownloadStatus(43), DownloadStatus.completed);
+  });
+
+  test('paused transfer holds queue and reports bytes with unknown total',
+      () async {
+    final body = StreamController<List<int>>();
+    final downloader = createService(MockClient.streaming((request, _) async =>
+        request.url.path == '/file'
+            ? http.StreamedResponse(body.stream, 200)
+            : http.StreamedResponse(Stream.value([9]), 200, contentLength: 1)));
+    final ready = downloader.downloadsStream
+        .firstWhere((items) => items[42]?.downloadedBytes == 2);
+    final first = download(downloader);
+    final second = downloader.downloadMovie(
+        movieId: 43,
+        movieTitle: 'Next',
+        posterPath: null,
+        downloadUrl: 'https://provider.example/next');
+    body.add([1, 2]);
+    await ready.timeout(const Duration(seconds: 5));
+    await downloader.pauseDownload(42);
+    expect(downloader.activeDownloads[42]!.downloadedBytes, 2);
+    expect(downloader.activeDownloads[42]!.totalBytes, 0);
+    expect(downloader.activeDownloads[42]!.bytesPerSecond, 0);
+    expect(downloader.activeDownloads[42]!.remainingTime, isNull);
+    expect(downloader.getDownloadStatus(43), DownloadStatus.queued);
+    body.add([3]);
+    final closing = body.close();
+    await downloader.resumeDownload(42);
+    await Future.wait([first, second, closing]);
+    expect(downloader.activeDownloads[42]!.downloadedBytes, 3);
+    expect(downloader.activeDownloads[42]!.totalBytes, 3);
+    expect(downloader.getDownloadStatus(43), DownloadStatus.completed);
+  });
 
   test(
       'episodes are saved separately and restored with season and episode names',

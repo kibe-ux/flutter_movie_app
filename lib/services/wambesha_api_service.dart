@@ -1,4 +1,4 @@
-import 'backend_url.dart';
+import '../utils/backend_url.dart';
 import 'http_diagnostics.dart';
 import 'dart:convert';
 

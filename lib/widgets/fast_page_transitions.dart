@@ -5,8 +5,8 @@ class FastPageTransitionsBuilder extends CupertinoPageTransitionsBuilder {
   const FastPageTransitionsBuilder();
 
   @override
-  Duration get transitionDuration => const Duration(milliseconds: 180);
+  Duration get transitionDuration => const Duration(milliseconds: 120);
 
   @override
-  Duration get reverseTransitionDuration => const Duration(milliseconds: 150);
+  Duration get reverseTransitionDuration => const Duration(milliseconds: 100);
 }

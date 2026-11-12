@@ -1,3 +1,4 @@
+import '../models/download_item.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../utils/cinema_palette.dart';
@@ -5,6 +6,7 @@ import '../services/download_service.dart';
 import '../services/tv_series_service.dart';
 import '../utils/movie_download_availability.dart';
 import 'safe_network_image.dart';
+import 'download_progress_details.dart';
 
 class TvSeasonsSection extends StatefulWidget {
   const TvSeasonsSection(
@@ -207,20 +209,26 @@ class _TvSeasonsSectionState extends State<TvSeasonsSection> {
     final available = widget.resolveOnDemand ||
         episodeDownloadMetadata(metadata, _selected!, number) != null;
     final downloading = task?.status == DownloadStatus.downloading;
+    final paused = task?.status == DownloadStatus.paused;
+    final queued = task?.status == DownloadStatus.queued;
     final completed = task?.status == DownloadStatus.completed;
     final label = future
         ? 'Coming soon'
-        : downloading
-            ? '${(task!.progress * 100).round()}% · Pause'
-            : completed
-                ? 'Downloaded'
-                : checking && !widget.resolveOnDemand
-                    ? 'Checking availability…'
-                    : available
-                        ? widget.resolveOnDemand
-                            ? 'Find episode download'
-                            : 'Download episode'
-                        : 'Download unavailable';
+        : queued
+            ? 'Queued · Cancel'
+            : paused
+                ? 'Resume download'
+                : downloading
+                    ? '${(task!.progress * 100).round()}% · Pause'
+                    : completed
+                        ? 'Downloaded'
+                        : checking && !widget.resolveOnDemand
+                            ? 'Checking availability…'
+                            : available
+                                ? widget.resolveOnDemand
+                                    ? 'Find episode download'
+                                    : 'Download episode'
+                                : 'Download unavailable';
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -281,25 +289,38 @@ class _TvSeasonsSectionState extends State<TvSeasonsSection> {
                           style: const TextStyle(
                               color: CinemaPalette.muted, height: 1.5))),
                 const SizedBox(height: 10),
-                if (downloading)
+                if (downloading || paused)
                   LinearProgressIndicator(
                       value: task!.progress, color: CinemaPalette.gold),
+                if (task != null && (downloading || paused || queued))
+                  Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: DownloadProgressDetails(item: task)),
                 TextButton.icon(
                   onPressed: future ||
                           (checking && !widget.resolveOnDemand) ||
                           completed
                       ? null
-                      : downloading
-                          ? () => _downloads.pauseDownload(id)
-                          : available
-                              ? () => widget.onDownload(_selected!, episode)
-                              : null,
+                      : queued
+                          ? () => _downloads.cancelDownload(id)
+                          : paused
+                              ? () => _downloads.resumeDownload(id)
+                              : downloading
+                                  ? () => _downloads.pauseDownload(id)
+                                  : available
+                                      ? () =>
+                                          widget.onDownload(_selected!, episode)
+                                      : null,
                   icon: Icon(
                       completed
                           ? Icons.check_circle_outline
-                          : downloading
-                              ? Icons.pause
-                              : Icons.download_outlined,
+                          : queued
+                              ? Icons.hourglass_top
+                              : paused
+                                  ? Icons.play_arrow
+                                  : downloading
+                                      ? Icons.pause
+                                      : Icons.download_outlined,
                       size: 20),
                   label: Text(label),
                 ),

@@ -5,10 +5,10 @@ import '../utils/catalogue_artwork.dart';
 import '../utils/home_catalogue_rows.dart';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'movie_details_screen.dart';
+import 'title_details_screen.dart';
 import 'full_category_screen.dart';
 import 'my_list_screen.dart';
-import '../utils/my_list.dart';
+import '../services/my_list_service.dart';
 import '../services/ad_service.dart';
 import '../services/home_startup_service.dart';
 import '../services/catalogue_service.dart';
@@ -51,6 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final Map<String, bool> _hasMore = {};
   final Map<String, String?> _nextCursors = {};
   final Set<String> _resetRetries = {};
+  final Set<String> _pagedGestures = {};
   int _loadGeneration = 0;
   bool _isRefreshing = false;
   HomeCatalogueLayout _allLayout = HomeCatalogueLayout.build(const {});
@@ -62,8 +63,10 @@ class _HomeScreenState extends State<HomeScreen> {
       _currentFilter == 'TV Shows' ? _tvLayout : _allLayout;
 
   void _rebuildHomeLayouts() {
-    _allLayout = HomeCatalogueLayout.build(_movieCategories);
-    _tvLayout = HomeCatalogueLayout.build(_movieCategories, tvOnly: true);
+    _allLayout = HomeCatalogueLayout.build(_movieCategories,
+        moviesOnly: true, featuredLimit: 15);
+    _tvLayout = HomeCatalogueLayout.build(_movieCategories,
+        tvOnly: true, featuredLimit: 15);
     _allLoadedMovies
       ..clear()
       ..addAll(_movieCategories.values.expand((items) => items));
@@ -76,8 +79,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _refillScheduled = false;
       if (!mounted || _isRefreshing || !_isConnected) return;
       for (final category in _requestedCategories.toList()) {
-        if (_currentFilter == 'TV Shows' &&
-            homeCategoriesByName[category]?.isTv != true) {
+        if ((homeCategoriesByName[category]?.isTv == true) !=
+            (_currentFilter == 'TV Shows')) {
           continue;
         }
         if ((_currentPage[category] ?? 0) < 1 ||
@@ -127,12 +130,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _initializeApp() async {
-    await _initConnectivity();
-    await _checkAndLoadData();
-    if (mounted) {
-      setState(() {
-        _isInitialized = true;
-      });
+    try {
+      await _initConnectivity();
+      await _checkAndLoadData();
+    } catch (_) {
+      if (mounted) {
+        _categoryErrors['Trending Today'] =
+            'Could not load movies. Please retry.';
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -355,6 +367,10 @@ class _HomeScreenState extends State<HomeScreen> {
         if (reset) _movieCategories[category]?.clear();
         _movieCategories[category]?.addAll(items);
         _rebuildHomeLayouts();
+        if (_allLoadedMovies.isNotEmpty) {
+          isLoading = false;
+          _isInitialized = true;
+        }
         _currentPage[category] = page;
         _hasMore[category] = result.hasMore;
         _nextCursors[category] = result.nextCursor;
@@ -392,11 +408,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final screenHeight = MediaQuery.of(context).size.height;
     final isLandscape = screenWidth > screenHeight;
 
-    if (isLandscape) return 150;
-    if (screenWidth < 376) return 200;
-    if (screenWidth < 430) return 220;
-    if (screenWidth < 768) return 240;
-    return 300;
+    if (isLandscape) return 300;
+    return (screenWidth * .88).clamp(300, 480);
   }
 
   double _getCardHeight(BuildContext context) {
@@ -525,7 +538,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             if (_isInitialized &&
                 (_currentFilter == 'My List'
-                    ? MyList().all.isNotEmpty
+                    ? MyListService().all.isNotEmpty
                     : _isConnected &&
                         !isLoading &&
                         _movieCategories.keys.any(
@@ -550,7 +563,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    if (!_isConnected) {
+    if (!_isConnected && _allLoadedMovies.isEmpty) {
       return ConnectionNotice(
         offline: true,
         title: 'You\u2019re offline',
@@ -567,18 +580,18 @@ class _HomeScreenState extends State<HomeScreen> {
       return ConnectionNotice(
         title: _categoryErrors.isEmpty
             ? 'No movies available yet'
-            : 'Canâ€™t load movies right now',
+            : "Can't load movies right now",
         message: _categoryErrors.isEmpty
             ? 'Try again in a moment to refresh the catalog.'
-            : 'Movie Hub couldnâ€™t reach the catalog. Check your connection or try again shortly.',
+            : "Movie Hub couldn't reach the catalog. Check your connection or try again shortly.",
         onRetry: _retryConnection,
       );
     }
 
     final visibleCategories = _movieCategories.entries
         .where((entry) =>
-            _currentFilter != 'TV Shows' ||
-            homeCategoriesByName[entry.key]?.isTv == true)
+            (homeCategoriesByName[entry.key]?.isTv == true) ==
+            (_currentFilter == 'TV Shows'))
         .toList();
     return RefreshIndicator(
       color: CinemaPalette.homeAccent,
@@ -592,8 +605,24 @@ class _HomeScreenState extends State<HomeScreen> {
         itemBuilder: (context, index) {
           if (index == 0) {
             final trending = _activeLayout.featured;
-            if (trending.isEmpty) return const SizedBox();
-            return _buildCarousel(trending);
+            return Column(children: [
+              if (!_isConnected)
+                Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(children: [
+                      const Icon(Icons.wifi_off_rounded,
+                          size: 18, color: CinemaPalette.muted),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                          child: Text('You’re offline. Showing loaded titles.',
+                              style: TextStyle(color: CinemaPalette.muted))),
+                      TextButton(
+                          onPressed: _retryConnection,
+                          child: const Text('Retry')),
+                    ])),
+              if (trending.isNotEmpty) _buildCarousel(trending),
+            ]);
           } else {
             final entry = visibleCategories[index - 1];
             _requestVisibleCategory(entry.key);
@@ -615,11 +644,18 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildCarousel(List<Map<String, dynamic>> items) {
     if (items.isEmpty) return const SizedBox(height: 220);
     return HomeMovieCarousel(
+      key: ValueKey('home-carousel-$_currentFilter'),
+      mediaType: _currentFilter == 'TV Shows' ? 'tv' : 'movie',
       movies: items,
       height: _getCarouselHeight(context),
+      isSaved: (item) => MyListService().contains((item['id'] as num).toInt()),
+      bookmarkChanges: MyListService().changes,
+      onBookmarkTap: (item) {
+        MyListService().toggle((item['id'] as num).toInt());
+      },
       onMovieTap: (item) => _showInterstitialAd(() {
         Navigator.push(context,
-            MaterialPageRoute(builder: (_) => MovieDetailsScreen(movie: item)));
+            MaterialPageRoute(builder: (_) => TitleDetailsScreen(movie: item)));
       }),
     );
   }
@@ -674,65 +710,62 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           SizedBox(
             height: _getCardHeight(context),
-            child: ListView.builder(
-              key: PageStorageKey('home-posters-$title'),
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              itemCount: items.length + (_hasMore[title] == false ? 0 : 1),
-              itemBuilder: (context, index) {
-                if (index == items.length) {
-                  final loading = _isLoadingMore[title] == true;
-                  final error = _categoryErrors[title];
-                  return Container(
-                    width: _getCardWidth(context),
-                    margin: const EdgeInsets.only(right: 10),
-                    alignment: Alignment.topCenter,
-                    child: AspectRatio(
-                      aspectRatio: 0.75,
-                      child: Material(
-                        color: Colors.white12,
-                        borderRadius: BorderRadius.circular(8),
-                        clipBehavior: Clip.antiAlias,
-                        child: InkWell(
-                          onTap: loading ? null : () => _loadMore(title),
+            child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (notification is ScrollStartNotification &&
+                      notification.dragDetails != null) {
+                    _pagedGestures.remove(title);
+                  }
+                  final userScroll = notification is ScrollUpdateNotification &&
+                          notification.dragDetails != null ||
+                      notification is OverscrollNotification &&
+                          notification.dragDetails != null;
+                  if (userScroll &&
+                      notification.metrics.axis == Axis.horizontal &&
+                      notification.metrics.extentAfter < 180 &&
+                      _hasMore[title] != false &&
+                      _isLoadingMore[title] != true &&
+                      !_categoryErrors.containsKey(title) &&
+                      _pagedGestures.add(title)) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) unawaited(_loadMore(title));
+                    });
+                  }
+                  return false;
+                },
+                child: ListView.builder(
+                  key: PageStorageKey('home-posters-$title'),
+                  scrollDirection: Axis.horizontal,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  itemCount: items.length +
+                      (_categoryErrors.containsKey(title) ||
+                              _isLoadingMore[title] == true
+                          ? 1
+                          : 0),
+                  itemBuilder: (context, index) {
+                    if (index == items.length) {
+                      if (_isLoadingMore[title] == true) {
+                        return const SizedBox(
+                            width: 48,
+                            child: Center(
+                                child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2))));
+                      }
+                      return SizedBox(
+                          width: _getCardWidth(context),
                           child: Center(
-                            child: loading
-                                ? const CircularProgressIndicator(
-                                    color: Colors.white)
-                                : SingleChildScrollView(
-                                    padding: const EdgeInsets.all(8),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (error != null) ...[
-                                          Text(error,
-                                              maxLines: 4,
-                                              overflow: TextOverflow.ellipsis,
-                                              textAlign: TextAlign.center,
-                                              style: const TextStyle(
-                                                  color: Colors.white54,
-                                                  fontSize: 12)),
-                                          const SizedBox(height: 8),
-                                        ],
-                                        Text(
-                                            error != null
-                                                ? 'Retry'
-                                                : 'Load More',
-                                            textAlign: TextAlign.center,
-                                            style: const TextStyle(
-                                                color: Colors.white70)),
-                                      ],
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }
-                return _buildItemCard(items[index]);
-              },
-            ),
+                              child: TextButton.icon(
+                                  onPressed: () => _loadMore(title),
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Retry'))));
+                    }
+                    return _buildItemCard(items[index]);
+                  },
+                )),
           ),
           const SizedBox(height: 4),
         ],
@@ -742,7 +775,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildItemCard(Map<String, dynamic> item) {
     final poster = catalogueArtwork(item, size: 'w300') ?? '';
-    final isInMyList = MyList().contains(item['id']);
+    final isInMyList = MyListService().contains(item['id']);
 
     return Builder(
       builder: (context) => GestureDetector(
@@ -751,7 +784,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => MovieDetailsScreen(movie: item),
+                builder: (_) => TitleDetailsScreen(movie: item),
               ),
             );
           });
@@ -780,12 +813,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: GestureDetector(
                       onTap: () {
                         setState(() {
-                          MyList().toggle(item['id']);
+                          MyListService().toggle(item['id']);
                         });
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              MyList().contains(item['id'])
+                              MyListService().contains(item['id'])
                                   ? 'Added to My List'
                                   : 'Removed from My List',
                             ),

@@ -3,8 +3,8 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'movie_details_screen.dart';
-import '../utils/my_list.dart';
+import 'title_details_screen.dart';
+import '../services/my_list_service.dart';
 import '../utils/cinema_palette.dart';
 import '../utils/movie_download_availability.dart';
 import '../services/ad_service.dart';
@@ -465,7 +465,7 @@ class _SearchScreenState extends State<SearchScreen>
         () => Navigator.push(
             context,
             MaterialPageRoute(
-                builder: (_) => MovieDetailsScreen(movie: movie))),
+                builder: (_) => TitleDetailsScreen(movie: movie))),
         isActive: () => mounted && (ModalRoute.of(context)?.isCurrent ?? false),
       );
     } catch (_) {
@@ -483,7 +483,7 @@ class _SearchScreenState extends State<SearchScreen>
         (posterPath != null ? '$imageBase$posterPath' : null);
     final title = item['title'] ?? item['name'] ?? 'Unknown Title';
     final overview = item['overview'] ?? 'No description available';
-    final isInMyList = MyList().contains(item['id']); // UPDATED
+    final isInMyList = MyListService().contains(item['id']); // UPDATED
     final isMovie = item['title'] != null;
     final tagColor = isMovie ? CinemaPalette.gold : CinemaPalette.ivory;
     return Padding(
@@ -576,9 +576,9 @@ class _SearchScreenState extends State<SearchScreen>
                                 ? CinemaPalette.gold
                                 : CinemaPalette.muted),
                         onPressed: () => setState(() {
-                          MyList().toggle(item['id']);
+                          MyListService().toggle(item['id']);
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: Text(MyList().contains(item['id'])
+                              content: Text(MyListService().contains(item['id'])
                                   ? 'Added to My List'
                                   : 'Removed from My List'),
                               backgroundColor: CinemaPalette.wine,

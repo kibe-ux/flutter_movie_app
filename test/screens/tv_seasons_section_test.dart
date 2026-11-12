@@ -1,3 +1,4 @@
+import 'package:moviehub_app/models/download_item.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moviehub_app/services/download_service.dart';

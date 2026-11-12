@@ -51,9 +51,27 @@ class CatalogueService {
       final totalPages = data['total_pages'];
       return CataloguePage(
         items: filterReleasedMovies(results)
-            .where((item) => item['id'] is int)
-            .toList(),
-        nextCursor: data['next_cursor'] as String?,
+            .where((item) => item['id'] is int && item['id'] > 0)
+            .map((item) {
+          final card = Map<String, dynamic>.from(item);
+          for (final key in [
+            'title',
+            'name',
+            'overview',
+            'release_date',
+            'first_air_date',
+            'poster_path',
+            'backdrop_path',
+            'poster_url',
+            'backdrop_url'
+          ]) {
+            if (card[key] != null && card[key] is! String) card.remove(key);
+          }
+          return card;
+        }).toList(),
+        nextCursor: data['next_cursor'] is String
+            ? data['next_cursor'] as String
+            : null,
         hasMore: data['catalogue_provider'] == 'wambesha'
             ? data['has_more'] == true && data['next_cursor'] is String
             : results.isNotEmpty && (totalPages is! num || page < totalPages),
@@ -67,6 +85,11 @@ class CatalogueService {
     } on FormatException {
       throw const CatalogueLoadException(
           'We could not read the movie list. Please try again.');
+    } on CatalogueLoadException {
+      rethrow;
+    } catch (_) {
+      throw const CatalogueLoadException(
+          'Could not load movies. Please try again.');
     }
   }
 
@@ -81,6 +104,14 @@ class CatalogueService {
   Future<String> _request(Uri uri) async {
     final response = await TmdbApi.get(uri).timeout(timeout);
     if (response.statusCode != 200) {
+      if (response.statusCode == 429) {
+        throw const CatalogueLoadException(
+            'Too many requests. Wait a moment, then retry.');
+      }
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        throw const CatalogueLoadException(
+            'Could not access movies. Please sign in again or retry.');
+      }
       throw const CatalogueLoadException(
           'Movies are temporarily unavailable. Please try again.');
     }

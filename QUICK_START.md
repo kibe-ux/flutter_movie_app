@@ -97,7 +97,7 @@ commit without leaking secrets.
 | **download_service.dart** | Memory leak, null checks | Safer downloads |
 | **video_player_screen.dart** | Error handling, retry | No crashes |
 | **search_screen.dart** | Resource leak, timeout | No hangs |
-| **movie_details_screen.dart** | Ad cleanup | No memory leak |
+| **title_details_screen.dart** | Ad cleanup | No memory leak |
 | **home_screen.dart** | Null safety, timeout | Stable |
 | **app_theme.dart** | NEW - Constants | DRY principle |
 

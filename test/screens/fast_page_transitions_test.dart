@@ -24,12 +24,12 @@ void main() {
     ));
     await tester.tap(find.text('Open details'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 130));
     expect(find.text('Back'), findsOneWidget);
     expect(tester.binding.transientCallbackCount, 0);
     await tester.tap(find.text('Back'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 160));
+    await tester.pump(const Duration(milliseconds: 110));
     expect(find.text('Open details'), findsOneWidget);
     expect(find.text('Back'), findsNothing);
     expect(tester.binding.transientCallbackCount, 0);

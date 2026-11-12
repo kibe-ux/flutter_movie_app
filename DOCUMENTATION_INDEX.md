@@ -13,7 +13,7 @@ This is a comprehensive guide to all documentation available for the MovieHub ap
 | Document | Purpose | Read Time |
 |----------|---------|-----------|
 | [QUICK_START.md](QUICK_START.md) | Initial setup and running the app | 10 min |
-| [ARCHITECTURE_OVERVIEW.md](#) | Project structure and organization | 15 min |
+| [PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) | Project structure and organization | 5 min |
 | [README.md](README.md) | Project overview and features | 5 min |
 
 ---

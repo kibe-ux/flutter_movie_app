@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
 
@@ -14,6 +18,8 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
+        android:fullBackupContent="@xml/download_backup_rules"
+        android:dataExtractionRules="@xml/download_data_extraction_rules"
         android:usesCleartextTraffic="false">
 
         <!-- Dart enables collection after Firebase starts, according to build mode. -->
@@ -47,6 +53,9 @@
         </activity>
 
         <!-- Flutter meta-data -->
+        <service android:name=".DownloadForegroundService"
+            android:exported="false" android:stopWithTask="false"
+            android:foregroundServiceType="dataSync" />
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

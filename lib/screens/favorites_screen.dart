@@ -3,7 +3,7 @@ import '../widgets/cinema_app_bar_surface.dart';
 import 'package:flutter/material.dart';
 import '../services/favorites_service.dart';
 import '../services/media_api_service.dart';
-import 'movie_details_screen.dart';
+import 'title_details_screen.dart';
 import '../services/ad_service.dart';
 import '../widgets/safe_network_image.dart';
 
@@ -157,7 +157,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => MovieDetailsScreen(movie: movie),
+                    builder: (_) => TitleDetailsScreen(movie: movie),
                   ),
                 );
               },

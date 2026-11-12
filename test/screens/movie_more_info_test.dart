@@ -61,7 +61,7 @@ void main() {
   };
 
   Widget app(Future<Map<String, dynamic>?> metadata,
-          {VoidCallback? onRetry, double scale = 1}) =>
+          {VoidCallback? onRetry, Widget? downloadAction, double scale = 1}) =>
       MaterialApp(
         theme: ThemeData.dark(),
         builder: (context, child) => MediaQuery(
@@ -73,6 +73,7 @@ void main() {
                 child: Padding(
           padding: const EdgeInsets.all(20),
           child: MovieMoreInfo(
+            downloadAction: downloadAction,
             movieId: 42,
             metadata: metadata,
             onRetry: onRetry ?? () {},
@@ -85,6 +86,29 @@ void main() {
     await tester.ensureVisible(title);
     await tester.tap(title);
     await tester.pumpAndSettle();
+  }
+
+  for (final hasMetadata in [true, false]) {
+    testWidgets(
+        'download icon needs a separate tap inside trailers; metadata=$hasMetadata',
+        (tester) async {
+      var downloads = 0;
+      await tester.pumpWidget(app(Future.value(hasMetadata ? details : null),
+          downloadAction: IconButton(
+              tooltip: 'Download movie',
+              icon: const Icon(Icons.download_rounded),
+              onPressed: () => downloads++)));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Download movie'), findsNothing);
+      await expand(tester, 'Trailers & videos');
+      expect(downloads, 0);
+      expect(find.byTooltip('Download movie'), findsOneWidget);
+      await tester.ensureVisible(find.byTooltip('Download movie'));
+      await tester.tap(find.byTooltip('Download movie'));
+      expect(downloads, 1);
+      expect(find.text('Download movie'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    });
   }
 
   testWidgets(

@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'account_deletion_service.dart';
-import '../utils/my_list.dart';
+import '../services/my_list_service.dart';
 
 class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth;
@@ -194,7 +194,7 @@ class AuthService extends ChangeNotifier {
         );
       }
       final completed = await _accountDeletion.request(user);
-      await MyList().clearForDeletedUser(user.uid);
+      await MyListService().clearForDeletedUser(user.uid);
       final prefs = await SharedPreferences.getInstance();
       for (final key in ['favorite_movies', 'watch_history']) {
         await prefs.remove('${key}_${user.uid}');

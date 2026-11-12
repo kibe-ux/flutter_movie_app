@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Expiring signed links must be reacquired on a different installation. -->
+    <exclude domain="root" path="app_flutter/download_queue_0.json" />
+    <exclude domain="root" path="app_flutter/download_queue_1.json" />
+    <exclude domain="root" path="app_flutter/movies/" />
+</full-backup-content>

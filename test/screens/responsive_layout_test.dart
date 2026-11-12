@@ -117,8 +117,13 @@ void main() {
         if (connected) {
           // Offscreen categories must not all fetch during startup.
           expect(requestedPaths.length, lessThan(12));
-          await tester.drag(find.byType(ListView).first, const Offset(0, -200));
-          await tester.pump();
+          await tester.scrollUntilVisible(find.text('Now Playing'), 200,
+              scrollable: find
+                  .descendant(
+                      of: find.byKey(
+                          const PageStorageKey('home-categories-All Movies')),
+                      matching: find.byType(Scrollable))
+                  .first);
           expect(find.text('View All'), findsWidgets);
           expect(tester.takeException(), isNull);
         } else {
@@ -189,7 +194,10 @@ void main() {
             await tester.pump(const Duration(milliseconds: 100));
           }
           expect(
-              requestedPaths.where((path) => path.startsWith('/api/catalogue/3/') && !path.contains('wambesha')), isNotEmpty);
+              requestedPaths.where((path) =>
+                  path.startsWith('/api/catalogue/3/') &&
+                  !path.contains('wambesha')),
+              isNotEmpty);
           expect(tester.takeException(), isNull);
           await tester.pumpWidget(const SizedBox());
           await tester.pump();

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -67,9 +68,12 @@ class CataloguePageCache {
       _entries[key] = (at: _now(), body: body, bytes: bytes);
     }
     _trim();
-    await _save();
+    unawaited(_save());
     return body;
   }
+
+  /// Await when persistence itself needs verification; rendering need not wait.
+  Future<void> flush() => _writing;
 
   void _trim() {
     _entries.removeWhere((_, entry) => !_fresh(entry.at));

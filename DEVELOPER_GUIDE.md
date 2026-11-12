@@ -228,7 +228,7 @@ To gradually migrate existing code:
 - Update search_screen.dart to use AppTheme
 
 **Phase 2** (Week 2):
-- Update movie_details_screen.dart
+- Update lib/screens/title_details_screen.dart
 - Update other screens
 
 **Phase 3** (Week 3):

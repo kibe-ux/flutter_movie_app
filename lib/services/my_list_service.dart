@@ -3,20 +3,25 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-class MyList {
-  MyList._internal();
-  static final MyList _instance = MyList._internal();
-  factory MyList() => _instance;
+class MyListService {
+  MyListService._internal();
+  static final MyListService _instance = MyListService._internal();
+  factory MyListService() => _instance;
   static const String _storageKey = 'my_list_ids';
   final Set<int> _ids = {};
   bool _initialized = false;
   Timer? _saveTimer;
   String? _currentUserId;
+  final ValueNotifier<int> _changes = ValueNotifier(0);
+  Listenable get changes => _changes;
 
   Future<void> clearForDeletedUser(String uid) async {
     _saveTimer?.cancel();
     _saveTimer = null;
-    if (_currentUserId == uid || !_initialized) _ids.clear();
+    if (_currentUserId == uid || !_initialized) {
+      _ids.clear();
+      _changes.value++;
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('${_storageKey}_$uid');
   }
@@ -52,9 +57,10 @@ class MyList {
           stored.map((e) => int.tryParse(e)).whereType<int>(),
         );
     } catch (e) {
-      debugPrint('Failed to load MyList: $e');
+      debugPrint('Failed to load MyListService: $e');
       _ids.clear();
     }
+    _changes.value++;
   }
 
   /// Ensures init() has been called before use.
@@ -64,6 +70,7 @@ class MyList {
 
   /// Debounced persist: only the last call within 300 ms actually writes.
   void _persist() {
+    _changes.value++;
     _saveTimer?.cancel();
     _saveTimer = Timer(const Duration(milliseconds: 300), () async {
       try {
@@ -73,13 +80,14 @@ class MyList {
           _ids.map((e) => e.toString()).toList(),
         );
       } catch (e) {
-        debugPrint('Failed to save MyList: $e');
+        debugPrint('Failed to save MyListService: $e');
       }
     });
   }
 
   /// Persist immediately (no debounce), awaitable.
   Future<void> _persistNow() async {
+    _changes.value++;
     _saveTimer?.cancel();
     _saveTimer = null;
     try {
@@ -89,7 +97,7 @@ class MyList {
         _ids.map((e) => e.toString()).toList(),
       );
     } catch (e) {
-      debugPrint('Failed to save MyList: $e');
+      debugPrint('Failed to save MyListService: $e');
     }
   }
 
@@ -135,5 +143,5 @@ class MyList {
   bool get isInitialized => _initialized;
 
   @override
-  String toString() => 'MyList(${_ids.length} items)';
+  String toString() => 'MyListService(${_ids.length} items)';
 }

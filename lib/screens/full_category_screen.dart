@@ -4,8 +4,8 @@ import '../utils/catalogue_artwork.dart';
 import '../widgets/cinema_app_bar_surface.dart';
 import 'package:flutter/material.dart';
 import '../config/home_categories.dart';
-import 'movie_details_screen.dart';
-import '../utils/my_list.dart';
+import 'title_details_screen.dart';
+import '../services/my_list_service.dart';
 import '../services/ad_service.dart';
 import '../widgets/safe_network_image.dart';
 import '../services/catalogue_service.dart';
@@ -196,14 +196,15 @@ class _FullCategoryScreenState extends State<FullCategoryScreen> {
               }
               final item = _allItems[index];
               final poster = catalogueArtwork(item, size: 'w300') ?? '';
-              final isInMyList = MyList().contains(item['id'] ?? 0); // ADDED
+              final isInMyList =
+                  MyListService().contains(item['id'] ?? 0); // ADDED
               return GestureDetector(
                 onTap: () {
                   _showInterstitial(() {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => MovieDetailsScreen(movie: item),
+                        builder: (_) => TitleDetailsScreen(movie: item),
                       ),
                     );
                   });
@@ -271,12 +272,12 @@ class _FullCategoryScreenState extends State<FullCategoryScreen> {
                       child: GestureDetector(
                         onTap: () {
                           setState(() {
-                            MyList().toggle(item['id'] ?? 0);
+                            MyListService().toggle(item['id'] ?? 0);
                           });
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                MyList().contains(item['id'] ?? 0)
+                                MyListService().contains(item['id'] ?? 0)
                                     ? 'Added to My List'
                                     : 'Removed from My List',
                               ),

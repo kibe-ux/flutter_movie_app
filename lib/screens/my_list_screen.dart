@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../utils/cinema_palette.dart';
 import '../utils/catalogue_artwork.dart';
-import '../utils/my_list.dart';
-import 'movie_details_screen.dart';
+import '../services/my_list_service.dart';
+import 'title_details_screen.dart';
 import '../services/ad_service.dart';
 import '../services/media_api_service.dart';
 import '../widgets/cinema_app_bar_surface.dart';
@@ -23,7 +23,7 @@ class MyListScreen extends StatefulWidget {
   final bool embedded;
   final VoidCallback? onBrowse;
   final List<Map<String, dynamic>> initialMovies;
-  final MyList? savedList;
+  final MyListService? savedList;
   final Future<Map<String, dynamic>?> Function(int)? loadMovie;
 
   @override
@@ -40,7 +40,7 @@ class _MyListScreenState extends State<MyListScreen> {
   bool _loadFailed = false;
   Set<int> _loadedIds = {};
   _ListSort _sort = _ListSort.newest;
-  MyList get _saved => widget.savedList ?? MyList();
+  MyListService get _saved => widget.savedList ?? MyListService();
 
   @override
   void initState() {
@@ -198,7 +198,7 @@ class _MyListScreenState extends State<MyListScreen> {
     AdService().onMoviePosterTap(() async {
       if (!mounted) return;
       await Navigator.push(context,
-          MaterialPageRoute(builder: (_) => MovieDetailsScreen(movie: movie)));
+          MaterialPageRoute(builder: (_) => TitleDetailsScreen(movie: movie)));
       if (mounted) await _load();
     }, isActive: () => mounted && (ModalRoute.of(context)?.isCurrent ?? false));
   }

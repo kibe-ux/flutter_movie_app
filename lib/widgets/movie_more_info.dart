@@ -12,12 +12,14 @@ class MovieMoreInfo extends StatelessWidget {
       required this.movieId,
       required this.metadata,
       required this.onRetry,
+      this.downloadAction,
       this.mediaType = 'movie'});
 
   final int movieId;
   final String mediaType;
   final Future<Map<String, dynamic>?> metadata;
   final VoidCallback onRetry;
+  final Widget? downloadAction;
 
   @override
   Widget build(BuildContext context) {
@@ -48,10 +50,14 @@ class MovieMoreInfo extends StatelessWidget {
               future: metadata,
               builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
-                  return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child:
-                          LinearProgressIndicator(color: CinemaPalette.gold));
+                  return Column(children: [
+                    const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child:
+                            LinearProgressIndicator(color: CinemaPalette.gold)),
+                    if (downloadAction != null)
+                      _trailers(const [], unavailable: true),
+                  ]);
                 }
                 final details = snapshot.data;
                 if (snapshot.hasError || details == null || details.isEmpty) {
@@ -67,6 +73,8 @@ class MovieMoreInfo extends StatelessWidget {
                                 foregroundColor: CinemaPalette.gold),
                             icon: const Icon(Icons.refresh),
                             label: const Text('Retry')),
+                        if (downloadAction != null)
+                          _trailers(const [], unavailable: true),
                       ]);
                 }
                 final genres = movieInfoNames(details['genres']);
@@ -108,12 +116,7 @@ class MovieMoreInfo extends StatelessWidget {
                           _people(context, casts, 'character')),
                       _section('Crew', Icons.movie_creation_outlined,
                           _people(context, crew, 'job')),
-                      _section(
-                          'Trailers & videos',
-                          Icons.ondemand_video_outlined,
-                          videos.isEmpty
-                              ? _empty('No trailers or videos supplied.')
-                              : MovieTrailers(videos: videos)),
+                      _trailers(videos),
                       _section('Additional info', Icons.article_outlined,
                           _additionalInfo(details)),
                       const SizedBox(height: 18),
@@ -127,6 +130,23 @@ class MovieMoreInfo extends StatelessWidget {
           ])),
     );
   }
+
+  Widget _trailers(List<MovieInfoVideo> videos, {bool unavailable = false}) =>
+      _section(
+          'Trailers & videos',
+          Icons.ondemand_video_outlined,
+          Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (videos.isNotEmpty)
+              MovieTrailers(videos: videos)
+            else
+              _empty(unavailable
+                  ? 'Trailers unavailable right now.'
+                  : 'No trailers or videos supplied.'),
+            if (downloadAction != null) ...[
+              const SizedBox(height: 8),
+              Align(alignment: Alignment.centerRight, child: downloadAction!),
+            ],
+          ]));
 
   Widget _heading(String text) => Padding(
       padding: const EdgeInsets.only(bottom: 10),

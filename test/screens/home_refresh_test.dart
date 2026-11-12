@@ -10,8 +10,43 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:moviehub_app/screens/home_screen.dart';
 import 'package:moviehub_app/services/home_startup_service.dart';
+import 'package:moviehub_app/widgets/home_movie_carousel.dart';
 
 void main() {
+  testWidgets('first movie row appears while slower initial rows are pending',
+      (tester) async {
+    final slow = Completer<http.Response>();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+            const MethodChannel('dev.fluttercommunity.plus/connectivity'),
+            (_) async => ['wifi']);
+    await http.runWithClient(() async {
+      await tester
+          .pumpWidget(const MaterialApp(home: HomeScreen(myListIds: {})));
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(slow.isCompleted, isFalse);
+      expect(find.byType(HomeMovieCarousel), findsOneWidget);
+      expect(
+          tester
+              .widget<HomeMovieCarousel>(find.byType(HomeMovieCarousel))
+              .movies
+              .first['id'],
+          101);
+      await tester.pumpWidget(const SizedBox());
+      slow.complete(http.Response('{"results":[]}', 200));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    },
+        () => MockClient((request) async {
+              if (request.url.path.endsWith('/trending/movie/day')) {
+                return http.Response(
+                    '{"results":[{"id":101,"title":"Fast first row"}]}', 200);
+              }
+              return slow.future;
+            }));
+  });
   setUp(() => SharedPreferences.setMockInitialValues({}));
   setUp(CatalogueService.resetCacheForTesting);
   setUp(() {
@@ -167,10 +202,9 @@ void main() {
       }
       expect(paths, isNotEmpty);
       expect(
-          paths.every((uri) =>
-              (uri.path.startsWith('/api/catalogue/3/tv/') ||
-                  uri.path.startsWith('/api/catalogue/3/trending/tv/') ||
-                  uri.path == '/api/catalogue/3/discover/tv')),
+          paths.every((uri) => (uri.path.startsWith('/api/catalogue/3/tv/') ||
+              uri.path.startsWith('/api/catalogue/3/trending/tv/') ||
+              uri.path == '/api/catalogue/3/discover/tv')),
           isTrue);
       expect(find.text('Now Playing'), findsNothing);
       expect(
@@ -185,7 +219,8 @@ void main() {
     },
         () => MockClient((request) async {
               paths.add(request.url);
-              final tv = request.url.path.contains('/tv/') || request.url.path.endsWith('/tv');
+              final tv = request.url.path.contains('/tv/') ||
+                  request.url.path.endsWith('/tv');
               return response([
                 {
                   'id': id++,
@@ -203,12 +238,13 @@ void main() {
     final pending = Completer<http.Response>();
     await http.runWithClient(() async {
       await openHome(tester);
-      await tester.tap(find.text('Load More').first);
+      expect(find.text('Load More'), findsNothing);
+      final row = find.byKey(const PageStorageKey('home-posters-Now Playing'));
+      await tester.drag(row, const Offset(-300, 0));
       for (var i = 0; i < 4; i++) {
         await tester.pump();
       }
       expect(find.text('Extra page poster'), findsWidgets);
-      final row = find.byKey(const PageStorageKey('home-posters-Now Playing'));
       final scroll = tester.state<ScrollableState>(
           find.descendant(of: row, matching: find.byType(Scrollable)).first);
       scroll.position.jumpTo(10);
@@ -234,7 +270,6 @@ void main() {
       refreshing = false;
       await tester.drag(row, const Offset(-300, 0));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Load More').first);
       for (var i = 0; i < 4; i++) {
         await tester.pump();
       }

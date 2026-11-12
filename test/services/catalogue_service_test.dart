@@ -8,8 +8,35 @@ import 'package:http/testing.dart';
 import 'package:moviehub_app/services/catalogue_service.dart';
 
 void main() {
-  setUp(CatalogueService.resetCacheForTesting);
   final uri = TmdbApi.uri('discover/movie', {'page': '2'});
+  test('bad card fields and cursors cannot crash the movie card UI', () async {
+    await http.runWithClient(() async {
+      final page = await const CatalogueService().fetchPage(uri);
+      expect(page.items, hasLength(1));
+      expect(page.items.single['title'], isNull);
+      expect(page.items.single['release_date'], isNull);
+      expect(page.items.single['name'], 'A valid name');
+      expect(page.nextCursor, isNull);
+    },
+        () => MockClient((_) async => http.Response(
+            '{"results":[{"id":1,"title":123,"name":"A valid name","release_date":9,"poster_url":{}},{"id":0},null],"next_cursor":4}',
+            200)));
+  });
+  for (final status in [401, 403, 429]) {
+    test('status $status has a safe actionable error', () async {
+      await http.runWithClient(() async {
+        await expectLater(
+            const CatalogueService().fetchPage(uri),
+            throwsA(isA<CatalogueLoadException>().having(
+                (e) => e.message,
+                'message',
+                contains(status == 429 ? 'Wait a moment' : 'sign in again'))));
+      },
+          () => MockClient(
+              (_) async => http.Response('private provider body', status)));
+    });
+  }
+  setUp(CatalogueService.resetCacheForTesting);
 
   test('default service instances reuse a shared catalogue page', () async {
     var calls = 0;

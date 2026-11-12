@@ -1,8 +1,8 @@
 import '../services/tmdb_api.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'movie_details_screen.dart';
-import '../utils/my_list.dart';
+import 'title_details_screen.dart';
+import '../services/my_list_service.dart';
 import '../utils/cinema_palette.dart';
 import '../services/ad_service.dart';
 import '../services/catalogue_json_client.dart';
@@ -324,7 +324,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 ? '$imageBase${movie['poster_path']}'
                 : null;
             final movieId = movie['id'] ?? 0;
-            final isInMyList = MyList().contains(movieId);
+            final isInMyList = MyListService().contains(movieId);
 
             return GestureDetector(
               onTap: () {
@@ -332,7 +332,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => MovieDetailsScreen(movie: movie)),
+                        builder: (_) => TitleDetailsScreen(movie: movie)),
                   );
                 },
                     isActive: () =>
@@ -386,11 +386,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       child: GestureDetector(
                         onTap: () {
                           setState(() {
-                            MyList().toggle(movieId);
+                            MyListService().toggle(movieId);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  MyList().contains(movieId)
+                                  MyListService().contains(movieId)
                                       ? 'Added to My List'
                                       : 'Removed from My List',
                                   style: const TextStyle(
@@ -536,8 +536,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         children: [
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Text(
-                'Browse more movies and TV shows. Download availability varies.',
+            child: Text('Browse more movies and TV shows and have fun!',
                 style: TextStyle(color: CinemaPalette.muted, fontSize: 12)),
           ),
           if (!isLoading && movies.isNotEmpty)
