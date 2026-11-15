@@ -12,12 +12,15 @@ class CinemaPalette {
   static const muted = Color(0xFFB8ADB4);
   static const homeAccent = Color(0xFFC58B64);
   static const homeMuted = Color(0xFFC5B9B4);
-  static const appBarText = Color(0xFFE8D5B5);
+  static const appBarText = Color(0xFFF1E4D2);
+  static const headerBackground = Color(0xFF19171D);
+  static const headerControl = Color(0xFF29232A);
+  static const headerBorder = Color(0xFF46373E);
 
   static const homeHeaderGradient = LinearGradient(
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
-    colors: [Color(0xFF29151C), Color(0xFF1D181C), Color(0xFF121214)],
+    colors: [Color(0xFF30212A), Color(0xFF241D24), headerBackground],
   );
 
   static const appBarGradient = homeHeaderGradient;

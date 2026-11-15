@@ -59,6 +59,7 @@ void main() {
         await tester.pumpAndSettle();
         final menuItem = find.widgetWithText(ListTile, page);
         await tester.ensureVisible(menuItem);
+        await tester.pumpAndSettle();
         await tester.tap(menuItem);
         await tester.pumpAndSettle();
         expect(find.byType(LegalInfoScreen), findsOneWidget);

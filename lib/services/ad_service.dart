@@ -79,6 +79,7 @@ class AdService {
   AdConfiguration get _configuration => AdConfiguration.fromEnvironment();
   bool get _testAds => _configuration.useTestAds;
   String get bannerAdUnitId => _configuration.bannerId;
+  String? get nativeAdUnitId => _configuration.nativeId;
   String get interstitialAdUnitId => _configuration.interstitialId;
   String get rewardedAdUnitId => _configuration.rewardedId;
   static Future<bool> _readPremium() async =>

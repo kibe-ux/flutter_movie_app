@@ -10,6 +10,7 @@ class CinemaAppBarSurface extends StatelessWidget {
   Widget build(BuildContext context) => DecoratedBox(
         decoration: const BoxDecoration(
           gradient: CinemaPalette.appBarGradient,
+          border: Border(bottom: BorderSide(color: CinemaPalette.headerBorder)),
         ),
         child: child ?? const SizedBox.expand(),
       );

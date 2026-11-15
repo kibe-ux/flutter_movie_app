@@ -18,6 +18,7 @@ import '../services/auth_service.dart';
 import '../services/home_startup_service.dart';
 import '../utils/cinema_palette.dart';
 import '../widgets/movie_hub_app_bar.dart';
+import '../widgets/movie_hub_icon.dart';
 import '../widgets/retained_tab_view.dart';
 
 class MainScreen extends StatefulWidget {
@@ -166,78 +167,17 @@ class _MainScreenState extends State<MainScreen> {
     return Drawer(
       backgroundColor: _drawerBackground,
       surfaceTintColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.horizontal(right: Radius.circular(28)),
+        side: BorderSide(color: Color(0x28E6BB83)),
+      ),
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  CinemaPalette.wine,
-                  CinemaPalette.surface,
-                  _drawerBackground,
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Semantics(
-                        header: true,
-                        label: 'Movie Hub Downloader',
-                        excludeSemantics: true,
-                        child: const Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text('Movie Hub',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: _drawerText,
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 1,
-                                  height: 1.2,
-                                )),
-                            SizedBox(height: 6),
-                            Text('DOWNLOADER',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: _drawerAccent,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 3,
-                                  height: 1.4,
-                                )),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      const Text('Unlimited Movies & TV Shows',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: _drawerMuted,
-                            fontSize: 13,
-                            height: 1.5,
-                          )),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const Divider(height: 1, color: Color(0x20E6BB83)),
+          _buildDrawerHeader(),
           _buildDrawerSectionLabel('YOUR EXPERIENCE'),
           _buildDrawerItem(
             title: 'Cinema Rewards',
-            icon: Icons.toll_rounded,
             onTap: () {
               Navigator.push(context,
                   MaterialPageRoute(builder: (_) => const RewardsScreen()));
@@ -263,13 +203,54 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  Widget _buildDrawerHeader() => Container(
+        decoration: const BoxDecoration(
+          gradient: CinemaPalette.appBarGradient,
+          border: Border(bottom: BorderSide(color: CinemaPalette.headerBorder)),
+        ),
+        child: const SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(24, 28, 24, 26),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('MOVIE HUB',
+                    style: TextStyle(
+                        color: CinemaPalette.appBarText,
+                        fontSize: 27,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.5,
+                        height: 1.2)),
+                SizedBox(height: 7),
+                Text('DOWNLOADER',
+                    style: TextStyle(
+                        color: _drawerAccent,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 3)),
+                SizedBox(height: 22),
+                SizedBox(
+                    width: 36,
+                    height: 2,
+                    child: ColoredBox(color: _drawerAccent)),
+                SizedBox(height: 14),
+                Text('Your next great adventure starts here.',
+                    style: TextStyle(
+                        color: _drawerMuted, fontSize: 13, height: 1.5)),
+              ],
+            ),
+          ),
+        ),
+      );
+
   Widget _buildDrawerSectionLabel(String label) => Padding(
         padding: const EdgeInsets.fromLTRB(24, 22, 24, 8),
         child: Semantics(
           header: true,
           child: Text(label,
               style: const TextStyle(
-                color: _drawerMuted,
+                color: _drawerAccent,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 1.6,
@@ -280,127 +261,71 @@ class _MainScreenState extends State<MainScreen> {
 
   Widget _buildAboutUsItem() => _buildLegalDrawerItem(
         title: 'About Us',
-        icon: Icons.info_outline_rounded,
         type: LegalPageType.about,
       );
 
-  Widget _buildDrawerFooter() => const SafeArea(
-        top: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(24, 20, 24, 24),
-          child: Column(
+  Widget _buildDrawerFooter() {
+    const version =
+        String.fromEnvironment('FLUTTER_BUILD_NAME', defaultValue: '1.0.0');
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: CinemaPalette.appBarGradient,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: CinemaPalette.headerBorder),
+          ),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Color(0x14E6BB83),
-                  borderRadius: BorderRadius.all(Radius.circular(18)),
-                  border: Border.fromBorderSide(
-                    BorderSide(color: Color(0x33E6BB83)),
-                  ),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      Wrap(
-                        alignment: WrapAlignment.center,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          Text('Movie Hub Downloader',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: _drawerText,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                height: 1.4,
-                              )),
-                          DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Color(0x20E6BB83),
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(7)),
-                            ),
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              child: Text('v1.0.0',
-                                  style: TextStyle(
-                                    color: _drawerMuted,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.3,
-                                  )),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 18),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _DrawerCatalogueCount(
-                              value: '50K+',
-                              label: 'MOVIES',
-                              accentColor: _drawerAccent,
-                              mutedColor: _drawerMuted,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 1,
-                            height: 30,
-                            child: ColoredBox(color: Color(0x33E6BB83)),
-                          ),
-                          Expanded(
-                            child: _DrawerCatalogueCount(
-                              value: '20K+',
-                              label: ' Tv SHOWS',
-                              accentColor: _drawerAccent,
-                              mutedColor: _drawerMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(height: 16),
-              Text('2026 Ultimate Entertainment',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      color: _drawerMuted, fontSize: 11, height: 1.5)),
-              SizedBox(height: 3),
-              Text('All rights reserved.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      color: _drawerMuted, fontSize: 10, height: 1.5)),
+              Row(children: [
+                MovieHubIcon(size: 42),
+                SizedBox(width: 14),
+                Expanded(
+                    child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('MOVIE HUB',
+                        style: TextStyle(
+                            color: CinemaPalette.appBarText,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1)),
+                    SizedBox(height: 6),
+                    Text('Version $version',
+                        style: TextStyle(
+                            color: CinemaPalette.gold,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500)),
+                  ],
+                )),
+              ]),
             ],
           ),
         ),
-      );
+      ),
+    );
+  }
 
   Widget _buildCopyrightPolicyItem() => _buildLegalDrawerItem(
         title: 'Copyright Policy',
-        icon: Icons.copyright_outlined,
         type: LegalPageType.copyright,
       );
 
   Widget _buildTermsOfServiceItem() => _buildLegalDrawerItem(
         title: 'Terms of Service',
-        icon: Icons.gavel_outlined,
         type: LegalPageType.terms,
       );
 
   Widget _buildLegalDrawerItem({
     required String title,
-    required IconData icon,
     required LegalPageType type,
   }) {
     return _buildDrawerItem(
       title: title,
-      icon: icon,
       onTap: () {
         Navigator.push(
           context,
@@ -412,7 +337,6 @@ class _MainScreenState extends State<MainScreen> {
 
   Widget _buildFAQsItem() => _buildDrawerItem(
         title: 'FAQs & Help',
-        icon: Icons.help_outline_rounded,
         onTap: () {
           _showFAQsScreen();
         },
@@ -420,7 +344,6 @@ class _MainScreenState extends State<MainScreen> {
 
   Widget _buildSupportItem() => _buildDrawerItem(
         title: 'Contact Support',
-        icon: Icons.help_center_rounded,
         onTap: () {
           _showSupportScreen();
         },
@@ -428,7 +351,6 @@ class _MainScreenState extends State<MainScreen> {
 
   Widget _buildRateUsItem() => _buildDrawerItem(
         title: 'Rate Our App',
-        icon: Icons.star_rate_rounded,
         onTap: () {
           Navigator.pop(context);
           _openPlayStoreRating();
@@ -437,7 +359,6 @@ class _MainScreenState extends State<MainScreen> {
 
   Widget _buildPrivacyItem() => _buildDrawerItem(
         title: 'Privacy Policy',
-        icon: Icons.security_rounded,
         onTap: () {
           _showPrivacyPolicyScreen();
         },
@@ -445,7 +366,6 @@ class _MainScreenState extends State<MainScreen> {
 
   Widget _buildDisclaimerItem() => _buildDrawerItem(
         title: 'Legal & Disclaimer',
-        icon: Icons.policy_outlined,
         onTap: () {
           Navigator.push(
             context,
@@ -456,38 +376,33 @@ class _MainScreenState extends State<MainScreen> {
 
   Widget _buildDrawerItem({
     required String title,
-    required IconData icon,
     required VoidCallback onTap,
   }) =>
       Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: ListTile(
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          minLeadingWidth: 44,
-          horizontalTitleGap: 14,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          leading: Container(
-            width: 44,
-            height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: _drawerAccent.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: _drawerAccent, size: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+        child: Material(
+          color: CinemaPalette.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+            side: BorderSide(color: _drawerText.withValues(alpha: .055)),
           ),
-          title: Text(title,
-              style: const TextStyle(
-                color: _drawerText,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                height: 1.4,
-              )),
-          trailing: const Icon(Icons.chevron_right_rounded,
-              color: _drawerMuted, size: 20),
-          onTap: onTap,
+          clipBehavior: Clip.antiAlias,
+          child: ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            title: Text(title,
+                style: const TextStyle(
+                    color: _drawerText,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    height: 1.4)),
+            trailing: const Icon(Icons.chevron_right_rounded,
+                color: _drawerMuted, size: 20),
+            onTap: onTap,
+            splashColor: Colors.transparent,
+          ),
         ),
       );
 
@@ -573,7 +488,6 @@ class _MainScreenState extends State<MainScreen> {
   Widget _buildShareItem() {
     return _buildDrawerItem(
       title: 'Share App',
-      icon: Icons.share_rounded,
       onTap: () {
         Navigator.push(
           context,
@@ -600,43 +514,4 @@ class _MainScreenState extends State<MainScreen> {
       ),
     );
   }
-}
-
-class _DrawerCatalogueCount extends StatelessWidget {
-  const _DrawerCatalogueCount({
-    required this.value,
-    required this.label,
-    required this.accentColor,
-    required this.mutedColor,
-  });
-
-  final String value;
-  final String label;
-  final Color accentColor;
-  final Color mutedColor;
-
-  @override
-  Widget build(BuildContext context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(value,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: accentColor,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.5,
-                height: 1.2,
-              )),
-          const SizedBox(height: 5),
-          Text(label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: mutedColor,
-                fontSize: 10,
-                letterSpacing: 1.4,
-                height: 1.4,
-              )),
-        ],
-      );
 }

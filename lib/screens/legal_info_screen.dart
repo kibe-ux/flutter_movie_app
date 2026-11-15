@@ -16,12 +16,6 @@ class LegalInfoScreen extends StatelessWidget {
         LegalPageType.terms => 'Terms of Service',
       };
 
-  IconData get _icon => switch (type) {
-        LegalPageType.about => Icons.movie_filter_outlined,
-        LegalPageType.copyright => Icons.copyright_outlined,
-        LegalPageType.terms => Icons.gavel_outlined,
-      };
-
   Color get _accent => CinemaPalette.gold;
 
   List<Color> get _heroColors =>
@@ -35,7 +29,7 @@ class LegalInfoScreen extends StatelessWidget {
 
   String get _summary => switch (type) {
         LegalPageType.about =>
-          'Discover Movie Hub, the choices available to you, and our commitment to a dependable experience.',
+          'Find your next movie night, keep your favourites close, and discover more with Movie Hub.',
         LegalPageType.copyright =>
           'How we respect intellectual-property rights and review reports.',
         LegalPageType.terms =>
@@ -45,34 +39,34 @@ class LegalInfoScreen extends StatelessWidget {
   List<({String heading, String text})> get _sections => switch (type) {
         LegalPageType.about => [
             (
-              heading: 'What Movie Hub does',
+              heading: 'Our mission',
               text:
-                  'Movie Hub is an entertainment discovery app. It helps users browse and organize information about movies and shows available through third-party sources.'
+                  'Our mission is to make discovering movies and TV shows simple, personal, and enjoyable. Movie Hub brings browsing, title information, and your saved favourites into one place, helping you spend less time searching and more time finding stories that interest you. We want every movie lover to feel welcome, whether exploring a familiar genre or discovering something new.'
             ),
             (
-              heading: 'Flexibility & Security',
+              heading: 'Explore on your terms',
               text:
-                  'Explore movies and shows as a guest, or sign in whenever you want to access account features and join the community. Account authentication helps protect features tied to your identity. You stay in control of your device permissions and account choices; our Privacy Policy explains how information may be handled.'
+                  'Start exploring as a guest, or sign in to use account features and join the community. Choose how you use Movie Hub, manage your device permissions, and review your privacy options. Our Privacy Policy explains how your information is handled.'
             ),
             (
-              heading: 'Continuous Support',
+              heading: 'Always improving',
               text:
-                  'We are committed to improving Movie Hub through maintenance, bug fixes, and thoughtful updates. Your feedback helps us identify problems, refine features, and make the app easier to use. Visit FAQs & Help for guidance or Contact Support to share an issue or suggestion.'
+                  'We are working to make Movie Hub easier to navigate and more dependable through bug fixes, maintenance, and useful updates. Your feedback helps us understand what works, what needs attention, and which improvements matter most to you.'
             ),
             (
-              heading: 'Customer Support',
+              heading: 'Help when you need it',
               text:
-                  'We are dedicated to providing prompt, professional customer support. We aim to address inquiries and resolve issues efficiently, helping you enjoy a smooth, dependable experience. For assistance, open Contact Support from the navigation drawer and include the details of your question or issue so we can help you effectively.'
+                  'Find answers in FAQs & Help, or open Contact Support from the navigation menu to ask a question or report a problem. Tell us what happened and include the app version and any relevant error message so we can investigate. Please never share your password.'
             ),
             (
-              heading: 'Our role',
+              heading: 'Independent discovery',
               text:
-                  'We do not host, store, upload, stream, or distribute torrent files, media files, or downloads. Content availability and any external links are provided by independent third parties.'
+                  'Movie Hub helps you discover and organize entertainment information supplied by third-party services. Movie titles, artwork, and other third-party materials belong to their respective owners. This application uses the TMDB API but is not endorsed or certified by TMDB.'
             ),
             (
-              heading: 'Your choices',
+              heading: 'Respectful, responsible use',
               text:
-                  'Users are responsible for deciding whether to access third-party services and for complying with applicable law, platform rules, and the rights of content owners.'
+                  'Help keep Movie Hub welcoming by treating other community members with respect and following the community rules. Respect the rights of creators and use third-party services in accordance with their terms and applicable laws. Report inappropriate content or concerns through the available reporting and support options.'
             ),
           ],
         LegalPageType.copyright => [
@@ -94,49 +88,64 @@ class LegalInfoScreen extends StatelessWidget {
           ],
         LegalPageType.terms => [
             (
+              heading: 'Using Movie Hub',
+              text:
+                  'These terms explain the conditions for using Movie Hub, including discovery, saved collections, account features, the forum, and Cinema Rewards. Please read them alongside our Privacy Policy and Copyright Policy. If you do not agree, do not use the app. Some features are available to guests; others require a signed-in account.'
+            ),
+            (
               heading: 'Content ownership',
               text:
-                  'Movie titles, artwork, metadata, trademarks, and other material referenced in Movie Hub belong to their respective owners. Movie Hub does not claim ownership of third-party content and does not host, store, upload, stream, or distribute media files or torrent files.'
+                  'Movie titles, artwork, metadata, trademarks, and other third-party materials belong to their respective owners. Movie Hub helps you discover and organize information; displaying a title does not grant permission to use copyrighted material. This application uses the TMDB API but is not endorsed or certified by TMDB.'
             ),
             (
               heading: 'Copyright policy and notices',
               text:
-                  'We respect intellectual-property rights. Copyright or DMCA-style notices may be sent to supportmoviehub@gmail.com with your contact details, identification of the work, the relevant in-app item or link, and a statement of authority and good-faith belief. We will review reports and may remove or disable references where appropriate.'
+                  'We respect intellectual-property rights. If you are a rights holder or authorized representative, send concerns to supportmoviehub@gmail.com. Include your contact details, the work concerned, the specific in-app item, and an explanation of your authority and concern. We review reports and may remove or disable references where appropriate. See our Copyright Policy for reporting details.'
             ),
             (
               heading: 'User responsibility',
               text:
-                  'You must use the app lawfully and must not use it to infringe copyright or other rights. You are responsible for deciding whether any third-party service or material is authorized and lawful to access in your jurisdiction.'
+                  'Use Movie Hub lawfully and respect the rights of others. Do not attempt unauthorized access to accounts or systems, disrupt the service, submit fraudulent information, or manipulate advertising or rewards. Access third-party services only in accordance with applicable law and their terms. Never share another person\'s private information without permission.'
             ),
             (
               heading: 'Account security and deletion',
               text:
-                  'Provide accurate account information and keep your password and sign-in credentials private. You are responsible for activity you authorize through your account. If you suspect unauthorized access, secure your sign-in account and contact Support. You can request account deletion from your Profile; we may require you to verify your identity or sign in again before processing the request. A deletion request may be confirmed as pending while cleanup continues. The Privacy Policy explains how account information is handled and any applicable retention. Uninstalling Movie Hub does not itself delete your account.'
+                  'Provide accurate account details and keep your sign-in credentials private. You are responsible for activity you authorize through your account. If you suspect unauthorized access, secure your account and contact Support. Request account deletion from Profile and complete the verification and confirmation steps. Cleanup may continue after a request is accepted. Uninstalling the app does not delete your account; our Privacy Policy explains deletion and retention.'
+            ),
+            (
+              heading: 'Privacy and saved information',
+              text:
+                  'Our Privacy Policy explains the information used by Movie Hub and connected services, your privacy choices, and how to contact us about your data. Some saved titles, preferences, and history are stored on your device. Clearing app storage or reinstalling may remove them, and signing in does not by itself guarantee that device-only information is backed up or transferred.'
+            ),
+            (
+              heading: 'Advertising and your choices',
+              text:
+                  'Movie Hub includes advertising. Ad availability and content can vary, and an advertisement is not an endorsement by Movie Hub. Where required and available, use Ad privacy choices to review your consent. Do not generate artificial ad views or clicks, or encourage others to do so. Rewarded ads are optional and are explained separately below.'
             ),
             (
               heading: 'Forum rules and account suspension',
               text:
-                  'Use the forum respectfully. Do not post harassment, hate speech, threats, sexually explicit or exploitative material, scams, spam, impersonation, unlawful content, or another person\u2019s private information without permission. Respect other people\u2019s intellectual-property rights. Use the report and block tools to raise concerns and manage interactions. Moderators may remove content that violates these rules, and serious or repeated violations may result in restrictions or account suspension. If you believe a moderation or account decision is incorrect, contact Support with the relevant details.'
+                  'Follow the community rules and keep discussions respectful. Do not post harassment, hate speech, threats, sexually explicit or exploitative material, scams, spam, impersonation, unlawful content, or material you do not have permission to share. Use report and block tools to raise concerns and manage interactions. We may remove rule-breaking content or restrict accounts for serious or repeated violations. Contact Support with the relevant details if you believe a decision is incorrect.'
             ),
             (
               heading: 'Cinema Coins, rewarded ads, and redemption',
               text:
-                  'Cinema Coins are promotional in-app credits, have no cash value, and cannot be sold, transferred, or exchanged for money. They can be used only for eligible rewards displayed in Cinema Rewards. Watching a rewarded ad is optional; each ad requires your choice, and you may decline and continue browsing. In live mode, the disclosed coin reward is credited after the ad is completed and verified; confirmation may take time. Test ads do not award spendable coins. Redemption requires an eligible signed-in account and enough confirmed coins. Review the coin cost and reward duration shown before confirming. A confirmed redemption deducts the stated coins and activates the selected ad-free pass immediately. Pass time continues while the app is closed, and redeeming another pass extends an active pass. Do not use automation, tampering, or fraudulent activity to obtain rewards.'
+                  'Cinema Coins are account-bound promotional credits for the rewards displayed in Cinema Rewards. They have no cash value and cannot be sold, transferred, or exchanged for money. Each rewarded ad requires your choice, with its reward disclosed beforehand; declining does not prevent normal browsing. In live mode, completing the required action earns the disclosed reward after verification, which may take time. Test ads do not award spendable coins. Redemption requires an eligible signed-in account and sufficient confirmed coins. Review the cost and duration before confirming. A successful redemption deducts the stated coins and starts the selected ad-free pass immediately. Pass time continues while the app is closed, and another redemption extends an active pass. Movie Hub is responsible for delivering its rewards; contact Support if a completed reward is missing.'
             ),
             (
-              heading: 'Limitation of liability',
+              heading: 'Availability and third-party services',
               text:
-                  'To the fullest extent permitted by applicable law, Movie Hub is provided without warranties of availability, accuracy, security, or fitness for a particular purpose. We are not responsible for third-party websites, content, services, downloads, or for losses arising from your use of them.'
+                  'We work to keep Movie Hub useful and dependable, but uninterrupted access, error-free operation, and the accuracy or continued availability of third-party information cannot be guaranteed. Features may be affected by maintenance, connectivity, or provider changes. External services operate under their own terms and privacy policies. Report problems through Support so we can investigate.'
             ),
             (
               heading: 'Modification of terms',
               text:
-                  'We may update these terms as the app evolves. The updated version will be posted in the app with a revised date. Continued use after an update means you accept the revised terms.'
+                  'We may revise these terms when features, service practices, or applicable requirements change. The current version is available in the app with its revision date. Review updated terms before continuing to use Movie Hub. Changes do not remove rights or obligations that applicable law requires us to preserve.'
             ),
             (
-              heading: 'Governing law',
+              heading: 'Your rights and resolving concerns',
               text:
-                  'These terms are governed by applicable law. Where legally permitted, disputes will be addressed under the law and courts of the app operator\u2019s jurisdiction. Mandatory consumer-protection laws in your place of residence remain unaffected. The operator jurisdiction should be added before a public release.'
+                  'Nothing in these terms is intended to exclude rights or remedies that cannot lawfully be excluded, including mandatory consumer protections. For a concern about the app, your account, moderation, or rewards, contact supportmoviehub@gmail.com with enough detail for us to investigate. Do not include passwords. Contacting Support does not prevent you from using other remedies available under applicable law.'
             ),
           ],
       };
@@ -185,15 +194,6 @@ class LegalInfoScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: _accent.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Icon(_icon, color: _accent, size: 30),
-                  ),
-                  const SizedBox(height: 20),
                   Text(_eyebrow,
                       style: TextStyle(
                           color: _accent,
@@ -278,7 +278,11 @@ class LegalInfoScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Text(
-                'Last updated: ${type == LegalPageType.terms ? '12 November 2026' : '19 October 2026'}\nKeep this information for your records and review it when using app services.',
+                'Last updated: ${switch (type) {
+                  LegalPageType.about => '16 November 2026',
+                  LegalPageType.terms => '16 November 2026',
+                  LegalPageType.copyright => '19 October 2026',
+                }}\nKeep this information for your records and review it when using app services.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                     color: CinemaPalette.muted, fontSize: 12, height: 1.45),

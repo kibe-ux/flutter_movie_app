@@ -42,6 +42,18 @@ class AdConfiguration {
               _value(key).startsWith(_demoPublisher));
 
   bool get _ios => platform == TargetPlatform.iOS;
+  // A missing native unit must not change the mode of existing ad formats.
+  // In production, keep this optional placement hidden until configured.
+  String? get nativeId {
+    if (useTestAds) {
+      return '$_demoPublisher${_ios ? '3986624511' : '2247696110'}';
+    }
+    final value = _value('ADMOB_NATIVE_ID');
+    return _unitPattern.hasMatch(value) && !value.startsWith(_demoPublisher)
+        ? value
+        : null;
+  }
+
   String get bannerId => useTestAds
       ? '$_demoPublisher${_ios ? '2934735716' : '6300978111'}'
       : _value('ADMOB_BANNER_ID');

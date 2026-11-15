@@ -60,7 +60,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   icon: Icons.devices_outlined,
                   title: 'Information stored on your device',
                   paragraphs: const [
-                    'Features such as My List, favorites,settings, and downloads may store information locally on your device so they work between app sessions.',
+                    'My List, favorites, and settings may store information locally on your device so your saved choices and preferences remain available between app sessions.',
                     'You can remove locally stored app information through the relevant feature where available, or by clearing the app\u2019s storage in your device settings. This may remove saved titles and preferences.',
                   ],
                 ),
@@ -146,7 +146,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                 _buildContactCard(context),
                 const SizedBox(height: 16),
                 const Text(
-                  'Last updated: 28 October 2026. We may update this policy as app features or data practices change. The latest version and revision date are available on this page.',
+                  'Last updated: 16 November 2026. We may update this policy as app features or data practices change. The latest version and revision date are available on this page.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                       color: CinemaPalette.muted, fontSize: 12, height: 1.4),
@@ -174,17 +174,6 @@ class PrivacyPolicyScreen extends StatelessWidget {
         ),
       );
 
-  Widget _buildIconBadge(IconData icon) => Container(
-        width: 44,
-        height: 44,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: _accent.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(icon, color: _accent, size: 24),
-      );
-
   Widget _buildHero() {
     return Container(
       padding: const EdgeInsets.all(24),
@@ -197,12 +186,10 @@ class PrivacyPolicyScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: _accent.withValues(alpha: 0.12)),
       ),
-      child: Row(
+      child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildIconBadge(Icons.shield_outlined),
-          const SizedBox(width: 16),
-          const Expanded(
+          Expanded(
               child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -233,8 +220,6 @@ class PrivacyPolicyScreen extends StatelessWidget {
       child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline_rounded, color: _accent, size: 22),
-          SizedBox(width: 14),
           Expanded(
             child: Text(
               'Your privacy choices, in one place. Read this policy alongside the notices of connected services.',
@@ -265,7 +250,6 @@ class PrivacyPolicyScreen extends StatelessWidget {
         expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
         shape: const Border(),
         collapsedShape: const Border(),
-        leading: _buildIconBadge(icon),
         title: Text(title,
             style: const TextStyle(
                 color: CinemaPalette.ivory,
@@ -314,12 +298,10 @@ class PrivacyPolicyScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildIconBadge(Icons.mail_outline_rounded),
-              const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                   child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -356,8 +338,6 @@ class PrivacyPolicyScreen extends StatelessWidget {
                       child: Text(_privacyEmail,
                           textAlign: TextAlign.center,
                           style: TextStyle(fontSize: 13, height: 1.5))),
-                  SizedBox(width: 8),
-                  Icon(Icons.open_in_new_rounded, size: 18),
                 ],
               ),
             ),

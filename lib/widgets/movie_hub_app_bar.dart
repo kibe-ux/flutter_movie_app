@@ -13,8 +13,8 @@ class MovieHubAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) => AppBar(
-        backgroundColor: CinemaPalette.background,
-        foregroundColor: CinemaPalette.ivory,
+        backgroundColor: CinemaPalette.headerBackground,
+        foregroundColor: CinemaPalette.appBarText,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -54,9 +54,8 @@ class _ToolbarControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DecoratedBox(
         decoration: BoxDecoration(
-          color: CinemaPalette.homeAccent.withValues(alpha: .05),
-          border: Border.all(
-              color: CinemaPalette.homeAccent.withValues(alpha: .18)),
+          color: CinemaPalette.headerControl,
+          border: Border.all(color: CinemaPalette.headerBorder),
           borderRadius: BorderRadius.circular(15),
         ),
         child: SizedBox(width: 48, height: 48, child: child),
@@ -81,15 +80,13 @@ class _MovieHubWordmark extends StatelessWidget {
                 height: 36,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(11),
-                  border: Border.all(color: const Color(0x66E6BB83)),
+                  border: Border.all(
+                      color: CinemaPalette.gold.withValues(alpha: .35)),
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFFE50914), Color(0xFFB20710)],
+                    colors: [CinemaPalette.headerControl, CinemaPalette.wine],
                   ),
-                  boxShadow: const [
-                    BoxShadow(color: Color(0x33E50914), blurRadius: 16),
-                  ],
                 ),
                 child: const Padding(
                   padding: EdgeInsets.all(1),
@@ -105,7 +102,7 @@ class _MovieHubWordmark extends StatelessWidget {
                     TextSpan(children: [
                       TextSpan(
                           text: 'MOVIE ',
-                          style: TextStyle(color: Color(0xFFD9AA70))),
+                          style: TextStyle(color: CinemaPalette.gold)),
                       TextSpan(
                           text: 'HUB',
                           style: TextStyle(color: CinemaPalette.appBarText)),

@@ -7,6 +7,7 @@ import '../services/ad_service.dart';
 import '../services/media_api_service.dart';
 import '../widgets/cinema_app_bar_surface.dart';
 import '../widgets/safe_network_image.dart';
+import '../widgets/movie_hub_native_ad.dart';
 
 enum _ListSort { newest, title }
 
@@ -535,6 +536,13 @@ class _MyListScreenState extends State<MyListScreen> {
                                   child: _poster(movies[index])),
                               childCount: movies.length),
                         )),
+                  if (!_loading && movies.isNotEmpty)
+                    SliverPadding(
+                      padding: EdgeInsets.symmetric(horizontal: padding),
+                      sliver: const SliverToBoxAdapter(
+                        child: MovieHubNativeAd(),
+                      ),
+                    ),
                 ],
               );
             }),

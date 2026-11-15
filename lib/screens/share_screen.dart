@@ -19,7 +19,8 @@ class _ShareScreenState extends State<ShareScreen> {
   bool _isSharing = false;
 
   Map<String, dynamic>? get _movie => widget.movie;
-  String get _movieTitle => _movie?['title']?.toString() ?? 'this movie';
+  String get _movieTitle =>
+      (_movie?['title'] ?? _movie?['name'] ?? 'this title').toString();
 
   @override
   Widget build(BuildContext context) {
@@ -35,8 +36,7 @@ class _ShareScreenState extends State<ShareScreen> {
           ),
         ),
         elevation: 0,
-        title: Text(
-            _movie == null ? 'Share Movie Hub Downloader' : 'Share movie',
+        title: Text(_movie == null ? 'Share Movie Hub' : 'Share a title',
             style: const TextStyle(fontWeight: FontWeight.w800)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
@@ -56,6 +56,8 @@ class _ShareScreenState extends State<ShareScreen> {
               _buildInviteHero(),
               const SizedBox(height: 20),
             ],
+            _buildMessagePreview(),
+            const SizedBox(height: 20),
             _buildPrimaryAction(),
             const SizedBox(height: 28),
             const Text('Quick actions',
@@ -128,9 +130,6 @@ class _ShareScreenState extends State<ShareScreen> {
                 if (rating != null) ...[
                   const SizedBox(height: 6),
                   Row(children: [
-                    const Icon(Icons.star_rounded,
-                        color: CinemaPalette.gold, size: 18),
-                    const SizedBox(width: 5),
                     Text('$rating / 10',
                         style: const TextStyle(color: CinemaPalette.muted)),
                   ]),
@@ -161,43 +160,62 @@ class _ShareScreenState extends State<ShareScreen> {
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.group_add_outlined, size: 38, color: CinemaPalette.gold),
-          SizedBox(height: 22),
-          Text('Better with friends',
+          Text('Good stories are worth sharing.',
               style: TextStyle(
                   color: CinemaPalette.ivory,
                   fontSize: 28,
                   fontWeight: FontWeight.w800)),
           SizedBox(height: 8),
           Text(
-              'Invite someone to discover their next movie night on Movie Hub Downloader.',
+              'Introduce a friend to Movie Hub. Explore movies and TV shows, keep a list of favourites, and find something to talk about together.',
               style: TextStyle(color: CinemaPalette.muted, height: 1.4)),
         ],
       ),
     );
   }
 
+  Widget _buildMessagePreview() => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: CinemaPalette.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: CinemaPalette.gold.withValues(alpha: .16)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('YOUR MESSAGE',
+                style: TextStyle(
+                  color: CinemaPalette.gold,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.4,
+                )),
+            const SizedBox(height: 12),
+            SelectableText(_shareMessage,
+                style: const TextStyle(
+                  color: CinemaPalette.ivory,
+                  fontSize: 14,
+                  height: 1.6,
+                )),
+          ],
+        ),
+      );
+
   Widget _buildPrimaryAction() {
-    return FilledButton.icon(
+    return FilledButton(
       onPressed: _isSharing ? null : _sharePrimary,
-      icon: _isSharing
-          ? const SizedBox.square(
-              dimension: 18,
-              child: CircularProgressIndicator(
-                  color: CinemaPalette.background, strokeWidth: 2),
-            )
-          : const Icon(Icons.ios_share_rounded),
-      label: Text(_isSharing
-          ? 'Opening share options...'
-          : _movie == null
-              ? 'Invite to Movie Hub Downloader'
-              : 'Share $_movieTitle'),
       style: FilledButton.styleFrom(
         backgroundColor: _accent,
         foregroundColor: CinemaPalette.background,
         minimumSize: const Size.fromHeight(54),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
+      child: Text(_isSharing
+          ? 'Opening share options...'
+          : _movie == null
+              ? 'Share Movie Hub'
+              : 'Share $_movieTitle'),
     );
   }
 
@@ -206,16 +224,14 @@ class _ShareScreenState extends State<ShareScreen> {
       children: [
         Expanded(
           child: _buildActionCard(
-            icon: Icons.copy_rounded,
             title: 'Copy message',
-            subtitle: 'Share later',
+            subtitle: 'Save your invitation for later',
             onTap: _isSharing ? null : _copyShareMessage,
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: _buildActionCard(
-            icon: Icons.send_rounded,
             title: 'Send message',
             subtitle: 'Choose an app',
             onTap: _isSharing ? null : _sharePrimary,
@@ -226,7 +242,6 @@ class _ShareScreenState extends State<ShareScreen> {
   }
 
   Widget _buildActionCard({
-    required IconData icon,
     required String title,
     required String subtitle,
     required VoidCallback? onTap,
@@ -247,8 +262,6 @@ class _ShareScreenState extends State<ShareScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, color: _accent),
-              const SizedBox(height: 18),
               Text(title,
                   style: const TextStyle(
                       color: CinemaPalette.ivory, fontWeight: FontWeight.w700)),
@@ -274,11 +287,9 @@ class _ShareScreenState extends State<ShareScreen> {
       child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.lightbulb_outline_rounded, color: CinemaPalette.gold),
-          SizedBox(width: 12),
           Expanded(
             child: Text(
-                'The system share sheet lets you choose any installed messaging or social app.',
+                'Choose an available app from your phone\'s share menu, or copy the message and send it later. You decide where it goes and who receives it.',
                 style: TextStyle(color: CinemaPalette.muted, height: 1.4)),
           ),
         ],
@@ -295,12 +306,13 @@ class _ShareScreenState extends State<ShareScreen> {
       await Share.share(message,
           subject: _movie == null
               ? 'Join Movie Hub Downloader'
-              : 'Download $title with Movie Hub Downloader');
+              : 'Discover $title on Movie Hub Downloader');
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Could not open sharing options: $error'),
+        const SnackBar(
+            content: Text(
+                'Could not open sharing options. Try again or copy the message to send it yourself.'),
             backgroundColor: Colors.red),
       );
     } finally {
@@ -311,8 +323,8 @@ class _ShareScreenState extends State<ShareScreen> {
   String get _shareMessage {
     final rating = _movie?['vote_average'];
     return _movie == null
-        ? 'Discover your next movie night with Movie Hub Downloader.'
-        : 'Check out "$_movieTitle" on Movie Hub Downloader${rating == null ? '' : ' - rated $rating/10'}.';
+        ? 'Looking for your next movie night? Explore movies and TV shows with Movie Hub Downloader, discover titles by genre, and keep your favourites in My List. Let\'s find our next great story!'
+        : 'Here\'s a title for your next movie night: "$_movieTitle"${rating == null ? '' : ' (rated $rating/10)'}. Discover it on Movie Hub Downloader and save it to My List for later.';
   }
 
   Future<void> _copyShareMessage() async {

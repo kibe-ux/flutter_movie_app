@@ -31,6 +31,14 @@ The app currently uses Google's sample AdMob app IDs and test ad units.
 `ADMOB_USE_TEST_ADS=true` in the root `.env` keeps release builds on test ads;
 debug builds always use test ads. These ads are for testing the placements.
 
+My List includes one labelled native ad below a non-empty saved collection,
+styled with Google's small native template. It collapses while loading or on
+failure and respects consent and ad-free access. Set `ADMOB_NATIVE_ID` to a real
+native ad unit alongside the existing production ad configuration to enable
+this placement in live mode. A missing or invalid native unit hides only this
+placement; it does not switch the other live ad formats to test inventory.
+Native template reference: https://developers.google.com/admob/flutter/native/templates
+
 Poster taps, Home's **View All**, and confirmed movie or episode downloads
 share one interstitial service. Actions continue after dismissal or presentation
 failure. Missing ads and load timeouts allow the action to continue; an ad that

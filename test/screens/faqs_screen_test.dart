@@ -6,20 +6,17 @@ void main() {
   testWidgets('FAQ topics, expanded answers and empty-search recovery work',
       (tester) async {
     await tester.pumpWidget(const MaterialApp(home: FAQsScreen()));
-    final downloads = find.widgetWithText(ChoiceChip, 'Downloads');
-    await tester.ensureVisible(downloads);
-    await tester.tap(downloads);
+    expect(find.widgetWithText(ChoiceChip, 'Downloads'), findsNothing);
+    final account = find.widgetWithText(ChoiceChip, 'Account');
+    await tester.ensureVisible(account);
+    await tester.tap(account);
     await tester.pumpAndSettle();
-    expect(find.text('1 question'), findsOneWidget);
-    final question =
-        find.text('What should I check when playback or a download fails?');
+    expect(find.text('3 questions'), findsOneWidget);
+    final question = find.text('Do I need an account to explore Movie Hub?');
     await tester.ensureVisible(question);
     await tester.tap(question);
     await tester.pumpAndSettle();
-    expect(
-        find.textContaining(
-            'Check your connection and available device storage'),
-        findsOneWidget);
+    expect(find.textContaining('You can browse as a guest.'), findsOneWidget);
     await tester.scrollUntilVisible(find.byType(TextField), -200,
         scrollable: find.byType(Scrollable).first);
     await tester.enterText(find.byType(TextField), 'zzznomatches');

@@ -906,8 +906,9 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen>
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
-        splashColor: iconColor.withValues(alpha: 0.12),
-        highlightColor: iconColor.withValues(alpha: 0.06),
+        splashFactory: NoSplash.splashFactory,
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Row(

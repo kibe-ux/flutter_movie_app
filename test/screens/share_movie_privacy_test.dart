@@ -26,7 +26,8 @@ void main() {
       'wambesha_id': 'private-provider-id',
       'imdbId': 'tt123456789',
     })));
-    await tester.ensureVisible(find.text('Copy message'));
+    await tester.scrollUntilVisible(find.text('Copy message'), 200,
+        scrollable: find.byType(Scrollable).first);
     await tester.tap(find.text('Copy message'));
     await tester.pumpAndSettle();
     expect(copied, contains('Coco'));

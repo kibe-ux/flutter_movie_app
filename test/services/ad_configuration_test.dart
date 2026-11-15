@@ -32,6 +32,48 @@ void main() {
     'ADMOB_INTERSTITIAL_ID': 'ca-app-pub-1234567890123456/2222222222',
     'ADMOB_REWARDED_ID': 'ca-app-pub-1234567890123456/3333333333',
   };
+  test('native demo units match the platform and cannot go live in debug', () {
+    for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+      final config = AdConfiguration(
+        platform: platform,
+        isRelease: false,
+        environment: {
+          ...live,
+          'ADMOB_NATIVE_ID': 'ca-app-pub-1234567890123456/4444444444',
+        },
+      );
+      expect(config.nativeId,
+          'ca-app-pub-3940256099942544/${platform == TargetPlatform.iOS ? '3986624511' : '2247696110'}');
+    }
+  });
+
+  test(
+      'unconfigured native placement does not switch existing live ads to test',
+      () {
+    for (final value in [
+      '',
+      'invalid',
+      'ca-app-pub-3940256099942544/2247696110'
+    ]) {
+      final config = AdConfiguration(
+        platform: TargetPlatform.android,
+        isRelease: true,
+        environment: {...live, 'ADMOB_NATIVE_ID': value},
+      );
+      expect(config.useTestAds, isFalse);
+      expect(config.nativeId, isNull);
+      expect(config.bannerId, live['ADMOB_BANNER_ID']);
+    }
+    final config = AdConfiguration(
+      platform: TargetPlatform.android,
+      isRelease: true,
+      environment: {
+        ...live,
+        'ADMOB_NATIVE_ID': 'ca-app-pub-1234567890123456/4444444444',
+      },
+    );
+    expect(config.nativeId, 'ca-app-pub-1234567890123456/4444444444');
+  });
   test('empty configuration uses Google test ads even in release', () {
     final config =
         AdConfiguration(platform: TargetPlatform.android, isRelease: true);

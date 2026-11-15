@@ -100,13 +100,17 @@ class MovieDownloadApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           brightness: Brightness.dark,
+          splashFactory: NoSplash.splashFactory,
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
           scaffoldBackgroundColor: const Color(0xFF0A0A0A),
           colorScheme: ColorScheme.fromSeed(
             seedColor: const Color(0xFF00D4FF),
             brightness: Brightness.dark,
           ),
           appBarTheme: const AppBarTheme(
-            backgroundColor: Color(0xFF0A0A0A),
+            backgroundColor: CinemaPalette.headerBackground,
+            foregroundColor: CinemaPalette.appBarText,
             elevation: 0,
             centerTitle: true,
             titleTextStyle: TextStyle(
@@ -114,7 +118,7 @@ class MovieDownloadApp extends StatelessWidget {
               fontWeight: FontWeight.bold,
               fontSize: 22,
             ),
-            iconTheme: IconThemeData(color: Colors.white),
+            iconTheme: IconThemeData(color: CinemaPalette.appBarText),
           ),
           pageTransitionsTheme: const PageTransitionsTheme(builders: {
             TargetPlatform.android: FastPageTransitionsBuilder(),

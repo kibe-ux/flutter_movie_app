@@ -25,7 +25,7 @@ class _SupportScreenState extends State<SupportScreen> {
       subject: subject.isNotEmpty ? subject : 'Movie Hub Support Request',
       body: body.isNotEmpty
           ? body
-          : 'Hello Movie Hub Team,\n\nI need assistance with:',
+          : 'Hello Movie Hub Team,\n\nMy question or concern:\n\nApp version:\nPhone model:\n\nPlease do not include passwords or other sensitive information.',
     );
   }
 
@@ -62,141 +62,132 @@ class _SupportScreenState extends State<SupportScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-              Center(
-                child: Container(
-                  width: 44,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: CinemaPalette.muted.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 4,
                     decoration: BoxDecoration(
-                      color: CinemaPalette.gold.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
+                      color: CinemaPalette.muted.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                    child: const Icon(Icons.bug_report_rounded,
-                        color: CinemaPalette.gold, size: 24),
                   ),
-                  const SizedBox(width: 14),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Report an Issue',
-                        style: TextStyle(
-                            color: CinemaPalette.ivory,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 20),
+                const Row(
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Report an Issue',
+                          style: TextStyle(
+                              color: CinemaPalette.ivory,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          'Describe the issue, then review the email before sending.',
+                          style: TextStyle(
+                              color: CinemaPalette.muted, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const Text('Category',
+                    style: TextStyle(
+                        color: CinemaPalette.muted,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: categories.map((cat) {
+                    final isSelected = cat == selectedCategory;
+                    return ChoiceChip(
+                      label: Text(cat),
+                      selected: isSelected,
+                      onSelected: (val) {
+                        setModalState(() => selectedCategory = cat);
+                      },
+                      selectedColor: _accent.withValues(alpha: 0.2),
+                      backgroundColor: _cardDark,
+                      side:
+                          BorderSide(color: isSelected ? _accent : _borderDark),
+                      labelStyle: TextStyle(
+                        color: isSelected ? _accent : CinemaPalette.muted,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.normal,
+                        fontSize: 13,
                       ),
-                      Text(
-                        'Include enough detail for us to investigate',
-                        style:
-                            TextStyle(color: CinemaPalette.muted, fontSize: 13),
-                      ),
-                    ],
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                const Text('Tell us what happened',
+                    style: TextStyle(
+                        color: CinemaPalette.muted,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: descController,
+                  maxLines: 4,
+                  style:
+                      const TextStyle(color: CinemaPalette.ivory, fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText:
+                        'Which feature or title? What did you expect? What happened instead? Include any error message, but no passwords.',
+                    hintStyle: const TextStyle(
+                        color: CinemaPalette.muted, fontSize: 13),
+                    filled: true,
+                    fillColor: _cardDark,
+                    contentPadding: const EdgeInsets.all(16),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: _borderDark),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: _borderDark),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: _accent),
+                    ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              const Text('Category',
-                  style: TextStyle(
-                      color: CinemaPalette.muted,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600)),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: categories.map((cat) {
-                  final isSelected = cat == selectedCategory;
-                  return ChoiceChip(
-                    label: Text(cat),
-                    selected: isSelected,
-                    onSelected: (val) {
-                      setModalState(() => selectedCategory = cat);
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      if (descController.text.trim().isNotEmpty) {
+                        _launchEmail(
+                          subject: '[$selectedCategory] Bug Report - Movie Hub',
+                          body:
+                              'Hello Movie Hub Team,\n\nCategory: $selectedCategory\n\nWhat happened:\n${descController.text.trim()}\n\nApp version:\nPhone model and Android/iOS version:\nSteps to reproduce:\n\nPlease review these details before sending.',
+                        );
+                        Navigator.pop(ctx);
+                      }
                     },
-                    selectedColor: _accent.withValues(alpha: 0.2),
-                    backgroundColor: _cardDark,
-                    side: BorderSide(color: isSelected ? _accent : _borderDark),
-                    labelStyle: TextStyle(
-                      color: isSelected ? _accent : CinemaPalette.muted,
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.normal,
-                      fontSize: 13,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _accent,
+                      foregroundColor: CinemaPalette.background,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      elevation: 0,
                     ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 16),
-              const Text('Tell us what happened',
-                  style: TextStyle(
-                      color: CinemaPalette.muted,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              TextField(
-                controller: descController,
-                maxLines: 4,
-                style:
-                    const TextStyle(color: CinemaPalette.ivory, fontSize: 14),
-                decoration: InputDecoration(
-                  hintText:
-                      'Title, what you expected, what happened, and any error message',
-                  hintStyle:
-                      const TextStyle(color: CinemaPalette.muted, fontSize: 13),
-                  filled: true,
-                  fillColor: _cardDark,
-                  contentPadding: const EdgeInsets.all(16),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: _borderDark),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: _borderDark),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: _accent),
+                    child: const Text('OPEN EMAIL DRAFT',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14)),
                   ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    if (descController.text.trim().isNotEmpty) {
-                      _launchEmail(
-                        subject: '[$selectedCategory] Bug Report - Movie Hub',
-                        body:
-                            'Category: $selectedCategory\n\nDescription:\n${descController.text.trim()}\n\nDevice: Mobile App',
-                      );
-                      Navigator.pop(ctx);
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _accent,
-                    foregroundColor: CinemaPalette.background,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                    elevation: 0,
-                  ),
-                  child: const Text('SUBMIT REPORT',
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                ),
-              ),
-            ],
-          ),
+              ],
+            ),
           ),
         ),
       ),
@@ -228,143 +219,135 @@ class _SupportScreenState extends State<SupportScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-            Center(
-              child: Container(
-                width: 44,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: CinemaPalette.muted.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4,
                   decoration: BoxDecoration(
-                    color: _accent.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
+                    color: CinemaPalette.muted.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  child: Icon(Icons.movie_filter_rounded,
-                      color: _accent, size: 24),
                 ),
-                const SizedBox(width: 14),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Request Movie or Show',
-                      style: TextStyle(
-                          color: CinemaPalette.ivory,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      'Requests are reviewed but are not guaranteed',
+              ),
+              const SizedBox(height: 20),
+              const Row(
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Request Movie or Show',
+                        style: TextStyle(
+                            color: CinemaPalette.ivory,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'Requests are reviewed but are not guaranteed',
+                        style:
+                            TextStyle(color: CinemaPalette.muted, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              const Text('Title / Name',
+                  style: TextStyle(
+                      color: CinemaPalette.muted,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: titleController,
+                style:
+                    const TextStyle(color: CinemaPalette.ivory, fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'e.g. Interstellar, Breaking Bad',
+                  hintStyle:
+                      const TextStyle(color: CinemaPalette.muted, fontSize: 13),
+                  filled: true,
+                  fillColor: _cardDark,
+                  contentPadding: const EdgeInsets.all(16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: _borderDark),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: _borderDark),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: _accent),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text('Release Year (Optional)',
+                  style: TextStyle(
+                      color: CinemaPalette.muted,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: yearController,
+                keyboardType: TextInputType.number,
+                style:
+                    const TextStyle(color: CinemaPalette.ivory, fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'e.g. 2024',
+                  hintStyle:
+                      const TextStyle(color: CinemaPalette.muted, fontSize: 13),
+                  filled: true,
+                  fillColor: _cardDark,
+                  contentPadding: const EdgeInsets.all(16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: _borderDark),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: _borderDark),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: _accent),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    if (titleController.text.trim().isNotEmpty) {
+                      final year = yearController.text.trim();
+                      final yrStr = year.isNotEmpty ? ' ($year)' : '';
+                      _launchEmail(
+                        subject:
+                            'Movie Request: ${titleController.text.trim()}$yrStr',
+                        body:
+                            'Requested title: ${titleController.text.trim()}$yrStr\n\nPlease add any helpful details below:\n',
+                      );
+                      Navigator.pop(ctx);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _accent,
+                    foregroundColor: CinemaPalette.background,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                    elevation: 0,
+                  ),
+                  child: const Text('OPEN EMAIL DRAFT',
                       style:
-                          TextStyle(color: CinemaPalette.muted, fontSize: 13),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            const Text('Title / Name',
-                style: TextStyle(
-                    color: CinemaPalette.muted,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: titleController,
-              style: const TextStyle(color: CinemaPalette.ivory, fontSize: 14),
-              decoration: InputDecoration(
-                hintText: 'e.g. Interstellar, Breaking Bad',
-                hintStyle:
-                    const TextStyle(color: CinemaPalette.muted, fontSize: 13),
-                filled: true,
-                fillColor: _cardDark,
-                contentPadding: const EdgeInsets.all(16),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: _borderDark),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: _borderDark),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: _accent),
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            const Text('Release Year (Optional)',
-                style: TextStyle(
-                    color: CinemaPalette.muted,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: yearController,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(color: CinemaPalette.ivory, fontSize: 14),
-              decoration: InputDecoration(
-                hintText: 'e.g. 2024',
-                hintStyle:
-                    const TextStyle(color: CinemaPalette.muted, fontSize: 13),
-                filled: true,
-                fillColor: _cardDark,
-                contentPadding: const EdgeInsets.all(16),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: _borderDark),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: _borderDark),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: _accent),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  if (titleController.text.trim().isNotEmpty) {
-                    final year = yearController.text.trim();
-                    final yrStr = year.isNotEmpty ? ' ($year)' : '';
-                    _launchEmail(
-                      subject:
-                          'Movie Request: ${titleController.text.trim()}$yrStr',
-                      body:
-                          'Requested title: ${titleController.text.trim()}$yrStr\n\nPlease add any helpful details below:\n',
-                    );
-                    Navigator.pop(ctx);
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _accent,
-                  foregroundColor: CinemaPalette.background,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
-                  elevation: 0,
-                ),
-                child: const Text('SUBMIT REQUEST',
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              ),
-            ),
-          ],
-        ),
+            ],
+          ),
         ),
       ),
     );
@@ -411,7 +394,7 @@ class _SupportScreenState extends State<SupportScreen> {
 
             // Section Header: Direct Channels
             const Text(
-              'Direct Assistance',
+              'Talk to the Movie Hub team',
               style: TextStyle(
                 color: CinemaPalette.ivory,
                 fontSize: 18,
@@ -422,10 +405,9 @@ class _SupportScreenState extends State<SupportScreen> {
             const SizedBox(height: 14),
 
             _buildActionCard(
-              title: 'Email Concierge',
+              title: 'Email Support',
               subtitle: '$_supportEmail \u2014 opens your email app',
-              icon: Icons.alternate_email_rounded,
-              badgeText: 'Priority',
+              badgeText: 'EMAIL',
               badgeColor: _accent,
               onTap: () => _launchEmail(),
             ),
@@ -448,9 +430,7 @@ class _SupportScreenState extends State<SupportScreen> {
                 Expanded(
                   child: _buildTileButton(
                     title: 'Report Bug',
-                    subtitle: 'Prepare a detailed issue report',
-                    icon: Icons.bug_report_rounded,
-                    color: CinemaPalette.gold,
+                    subtitle: 'Tell us what went wrong',
                     onTap: () => _showBugReportSheet(context),
                   ),
                 ),
@@ -458,9 +438,7 @@ class _SupportScreenState extends State<SupportScreen> {
                 Expanded(
                   child: _buildTileButton(
                     title: 'Request Movie',
-                    subtitle: 'Suggest a title to add',
-                    icon: Icons.movie_filter_rounded,
-                    color: _accent,
+                    subtitle: 'Suggest a movie or TV show',
                     onTap: () => _showMovieRequestSheet(context),
                   ),
                 ),
@@ -481,14 +459,14 @@ class _SupportScreenState extends State<SupportScreen> {
             const SizedBox(height: 14),
 
             _buildFaqTile(
-              question: 'How do I get help with a playback problem?',
+              question: 'What should I include in a support request?',
               answer:
-                  'Use Report Bug and include the title, what you were trying to do, what happened, and any message you saw. This information helps us investigate the issue.',
+                  'Include the affected feature or title, your app version, phone model, what you expected, and what happened instead. Exact error messages and steps to reproduce the issue help us investigate. Do not send passwords or sensitive account information.',
             ),
             _buildFaqTile(
               question: 'Can I request a movie or show?',
               answer:
-                  'Yes. Select Request Movie, enter the title and optional release year, then send the email draft. We review requests, but cannot guarantee availability.',
+                  'Yes. Select Request Movie, enter the title and optional release year, then review and send the email draft. Suggestions help us understand what you want to discover, but do not guarantee that a title will become available.',
             ),
             _buildFaqTile(
               question: 'Why can\u2019t I find a title or saved movie?',
@@ -500,7 +478,7 @@ class _SupportScreenState extends State<SupportScreen> {
             // Security & Privacy Note
             Center(
               child: Text(
-                'Movie Hub Support \u2022 Support opens in your email app.\nPlease keep the app updated for the latest fixes and features.',
+                'Your message is sent only when you send it from your email app.\nNever share your password. Keep Movie Hub updated for the latest fixes.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: CinemaPalette.ivory.withValues(alpha: 0.35),
@@ -547,7 +525,7 @@ class _SupportScreenState extends State<SupportScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Need help with the app?',
+                  'How can we help?',
                   style: TextStyle(
                     color: CinemaPalette.ivory,
                     fontWeight: FontWeight.w600,
@@ -556,7 +534,7 @@ class _SupportScreenState extends State<SupportScreen> {
                 ),
                 SizedBox(height: 2),
                 Text(
-                  'Choose an option below to prepare an email',
+                  'Ask a question, report a problem, or suggest a title.',
                   style: TextStyle(
                     color: CinemaPalette.muted,
                     fontSize: 12,
@@ -588,7 +566,6 @@ class _SupportScreenState extends State<SupportScreen> {
   Widget _buildActionCard({
     required String title,
     required String subtitle,
-    required IconData icon,
     required String badgeText,
     required Color badgeColor,
     required VoidCallback onTap,
@@ -607,16 +584,6 @@ class _SupportScreenState extends State<SupportScreen> {
           ),
           child: Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _cardDark,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: _borderDark),
-                ),
-                child: Icon(icon, color: CinemaPalette.ivory, size: 22),
-              ),
-              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -676,8 +643,6 @@ class _SupportScreenState extends State<SupportScreen> {
   Widget _buildTileButton({
     required String title,
     required String subtitle,
-    required IconData icon,
-    required Color color,
     required VoidCallback onTap,
   }) {
     return Material(
@@ -695,15 +660,6 @@ class _SupportScreenState extends State<SupportScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: color, size: 22),
-              ),
-              const SizedBox(height: 16),
               Text(
                 title,
                 style: const TextStyle(
@@ -765,4 +721,3 @@ class _SupportScreenState extends State<SupportScreen> {
     );
   }
 }
-
