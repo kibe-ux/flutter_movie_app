@@ -84,6 +84,89 @@ void main() {
   http.Response response(List<Map<String, dynamic>> items) =>
       http.Response(jsonEncode({'results': items, 'total_pages': 8}), 200);
 
+  testWidgets('Load more appends unique cards and hides on the final page',
+      (tester) async {
+    final pending = Completer<http.Response>();
+    final requests = <Uri>[];
+    await http.runWithClient(() async {
+      await openHome(tester);
+      final button = find.byKey(const ValueKey('home-load-more-Now Playing'));
+      await tester.ensureVisible(button);
+      await tester.pump();
+      final cardSize = tester.getSize(button);
+      expect(cardSize.width / cardSize.height, closeTo(.75, .001));
+      await tester.tap(button);
+      await tester.pump();
+      expect(requests, hasLength(1));
+      expect(requests.single.queryParameters['page'], '2');
+      expect(tester.widget<InkWell>(button).onTap, isNull);
+      expect(find.text('Loading...'), findsOneWidget);
+      pending.complete(http.Response(
+          jsonEncode({
+            'results': [
+              {'id': 1, 'title': 'Original poster'},
+              {'id': 2, 'title': 'More movie cards'},
+            ],
+            'total_pages': 2,
+            'has_more': false,
+          }),
+          200));
+      for (var i = 0; i < 5; i++) {
+        await tester.pump();
+      }
+      expect(find.text('Original poster'), findsOneWidget);
+      expect(find.text('More movie cards'), findsOneWidget);
+      expect(button, findsNothing);
+      expect(requests, hasLength(1));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+        () => MockClient((request) async {
+              if (!request.url.path.endsWith('/movie/now_playing')) {
+                return http.Response(
+                    '{"results":[],"total_pages":1,"has_more":false}', 200);
+              }
+              requests.add(request.url);
+              return pending.future;
+            }));
+  });
+
+  testWidgets('approaching Load more prepares a page without adding cards',
+      (tester) async {
+    var requests = 0;
+    await http.runWithClient(() async {
+      await openHome(tester);
+      final row = find.byKey(const PageStorageKey('home-posters-Now Playing'));
+      await tester.drag(row, const Offset(-100, 0));
+      for (var i = 0; i < 5; i++) {
+        await tester.pump();
+      }
+      expect(requests, 1);
+      expect(find.text('Prepared poster'), findsNothing);
+      final card = find.byKey(const ValueKey('home-load-more-Now Playing'));
+      await tester.ensureVisible(card);
+      await tester.pump();
+      await tester.tap(card);
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Prepared poster'), findsOneWidget);
+      expect(find.text('Loading...'), findsNothing);
+      expect(requests, 1);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+        () => MockClient((request) async {
+              if (!request.url.path.endsWith('/movie/now_playing')) {
+                return http.Response(
+                    '{"results":[],"total_pages":1,"has_more":false}', 200);
+              }
+              requests++;
+              return http.Response(
+                  '{"results":[{"id":2,"title":"Prepared poster"}],"total_pages":2}',
+                  200);
+            }));
+  });
+
   testWidgets(
       'Home removes the catalogue text and repeats no cards between rows',
       (tester) async {
@@ -238,9 +321,13 @@ void main() {
     final pending = Completer<http.Response>();
     await http.runWithClient(() async {
       await openHome(tester);
-      expect(find.text('Load More'), findsNothing);
+      expect(find.byKey(const ValueKey('home-load-more-Now Playing')),
+          findsOneWidget);
       final row = find.byKey(const PageStorageKey('home-posters-Now Playing'));
-      await tester.drag(row, const Offset(-300, 0));
+      final loadMore = find.byKey(const ValueKey('home-load-more-Now Playing'));
+      await tester.ensureVisible(loadMore);
+      await tester.pump();
+      await tester.tap(loadMore);
       for (var i = 0; i < 4; i++) {
         await tester.pump();
       }
@@ -268,7 +355,12 @@ void main() {
       expect(find.text('New poster'), findsWidgets);
       expect(scroll.position.pixels, offset);
       refreshing = false;
-      await tester.drag(row, const Offset(-300, 0));
+      await tester.scrollUntilVisible(loadMore, 150,
+          scrollable: find
+              .descendant(of: row, matching: find.byType(Scrollable))
+              .first);
+      await tester.pumpAndSettle();
+      await tester.tap(loadMore);
       await tester.pumpAndSettle();
       for (var i = 0; i < 4; i++) {
         await tester.pump();

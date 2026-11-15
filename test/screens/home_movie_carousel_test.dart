@@ -76,7 +76,7 @@ void main() {
       onMovieTap: (_) => opened++,
     ))));
     await tester.pump();
-    expect(find.text('TONIGHT’S PICK'), findsOneWidget);
+    expect(find.text('TONIGHT’S PICK'), findsNothing);
     expect(find.text('INTERSTELLAR'), findsOneWidget);
     expect(find.text('SCI-FI · ADVENTURE'), findsOneWidget);
     expect(find.text('2014  ·  2h 49m'), findsOneWidget);

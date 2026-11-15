@@ -171,21 +171,6 @@ class _FeaturedTitleCardState extends State<_FeaturedTitleCard> {
                     Color(0xFF141414)
                   ])))),
               Positioned(
-                  top: 14,
-                  left: 16,
-                  child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 9, vertical: 6),
-                      decoration: BoxDecoration(
-                          color: const Color(0x80516673),
-                          borderRadius: BorderRadius.circular(6)),
-                      child: const Text('TONIGHT’S PICK',
-                          style: TextStyle(
-                              color: Color(0xFFE3E2E1),
-                              fontWeight: FontWeight.w700,
-                              fontSize: 10,
-                              letterSpacing: 1)))),
-              Positioned(
                   left: 18,
                   right: 18,
                   bottom: 18,

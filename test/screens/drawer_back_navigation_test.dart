@@ -37,6 +37,51 @@ void main() {
             null);
   });
 
+  for (final size in [
+    const Size(320, 568),
+    const Size(568, 320),
+    const Size(1440, 900),
+  ]) {
+    testWidgets('drawer fits $size with large text through its version footer',
+        (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = size;
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      final auth = _GuestAuth();
+      addTearDown(auth.dispose);
+      await tester.pumpWidget(ChangeNotifierProvider<AuthService>.value(
+        value: auth,
+        child: MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(2)),
+            child: child!,
+          ),
+          home: const MainScreen(
+              initialHomeData:
+                  HomeStartupData(connected: false, categories: {})),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      final shell = tester.state<ScaffoldState>(find
+          .descendant(
+              of: find.byType(MainScreen), matching: find.byType(Scaffold))
+          .first);
+      shell.openDrawer();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.scrollUntilVisible(find.textContaining('Version '), 150,
+          scrollable: find
+              .descendant(
+                  of: find.byType(Drawer), matching: find.byType(Scrollable))
+              .first);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
   for (final page in ['About Us', 'Terms of Service', 'Copyright Policy']) {
     for (final systemBack in [false, true]) {
       testWidgets(

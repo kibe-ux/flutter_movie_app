@@ -73,24 +73,20 @@ class _SupportScreenState extends State<SupportScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Row(
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Report an Issue',
-                          style: TextStyle(
-                              color: CinemaPalette.ivory,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          'Describe the issue, then review the email before sending.',
-                          style: TextStyle(
-                              color: CinemaPalette.muted, fontSize: 13),
-                        ),
-                      ],
+                    Text(
+                      'Report an Issue',
+                      style: TextStyle(
+                          color: CinemaPalette.ivory,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      'Describe the issue, then review the email before sending.',
+                      style:
+                          TextStyle(color: CinemaPalette.muted, fontSize: 13),
                     ),
                   ],
                 ),
@@ -230,24 +226,19 @@ class _SupportScreenState extends State<SupportScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              const Row(
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Request Movie or Show',
-                        style: TextStyle(
-                            color: CinemaPalette.ivory,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        'Requests are reviewed but are not guaranteed',
-                        style:
-                            TextStyle(color: CinemaPalette.muted, fontSize: 13),
-                      ),
-                    ],
+                  Text(
+                    'Request Movie or Show',
+                    style: TextStyle(
+                        color: CinemaPalette.ivory,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'Requests are reviewed but are not guaranteed',
+                    style: TextStyle(color: CinemaPalette.muted, fontSize: 13),
                   ),
                 ],
               ),
@@ -588,7 +579,10 @@ class _SupportScreenState extends State<SupportScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
                           title,
@@ -598,7 +592,6 @@ class _SupportScreenState extends State<SupportScreen> {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
@@ -684,38 +677,41 @@ class _SupportScreenState extends State<SupportScreen> {
   }
 
   Widget _buildFaqTile({required String question, required String answer}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
         color: _surfaceDark,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _borderDark),
-      ),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          iconColor: _accent,
-          collapsedIconColor: CinemaPalette.muted,
-          title: Text(
-            question,
-            style: const TextStyle(
-              color: CinemaPalette.ivory,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          childrenPadding:
-              const EdgeInsets.only(left: 18, right: 18, bottom: 18),
-          children: [
-            Text(
-              answer,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: _borderDark),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            iconColor: _accent,
+            collapsedIconColor: CinemaPalette.muted,
+            title: Text(
+              question,
               style: const TextStyle(
-                color: CinemaPalette.muted,
-                fontSize: 13,
-                height: 1.5,
+                color: CinemaPalette.ivory,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
               ),
             ),
-          ],
+            childrenPadding:
+                const EdgeInsets.only(left: 18, right: 18, bottom: 18),
+            children: [
+              Text(
+                answer,
+                style: const TextStyle(
+                  color: CinemaPalette.muted,
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

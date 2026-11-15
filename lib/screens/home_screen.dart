@@ -51,7 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final Map<String, bool> _hasMore = {};
   final Map<String, String?> _nextCursors = {};
   final Set<String> _resetRetries = {};
-  final Set<String> _pagedGestures = {};
+  final Set<Uri> _prefetchedUris = {};
   int _loadGeneration = 0;
   bool _isRefreshing = false;
   HomeCatalogueLayout _allLayout = HomeCatalogueLayout.build(const {});
@@ -221,6 +221,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final generation = ++_loadGeneration;
+    _prefetchedUris.clear();
     try {
       if (mounted) {
         setState(() {
@@ -264,6 +265,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
     _isRefreshing = true;
+    _prefetchedUris.clear();
     final generation = _loadGeneration;
     final categories = _requestedCategories.toList();
     final refreshed = <String, CataloguePage>{};
@@ -354,8 +356,10 @@ class _HomeScreenState extends State<HomeScreen> {
       _categoryErrors.remove(category);
     });
     try {
-      final result = await const CatalogueService().fetchPage(definition.uri(
-          page: page, cursor: reset ? null : _nextCursors[category]));
+      final uri = definition.uri(
+          page: page, cursor: reset ? null : _nextCursors[category]);
+      final result = await const CatalogueService().fetchPage(uri);
+      _prefetchedUris.remove(uri);
       if (!mounted || generation != _loadGeneration) return;
       final usedIds =
           (reset ? <Map<String, dynamic>>[] : _movieCategories[category]!)
@@ -391,6 +395,30 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted && generation == _loadGeneration) {
       _scheduleRowRefills();
     }
+  }
+
+  void _prefetchNextPage(String category) {
+    if (!mounted ||
+        !_isConnected ||
+        _isRefreshing ||
+        _isLoadingMore[category] == true ||
+        _hasMore[category] == false ||
+        _categoryErrors.containsKey(category) ||
+        _resetRetries.contains(category)) {
+      return;
+    }
+    final definition = homeCategoriesByName[category];
+    if (definition == null || _prefetchedUris.length >= 8) return;
+    final uri = definition.uri(
+      page: (_currentPage[category] ?? 0) + 1,
+      cursor: _nextCursors[category],
+    );
+    if (!_prefetchedUris.add(uri)) return;
+    // The shared page cache coalesces this with a tap while it is in flight.
+    // Keep failures silent: the explicit tap retains the normal retry flow.
+    unawaited(const CatalogueService()
+        .fetchPage(uri)
+        .then<void>((_) {}, onError: (Object error, StackTrace stack) {}));
   }
 
   String _getYear(Map<String, dynamic> item) {
@@ -711,63 +739,112 @@ class _HomeScreenState extends State<HomeScreen> {
           SizedBox(
             height: _getCardHeight(context),
             child: NotificationListener<ScrollNotification>(
-                onNotification: (notification) {
-                  if (notification is ScrollStartNotification &&
-                      notification.dragDetails != null) {
-                    _pagedGestures.remove(title);
-                  }
-                  final userScroll = notification is ScrollUpdateNotification &&
-                          notification.dragDetails != null ||
-                      notification is OverscrollNotification &&
-                          notification.dragDetails != null;
-                  if (userScroll &&
-                      notification.metrics.axis == Axis.horizontal &&
-                      notification.metrics.extentAfter < 180 &&
-                      _hasMore[title] != false &&
-                      _isLoadingMore[title] != true &&
-                      !_categoryErrors.containsKey(title) &&
-                      _pagedGestures.add(title)) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) unawaited(_loadMore(title));
-                    });
-                  }
-                  return false;
-                },
-                child: ListView.builder(
-                  key: PageStorageKey('home-posters-$title'),
-                  scrollDirection: Axis.horizontal,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  itemCount: items.length +
-                      (_categoryErrors.containsKey(title) ||
-                              _isLoadingMore[title] == true
-                          ? 1
-                          : 0),
-                  itemBuilder: (context, index) {
-                    if (index == items.length) {
-                      if (_isLoadingMore[title] == true) {
-                        return const SizedBox(
-                            width: 48,
-                            child: Center(
-                                child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2))));
-                      }
-                      return SizedBox(
-                          width: _getCardWidth(context),
-                          child: Center(
-                              child: TextButton.icon(
-                                  onPressed: () => _loadMore(title),
-                                  icon: const Icon(Icons.refresh),
-                                  label: const Text('Retry'))));
-                    }
-                    return _buildItemCard(items[index]);
-                  },
-                )),
+              onNotification: (notification) {
+                final userScroll = notification is ScrollUpdateNotification &&
+                        notification.dragDetails != null ||
+                    notification is OverscrollNotification &&
+                        notification.dragDetails != null;
+                if (userScroll &&
+                    notification.metrics.axis == Axis.horizontal &&
+                    notification.metrics.extentAfter <
+                        _getCardWidth(context) * 2) {
+                  _prefetchNextPage(title);
+                }
+                return false;
+              },
+              child: ListView.builder(
+                key: PageStorageKey('home-posters-$title'),
+                scrollDirection: Axis.horizontal,
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                itemCount: items.length +
+                    (_hasMore[title] != false ||
+                            _categoryErrors.containsKey(title)
+                        ? 1
+                        : 0),
+                itemBuilder: (context, index) => index == items.length
+                    ? _buildLoadMoreCard(title)
+                    : _buildItemCard(items[index]),
+              ),
+            ),
           ),
           const SizedBox(height: 4),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadMoreCard(String category) {
+    final loading = _isLoadingMore[category] == true;
+    final failed = _categoryErrors.containsKey(category);
+    final enabled = _isConnected && !_isRefreshing && !loading;
+    return Container(
+      width: _getCardWidth(context),
+      margin: const EdgeInsets.only(right: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: .75,
+            child: Material(
+              color: CinemaPalette.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side:
+                    BorderSide(color: CinemaPalette.gold.withValues(alpha: .3)),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                key: ValueKey('home-load-more-$category'),
+                onTap: enabled ? () => _loadMore(category) : null,
+                onHighlightChanged: (pressed) {
+                  if (pressed && enabled) _prefetchNextPage(category);
+                },
+                child: Semantics(
+                  label: '${failed ? 'Retry loading' : 'Load more'} $category',
+                  button: true,
+                  enabled: enabled,
+                  excludeSemantics: true,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (loading) ...[
+                            const SizedBox.square(
+                              dimension: 22,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: CinemaPalette.gold),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                          Text(
+                              loading
+                                  ? 'Loading...'
+                                  : failed
+                                      ? 'Retry'
+                                      : 'Load more',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                  color: CinemaPalette.gold,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Flexible(
+              child: Text('More titles',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: CinemaPalette.muted, fontSize: 13, height: 1.3))),
         ],
       ),
     );
