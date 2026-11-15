@@ -69,3 +69,17 @@ reports/
 screenshots/
 check-progress.ps1
 
+# Local editor state and scratch files.
+/.idea/
+/.vscode/
+*.iml
+/.e
+
+# Signing material and generated media.
+/android/key.properties
+*.jks
+*.keystore
+/output/
+__pycache__/
+*.pyc
+

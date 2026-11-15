@@ -1,110 +1,85 @@
-# flutter_application_1
+# Movie Hub
 
-A new Flutter project.
+A Flutter app for discovering movies and TV shows, organising saved titles,
+and joining a movie community. A Node.js backend provides catalogue access,
+account services, and Cinema Rewards.
 
-## Production operations
+## Features
 
-Use [PRODUCTION_RUNBOOK.md](PRODUCTION_RUNBOOK.md) for release preparation,
-deployment, verification, monitoring, recovery and credential rotation. Read
-[SECURITY_GUIDE.md](SECURITY_GUIDE.md) for implemented controls and remaining gaps.
+- Browse movies and TV shows, search by title, and explore genres.
+- Keep favourites, My List, and watch history.
+- Explore as a guest or sign in for account and community features.
+- Join forum discussions, report content, and manage blocked users.
+- Use Cinema Rewards and optional rewarded ads when enabled.
+- Review privacy choices, account deletion, help, and legal information.
 
-## Android release signing
+Android is the current device-testing target. Other platform folders are
+included, but not every platform is configured or verified for release.
 
-Release builds use the private keystore configured in `android/key.properties`.
-Fill in `storePassword` and `keyPassword` locally before building. If the key
-uses the keystore password, enter that same password in both fields. Use forward
-slashes in the keystore path. Java properties files require literal backslashes
-in passwords to be escaped as `\\`.
+## Get started
 
-The properties file and `.jks`/`.keystore` files are ignored by Git. Back up the
-keystore and passwords securely. Release builds fail when signing configuration
-is missing; debug builds retain their development signing key.
+Use Flutter **3.47.7**, the Android SDK, and Node.js **22 or later** for the backend.
 
-Before distributing a release, register its SHA-1 and SHA-256 certificate
-fingerprints with Firebase and test Google sign-in. A release signed with this
-key cannot normally update an existing debug-signed installation. Preserve local
-downloads before uninstalling a development build.
-
-## Ads and launch sequence
-
-The app currently uses Google's sample AdMob app IDs and test ad units.
-`ADMOB_USE_TEST_ADS=true` in the root `.env` keeps release builds on test ads;
-debug builds always use test ads. These ads are for testing the placements.
-
-My List includes one labelled native ad below a non-empty saved collection,
-styled with Google's small native template. It collapses while loading or on
-failure and respects consent and ad-free access. Set `ADMOB_NATIVE_ID` to a real
-native ad unit alongside the existing production ad configuration to enable
-this placement in live mode. A missing or invalid native unit hides only this
-placement; it does not switch the other live ad formats to test inventory.
-Native template reference: https://developers.google.com/admob/flutter/native/templates
-
-Poster taps, Home's **View All**, and confirmed movie or episode downloads
-share one interstitial service. Actions continue after dismissal or presentation
-failure. Missing ads and load timeouts allow the action to continue; an ad that
-loads later is saved for a future action. A shared 45-second cooldown avoids
-back-to-back ads, including between opening a poster and starting its download.
-Pause/resume do not interrupt downloads with ads.
-
-Cold launch shows the app logo on black, then the cinematic splash, then the
-authentication or home screen. The Flutter logo lasts one second; the cinematic
-splash stays visible for at least 1.4 seconds and waits for startup data when
-necessary. Returning from the background does not restart this sequence.
-
-Install a fresh APK to test native launch changes; hot reload cannot update
-Android launch resources. Force-stop and reopen the app, tap a poster, close the
-test ad, and verify the details screen opens. After the cooldown, test **View All**
-and a confirmed download. With no ad available, both actions should still work.
-
-Focused checks:
+1. Clone the repository and run `flutter pub get`.
+2. Copy `.env.example` to `.env`, configure your backend URL, and keep test ads
+   enabled. Provider API keys belong on the backend, not in the Flutter asset.
+3. Configure Firebase and supply the ignored `lib/firebase_options.dart` and
+   platform files such as `android/app/google-services.json`. Follow the
+   [Firebase setup guide](https://firebase.google.com/docs/flutter/setup).
+4. Follow the [backend setup](backend/README.md). The example address `10.0.2.2`
+   is for an Android emulator; a physical phone needs a reachable backend URL.
+5. Connect a device and run:
 
 ```sh
-flutter test test/services/ad_service_test.dart test/screens/logo_screen_test.dart test/screens/splash_screen_test.dart test/screens/category_pagination_test.dart test/screens/responsive_layout_test.dart
+flutter devices
+flutter run -d DEVICE_ID
 ```
 
-## Crash reporting
+Release signing and runtime details are in [Android setup](docs/APP_RUNTIME.md).
+Real environment files, signing credentials, and Firebase configuration stay local.
 
-Firebase Crashlytics reports Flutter framework errors and uncaught asynchronous
-errors after Firebase initializes. Caught app and ads initialization failures
-are recorded as non-fatal errors. Other caught errors can be reported with
-`CrashReportingService.recordError(error, stack, reason: 'operation failed')`.
-Firebase initialization failures themselves cannot be sent to Crashlytics.
+## Project layout
 
-Collection is enabled in release builds and disabled in debug/profile builds.
-Override this with `--dart-define=CRASHLYTICS_ENABLED=true` (or `false`).
-Web, Windows and Linux skip Crashlytics initialization.
+| Folder | Purpose |
+| --- | --- |
+| `lib/screens/` | App pages and navigation |
+| `lib/widgets/` | Shared UI components |
+| `lib/services/` | APIs, accounts, ads, persistence, and transfers |
+| `lib/models/`, `lib/config/`, `lib/utils/` | Data types, configuration, helpers |
+| `assets/` | Bundled artwork and resources |
+| `backend/` | Node.js API, tests, and deployment tools |
+| `test/`, `integration_test/` | Unit/widget tests and device integration tests |
+| `docs/` | Setup, architecture, operations, and testing guides |
+| `docs/history/` | Historical reviews and implementation notes |
+| `scripts/`, `tools/` | Development and diagnostic utilities |
 
-To verify on an Android device:
+## Checks
 
-1. Run `flutter run --dart-define=CRASHLYTICS_ENABLED=true` using the project's
-   Flutter SDK (on this machine, `C:/Users/Hezra/.android/flutter/bin/flutter.bat`).
-2. After startup, temporarily invoke
-   `CrashReportingService.recordError(StateError('Crashlytics setup test'), StackTrace.current, reason: 'Manual setup verification')`
-   from a local debug action, then remove that action.
-3. Check **Firebase Console > my-flutter-app-hezra-202-12dc9 > Crashlytics**
-   for the non-fatal event. Native fatal crash testing can use
-   `FirebaseCrashlytics.instance.crash()` in a temporary debug action; reopen
-   the app afterward to upload the report. Allow several minutes for delivery.
+```sh
+flutter analyze
+flutter test
+```
 
-Android applies the Crashlytics Gradle plugin. The app's current
-`firebase_options.dart` has no iOS or macOS configuration. Before building for
-Apple platforms, configure those apps with `flutterfire configure` on a Mac;
-this also installs their Crashlytics symbol-upload build phases. Apple crash
-reporting requires that Firebase setup and validation on macOS.
+For backend checks:
 
-Google Analytics is already included. Enable Google Analytics in the Firebase
-project to receive Analytics breadcrumbs in Crashlytics reports. See the
-[Firebase Flutter setup guide](https://firebase.google.com/docs/crashlytics/flutter/get-started).
+```sh
+cd backend
+npm ci
+npm test
+```
 
-## Getting Started
+[GitHub Actions](.github/workflows/checks.yml) runs analysis and tests on pushes
+and pull requests. It uses CI-only Firebase placeholders, not production
+credentials. It does not publish or deploy the app. Native ad rendering and
+integration tests still require device verification.
 
-This project is a starting point for a Flutter application.
+## Documentation and contributions
 
-A few resources to get you started if this is your first Flutter project:
+Start with the [documentation hub](docs/README.md),
+[project structure](docs/PROJECT_STRUCTURE.md), and
+[production runbook](docs/PRODUCTION_RUNBOOK.md).
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Use focused branches, small commits, and short messages. Run relevant checks
+before opening a pull request. Keep local editor state, generated files, and
+credentials out of Git. AdMob test mode remains the development default;
+passing tests does not constitute store or advertising approval.

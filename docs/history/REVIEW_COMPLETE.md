@@ -5,7 +5,7 @@ critical issues were resolved and the app was production-ready. Those claims
 were not supported by a complete security assessment and have been removed.
 
 Current controls and outstanding work are recorded in
-[SECURITY_GUIDE.md](SECURITY_GUIDE.md). Recent changes remove retired provider
+[SECURITY_GUIDE.md](../SECURITY_GUIDE.md). Recent changes remove retired provider
 code, keep API keys server-side, enforce release HTTPS, share Wambesha quotas
 across instances, and move daily bonus awards into server transactions.
 

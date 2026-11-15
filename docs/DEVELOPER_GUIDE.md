@@ -201,8 +201,8 @@ if (_errorMessage != null) {
 
 ## 📖 Documentation References
 
-- [CODE_REVIEW.md](CODE_REVIEW.md) - Detailed review of all issues found
-- [IMPROVEMENTS_SUMMARY.md](IMPROVEMENTS_SUMMARY.md) - Summary of all fixes
+- [CODE_REVIEW.md](history/CODE_REVIEW.md) - Detailed review of all issues found
+- [IMPROVEMENTS_SUMMARY.md](history/IMPROVEMENTS_SUMMARY.md) - Summary of all fixes
 - `lib/utils/app_theme.dart` - All available constants
 
 ---

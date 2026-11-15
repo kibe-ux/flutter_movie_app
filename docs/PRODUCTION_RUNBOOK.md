@@ -31,7 +31,7 @@ channel, not in public source control.
 
 ## Configuration and secrets
 
-Use [backend/.env.example](backend/.env.example) and [.env.example](.env.example)
+Use [backend/.env.example](../backend/.env.example) and [.env.example](../.env.example)
 for names and placeholders. Never replace placeholders in committed files with
 real secrets. The deployment wrapper reads private `backend/.env`; process
 environment values override matching file values. Configure CLI authentication
@@ -327,13 +327,13 @@ follow-ups. Read the [security guide](SECURITY_GUIDE.md) before claiming readine
 
 Related guides:
 
-- [Backend configuration and endpoints](backend/README.md)
-- [Load-test commands, scope and sizing](docs/LOAD_TESTING.md)
-- [Local load-test results, 5 November 2026](docs/load-testing-results-2026-11-05.md)
-- [Catalogue cache and storage limits](backend/CATALOGUE_CACHE.md)
-- [Account deletion rollout](docs/account-deletion-rollout.md)
-- [Forum rules and moderation rollout](docs/forum-security-rollout.md)
-- [Historical account/forum rollback](docs/account-forum-rollback.md)
+- [Backend configuration and endpoints](../backend/README.md)
+- [Load-test commands, scope and sizing](LOAD_TESTING.md)
+- [Local load-test results, 5 November 2026](load-testing-results-2026-11-05.md)
+- [Catalogue cache and storage limits](../backend/CATALOGUE_CACHE.md)
+- [Account deletion rollout](account-deletion-rollout.md)
+- [Forum rules and moderation rollout](forum-security-rollout.md)
+- [Historical account/forum rollback](account-forum-rollback.md)
 
 Historical rollout reports describe their deployment date. Compare them with the
 current configuration; they do not override later releases or prove live flags.

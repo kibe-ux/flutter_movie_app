@@ -4,7 +4,7 @@ Daily/monthly Wambesha quotas, metadata caching, persistent source reuse and
 usage reporting are described in [COST_CONTROLS.md](COST_CONTROLS.md).
 
 For releases and incidents, start with the
-[production runbook](../PRODUCTION_RUNBOOK.md).
+[production runbook](../docs/PRODUCTION_RUNBOOK.md).
 
 Shared public catalogue caching, provider limits, and app migration are described
 in [CATALOGUE_CACHE.md](CATALOGUE_CACHE.md).

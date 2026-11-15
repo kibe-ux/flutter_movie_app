@@ -38,7 +38,7 @@ TMDB uses allowlisted routes and parameters, a fixed provider host, rejected
 redirects, bounded responses and timeouts, shared PostgreSQL caching, and shared
 rate limits. Defaults are 120 requests per identity/minute and 600 actual provider
 requests globally/minute. Guest installation IDs are resettable identifiers, not
-authenticated identities. See [cache limits](backend/CATALOGUE_CACHE.md).
+authenticated identities. See [cache limits](../backend/CATALOGUE_CACHE.md).
 
 Wambesha authenticates requests and validates allowed routes and parameters.
 Atomic PostgreSQL rate buckets apply across server instances:
@@ -100,7 +100,7 @@ Wallets, receipts and deletion records are backend owned. Forum posts are public
 readable by design. Blocking limits interactions, not access to public posts.
 
 Account deletion requires recent authentication and a durable deletion fence.
-See [rollout instructions](docs/account-deletion-rollout.md). A rules file in Git
+See [rollout instructions](account-deletion-rollout.md). A rules file in Git
 does not prove it is deployed. Verify the active project and deployed rules
 separately. Admin credentials bypass client rules: use a dedicated runtime
 identity with minimum required IAM permissions.

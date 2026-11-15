@@ -12,9 +12,9 @@ This is a comprehensive guide to all documentation available for the MovieHub ap
 
 | Document | Purpose | Read Time |
 |----------|---------|-----------|
-| [QUICK_START.md](QUICK_START.md) | Initial setup and running the app | 10 min |
-| [PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) | Project structure and organization | 5 min |
-| [README.md](README.md) | Project overview and features | 5 min |
+| [QUICK_START.md](../QUICK_START.md) | Initial setup and running the app | 10 min |
+| [PROJECT_STRUCTURE.md](../PROJECT_STRUCTURE.md) | Project structure and organization | 5 min |
+| [README.md](../../README.md) | Project overview and features | 5 min |
 
 ---
 
@@ -112,7 +112,7 @@ This is a comprehensive guide to all documentation available for the MovieHub ap
 ## 🎯 Guides by Use Case
 
 ### For Frontend Developers
-1. [QUICK_START.md](QUICK_START.md) - Setup environment
+1. [QUICK_START.md](../QUICK_START.md) - Setup environment
 2. [API_DOCUMENTATION.md](#) - Understand available services
 3. [TESTING_GUIDE.md](#) - Test your widgets
 4. [SECURITY_GUIDE.md](#) - Secure user data
@@ -123,13 +123,13 @@ This is a comprehensive guide to all documentation available for the MovieHub ap
 3. [SECURITY_GUIDE.md](#) - Protect API endpoints
 
 ### For DevOps/Release Engineers
-1. [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) - Build and deploy
+1. [DEPLOYMENT_GUIDE.md](../DEPLOYMENT_GUIDE.md) - Build and deploy
 2. [TROUBLESHOOTING_GUIDE.md](#) - Monitor and maintain
 3. [PERFORMANCE_GUIDE.md](#) - Track performance metrics
 
 ### For QA/Test Engineers
 1. [TESTING_GUIDE.md](#) - Testing strategies and tools
-2. [QUICK_START.md](QUICK_START.md) - Run tests
+2. [QUICK_START.md](../QUICK_START.md) - Run tests
 3. [TROUBLESHOOTING_GUIDE.md](#) - Report and diagnose issues
 
 ### For Security Engineers
@@ -138,9 +138,9 @@ This is a comprehensive guide to all documentation available for the MovieHub ap
 3. [TROUBLESHOOTING_GUIDE.md](#) - Respond to incidents
 
 ### For Project Managers
-1. [README.md](README.md) - Overall project overview
-2. [QUICK_START.md](QUICK_START.md) - Environment setup
-3. [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) - Release planning
+1. [README.md](../../README.md) - Overall project overview
+2. [QUICK_START.md](../QUICK_START.md) - Environment setup
+3. [DEPLOYMENT_GUIDE.md](../DEPLOYMENT_GUIDE.md) - Release planning
 
 ---
 
@@ -246,13 +246,13 @@ lib/
 ## 🎓 Learning Paths
 
 ### Path 1: Complete Setup (4 hours)
-1. Read [QUICK_START.md](QUICK_START.md) (10 min)
-2. Read [README.md](README.md) (5 min)
+1. Read [QUICK_START.md](../QUICK_START.md) (10 min)
+2. Read [README.md](../../README.md) (5 min)
 3. Read [API_DOCUMENTATION.md](#) (40 min)
-4. Read [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) (25 min)
+4. Read [DEVELOPER_GUIDE.md](../DEVELOPER_GUIDE.md) (25 min)
 5. Setup environment (60 min)
 6. Run [TESTING_GUIDE.md](#) tests (60 min)
-7. Read [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) (30 min)
+7. Read [DEPLOYMENT_GUIDE.md](../DEPLOYMENT_GUIDE.md) (30 min)
 
 ### Path 2: Security Focus (1.5 hours)
 1. Read [SECURITY_GUIDE.md](#) (25 min)
@@ -266,7 +266,7 @@ lib/
 3. Implement optimizations (20 min)
 
 ### Path 4: Deployment (2 hours)
-1. Read [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) (30 min)
+1. Read [DEPLOYMENT_GUIDE.md](../DEPLOYMENT_GUIDE.md) (30 min)
 2. Prepare signing certificates (30 min)
 3. Create app store listings (30 min)
 4. Deploy and monitor (30 min)
@@ -330,17 +330,17 @@ lib/
 ## ❓ FAQ
 
 ### Q: Where do I start?
-**A**: Start with [QUICK_START.md](QUICK_START.md) to set up your development environment.
+**A**: Start with [QUICK_START.md](../QUICK_START.md) to set up your development environment.
 
 ### Q: How do I deploy the app?
-**A**: Follow [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for step-by-step instructions.
+**A**: Follow [DEPLOYMENT_GUIDE.md](../DEPLOYMENT_GUIDE.md) for step-by-step instructions.
 
 ### Q: How do I add a new feature?
 **A**: 
 1. Read the feature in [API_DOCUMENTATION.md](#) to understand architecture
-2. Check [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) for code standards
+2. Check [DEVELOPER_GUIDE.md](../DEVELOPER_GUIDE.md) for code standards
 3. Add tests in [TESTING_GUIDE.md](#) format
-4. Deploy following [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
+4. Deploy following [DEPLOYMENT_GUIDE.md](../DEPLOYMENT_GUIDE.md)
 
 ### Q: Where is the security checklist?
 **A**: See [SECURITY_GUIDE.md](#) - Security Checklist section at the bottom.
@@ -427,6 +427,6 @@ Guidelines for improving documentation:
 ---
 
 ### Navigation Links
-- [← Back to Main](README.md)
-- [Setup →](QUICK_START.md)
-- [API Reference →](API_DOCUMENTATION.md)
+- [← Back to Main](../../README.md)
+- [Setup →](../QUICK_START.md)
+- [API Reference →](../API_DOCUMENTATION.md)
