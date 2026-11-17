@@ -1,3 +1,4 @@
+import 'app_check_service.dart';
 import '../utils/backend_url.dart';
 import 'http_diagnostics.dart';
 import 'dart:convert';
@@ -53,6 +54,7 @@ class WambeshaApiService {
     }
     Future<http.Response> send() async {
       final response = await _client.get(uri, headers: {
+        ...await AppCheckService.headers(),
         'Authorization': 'Bearer $token'
       }).timeout(const Duration(seconds: 20));
       logHttpDiagnostic(

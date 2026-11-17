@@ -162,6 +162,25 @@ class ForumService {
       .orderBy('timestamp')
       .snapshots();
 
+  Future<void> _addContributionSlot(
+      WriteBatch batch, String uid, String target) async {
+    final slot = _firestore.collection('forum_write_limits').doc(uid);
+    try {
+      // A server read detects whether the cooldown rules have been published.
+      // Never cache this decision: rules can change while the app is installed.
+      await slot.get(const GetOptions(source: Source.server));
+    } on FirebaseException catch (error) {
+      if (error.code == 'permission-denied') return;
+      rethrow;
+    }
+    // Old rules deny the slot read, so the legacy batch remains usable during
+    // rollout. New rules reject every contribution without a matching slot.
+    batch.set(slot, {
+      'timestamp': FieldValue.serverTimestamp(),
+      'target': target,
+    });
+  }
+
   Future<void> createPost({
     required String uid,
     required String author,
@@ -178,7 +197,10 @@ class ForumService {
       throw ArgumentError(
           'Enter a title and content within the allowed lengths.');
     }
-    await _posts.add({
+    final post = _posts.doc();
+    final batch = _firestore.batch();
+    await _addContributionSlot(batch, uid, 'post:${post.id}');
+    batch.set(post, {
       'uid': uid,
       'author': author,
       'photoURL': photoURL,
@@ -192,6 +214,7 @@ class ForumService {
       'lastCommentId': null,
       'deleting': false,
     });
+    await batch.commit();
   }
 
   Future<void> toggleLike(String postId, String uid) async {
@@ -224,6 +247,7 @@ class ForumService {
     final post = _posts.doc(postId);
     final reply = post.collection('comments').doc();
     final batch = _firestore.batch();
+    await _addContributionSlot(batch, uid, 'reply:$postId:${reply.id}');
     batch.set(reply, {
       'uid': uid,
       'author': author,

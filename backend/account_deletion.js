@@ -99,7 +99,7 @@ function createAccountDeletion({ db, auth, now = Date.now }) {
         await renew();
         await db.recursiveDelete(doc.ref);
       });
-      for (const name of ['reward_accounts', 'users', 'forum_members']) {
+      for (const name of ['reward_accounts', 'users', 'forum_members', 'forum_write_limits']) {
         await renew();
         await db.recursiveDelete(db.collection(name).doc(uid));
       }

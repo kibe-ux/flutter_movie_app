@@ -1,6 +1,11 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
+// Isolate ingress storage from live credentials and network access.
+const storeModule = require('../catalogue_store');
+const originalStore = storeModule.createCatalogueStore;
+storeModule.createCatalogueStore = () => require('../test_support/memory_rate_store').memoryRateStore();
 const app = require('../server');
+storeModule.createCatalogueStore = originalStore;
 const realFetch = global.fetch;
 
 async function fixture(t) {

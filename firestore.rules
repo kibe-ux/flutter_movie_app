@@ -15,6 +15,23 @@ service cloud.firestore {
     function contributor() {
       return member() && get(/databases/$(database)/documents/forum_members/$(request.auth.uid)).data.termsVersion == 1;
     }
+    // Each contribution consumes a separate immutable-in-time slot in the same batch.
+    function contribution(target) {
+      let slot = /databases/$(database)/documents/forum_write_limits/$(request.auth.uid);
+      return getAfter(slot).data.timestamp == request.time
+        && getAfter(slot).data.target == target
+        && (!exists(slot) || get(slot).data.timestamp <= request.time - duration.value(30, 's'));
+    }
+    match /forum_write_limits/{uid} {
+      allow read: if member() && uid == request.auth.uid;
+      allow create, update: if contributor() && uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['timestamp', 'target'])
+        && request.resource.data.timestamp == request.time
+        && request.resource.data.target is string
+        && request.resource.data.target.size() <= 300
+        && (!exists(/databases/$(database)/documents/forum_write_limits/$(uid))
+          || resource.data.timestamp <= request.time - duration.value(30, 's'));
+    }
     function canInteract(uid) {
       return !exists(/databases/$(database)/documents/forum_members/$(uid)/blocked/$(request.auth.uid))
         && !exists(/databases/$(database)/documents/forum_members/$(request.auth.uid)/blocked/$(uid));
@@ -58,6 +75,7 @@ service cloud.firestore {
       // Discussions are public. Other collections have no client grants.
       allow read: if true;
       allow create: if contributor()
+        && contribution('post:' + postId)
         && postId.matches('[a-zA-Z0-9_-]{1,128}')
         && request.resource.data.keys().hasAll(['uid', 'author', 'photoURL', 'title', 'content', 'category',
           'timestamp', 'likes', 'likedBy', 'commentCount', 'lastCommentId', 'deleting'])
@@ -94,6 +112,7 @@ service cloud.firestore {
         }
         allow read: if moderator() || (exists(parentPath()) && get(parentPath()).data.get('removed', false) == false);
         allow create: if contributor()
+          && contribution('reply:' + postId + ':' + commentId)
           && commentId.matches('[a-zA-Z0-9_-]{1,128}')
           && request.resource.data.keys().hasAll(['uid', 'author', 'photoURL', 'content', 'timestamp'])
           && request.resource.data.keys().hasOnly(['uid', 'author', 'photoURL', 'content', 'timestamp'])

@@ -23,6 +23,7 @@ implementation and production runbook when older guides describe a different wor
 - [Performance guide](PERFORMANCE_GUIDE.md)
 - [Troubleshooting guide](TROUBLESHOOTING_GUIDE.md)
 - [Security guide](SECURITY_GUIDE.md)
+- [Abuse protection rollout](SECURITY_ROLLOUT.md)
 - [Deployment guide](DEPLOYMENT_GUIDE.md)
 
 ## Operations

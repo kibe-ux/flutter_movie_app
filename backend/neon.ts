@@ -38,9 +38,14 @@ export default defineConfig({
         FIREBASE_PROJECT_ID: projectId,
         ...(adminCredentials ? { FIREBASE_SERVICE_ACCOUNT_JSON: adminCredentials } : {}),
         NODE_ENV: "production",
-        ACCOUNT_DELETION_ENABLED: process.env.ACCOUNT_DELETION_ENABLED === "true" ? "true" : "false",
-        ADMOB_REWARDS_ENABLED: process.env.ADMOB_REWARDS_ENABLED === "true" ? "true" : "false",
-        ADMOB_REWARDED_UNIT_IDS: process.env.ADMOB_REWARDED_UNIT_IDS?.trim() || "",
+        // Omitted local flags preserve hosted settings during routine API releases.
+        ...(process.env.ACCOUNT_DELETION_ENABLED !== undefined
+          ? { ACCOUNT_DELETION_ENABLED: process.env.ACCOUNT_DELETION_ENABLED === "true" ? "true" : "false" } : {}),
+        ...(process.env.ADMOB_REWARDS_ENABLED !== undefined
+          ? { ADMOB_REWARDS_ENABLED: process.env.ADMOB_REWARDS_ENABLED === "true" ? "true" : "false" } : {}),
+        ...(process.env.ADMOB_REWARDED_UNIT_IDS !== undefined
+          ? { ADMOB_REWARDED_UNIT_IDS: process.env.ADMOB_REWARDED_UNIT_IDS.trim() } : {}),
+        APP_CHECK_ENFORCED: process.env.APP_CHECK_ENFORCED === "true" ? "true" : "false",
         ...(process.env.JWT_SECRET ? { JWT_SECRET: process.env.JWT_SECRET } : {}),
       },
     },

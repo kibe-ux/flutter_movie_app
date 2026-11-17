@@ -1,3 +1,4 @@
+import 'app_check_service.dart';
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -32,6 +33,7 @@ class AccountDeletionService {
     final client = _client ?? http.Client();
     try {
       final response = await client.delete(uri, headers: {
+        ...await AppCheckService.headers(),
         'Authorization': 'Bearer $token',
       }).timeout(const Duration(seconds: 60));
       if (response.statusCode == 401) {

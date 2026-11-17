@@ -15,6 +15,8 @@ const deletionPage = require("./deletion_page");
 const { registerWambeshaRoutes } = require("./wambesha");
 const { registerCatalogueRoutes } = require("./catalogue");
 
+const { createAbuseProtection } = require('./abuse_protection');
+const abuse = createAbuseProtection({ database });
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -54,6 +56,13 @@ function logApiRequest(req, res, next) {
 }
 
 app.use("/api", logApiRequest);
+app.use('/api', (req, res, next) => {
+  // Missing credentials on private routes are rejected by authentication without database work.
+  const publicApi = req.path.startsWith('/catalogue/3/')
+    || req.path === '/rewards/ssv' || req.path === '/download/stream';
+  if (!publicApi && !req.header('authorization')) return next();
+  return abuse.ingress(req, res, () => abuse.appCheck(req, res, next));
+});
 
 function getFirebaseAdminAuth() {
   return getRuntimeFirebaseAuth();
@@ -100,7 +109,7 @@ registerCatalogueRoutes(app, { authenticate: requireFirebaseUser, database });
 app.use(express.json());
 
 registerAccountDeletionRoutes(app, {
-  authenticate: requireFirebaseUser,
+  authenticate: (req, res, next) => requireFirebaseUser(req, res, () => abuse.account(req, res, next)),
   firebaseAuth: getFirebaseAdminAuth,
   page: deletionPage.html,
 });
@@ -110,7 +119,7 @@ app.get('/delete-account.js', (req, res) => {
 });
 
 registerRewardsRoutes(app, {
-  authenticate: requireFirebaseUser,
+  authenticate: (req, res, next) => requireFirebaseUser(req, res, () => abuse.account(req, res, next)),
   firebaseApp: () => getFirebaseAdminAuth().app,
 });
 

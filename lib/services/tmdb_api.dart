@@ -1,3 +1,4 @@
+import 'app_check_service.dart';
 import '../utils/backend_url.dart';
 import 'dart:math';
 
@@ -74,8 +75,9 @@ class TmdbApi {
     _installation = null;
     final provider = tokenProvider ?? _token;
     var token = await provider(false);
-    Future<http.Response> send() {
+    Future<http.Response> send() async {
       final headers = {
+        ...await AppCheckService.headers(),
         'X-MovieHub-Installation': installation,
         if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
       };

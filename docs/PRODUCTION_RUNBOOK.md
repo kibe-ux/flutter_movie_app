@@ -50,12 +50,12 @@ privately on the release machine.
 | `ACCOUNT_DELETION_ENABLED` | `moviehub`; deliberately preserve the intended release value |
 | `ACCOUNT_DELETION_WORKER_ENABLED` | Worker and schedule configuration; managed by its rollout workflow |
 
-**Feature flags must be deliberate.** `neon.ts` writes deletion/reward flags as
-`false` when missing or not exactly `true`; missing rewarded unit IDs become
-empty. A routine API deployment can therefore disable these API features even
-when it leaves the worker untouched. Compare intended values with the privately
-recorded production configuration before deployment. Omitted credential settings
-preserve hosted values; simply deleting a local variable does not revoke a key.
+**Feature flags must be deliberate.** Omitted account-deletion/rewards flags and
+rewarded unit IDs preserve hosted settings during routine API releases. Explicit
+values update those settings. App Check enforcement defaults to false until the
+updated app and Firebase configuration are ready. Compare intended values with
+production before deployment. Omitted credential settings preserve hosted values;
+simply deleting a local variable does not revoke a key.
 
 Do not run `--disabled` from the deletion rollout as a routine release shortcut:
 that stage provisions a runtime key. Follow the dedicated rollout guide for

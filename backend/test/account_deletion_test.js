@@ -86,10 +86,12 @@ test('cleanup removes authored data and descendants, maintains other posts, dele
     'forum_reports/targeted': { reporterUid: 'bob', targetUid: 'alice' },
     'forum_reports/reviewed': { reporterUid: 'bob', targetUid: 'charlie', reviewedBy: 'alice', status: 'dismissed' },
   })) db.data.set(path, value);
+  db.data.set('forum_write_limits/alice', { target: 'post:old', timestamp: 1 });
   let deleted = 0;
   const service = createAccountDeletion({ db, now: () => time, auth: { deleteUser: async (uid) => {
     assert.equal(uid, 'alice');
     assert.equal(db.data.has('reward_accounts/alice'), false);
+    assert.equal(db.data.has('forum_write_limits/alice'), false);
     assert.equal(db.data.has('forum_posts/other/comments/alice'), false);
     deleted++;
   } } });

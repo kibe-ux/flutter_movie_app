@@ -10,6 +10,15 @@ typedef Json = Map<String, dynamic>;
 
 class _Document extends Fake implements DocumentReference<Json> {
   _Document(this.path);
+  static Object? slotReadFailure;
+  @override
+  Future<DocumentSnapshot<Json>> get([GetOptions? options]) async {
+    if (path.startsWith('forum_write_limits/') && slotReadFailure != null) {
+      throw slotReadFailure!;
+    }
+    return _Snapshot<Json>(null);
+  }
+
   @override
   final String path;
   @override
@@ -107,6 +116,7 @@ class _Firestore extends Fake implements FirebaseFirestore {
   int transactionCalls = 0;
   @override
   CollectionReference<Json> collection(String path) {
+    if (path == 'forum_write_limits') return _Collection(path);
     expect(path, 'forum_posts');
     return postsCollection;
   }
@@ -126,8 +136,31 @@ void main() {
   late _Firestore db;
   late ForumService service;
   setUp(() {
+    _Document.slotReadFailure = null;
     db = _Firestore();
     service = ForumService(firestore: db);
+  });
+
+  test('old rules keep reply batches usable until cooldown rules are published',
+      () async {
+    _Document.slotReadFailure =
+        FirebaseException(plugin: 'cloud_firestore', code: 'permission-denied');
+    await service.addComment(
+        postId: 'post', uid: 'viewer', author: 'Viewer', content: 'Hello');
+    expect(
+        db.writes.paths, ['forum_posts/post/comments/new', 'forum_posts/post']);
+    expect(db.writes.commits, 1);
+  });
+
+  test('network failures do not silently select legacy contribution writes',
+      () async {
+    _Document.slotReadFailure =
+        FirebaseException(plugin: 'cloud_firestore', code: 'unavailable');
+    await expectLater(
+        service.addComment(
+            postId: 'post', uid: 'viewer', author: 'Viewer', content: 'Hello'),
+        throwsA(isA<FirebaseException>()));
+    expect(db.writes.commits, 0);
   });
 
   test('posts from different users go to the same shared collection', () async {
@@ -138,10 +171,10 @@ void main() {
           title: ' Movie night ',
           content: ' A recommendation ',
           category: 'Recommendations');
-      expect(db.postsCollection.added?['uid'], uid);
-      expect(db.postsCollection.added?['title'], 'Movie night');
-      expect(db.postsCollection.added?['content'], 'A recommendation');
-      expect(db.postsCollection.added?.containsKey('country'), isFalse);
+      expect(db.writes.reply?['uid'], uid);
+      expect(db.writes.reply?['title'], 'Movie night');
+      expect(db.writes.reply?['content'], 'A recommendation');
+      expect(db.writes.reply?.containsKey('country'), isFalse);
     }
   });
 
@@ -161,7 +194,7 @@ void main() {
             postId: 'post', uid: 'anon', author: 'Guest', content: 'Hi'),
         throwsStateError);
     await expectLater(service.deletePost('post', ''), throwsStateError);
-    expect(db.postsCollection.added, isNull);
+    expect(db.writes.reply, isNull);
     expect(db.transactionCalls, 0);
     expect(db.writes.commits, 0);
   });
@@ -194,8 +227,11 @@ void main() {
   test('reply and count increment are committed together', () async {
     await service.addComment(
         postId: 'post', uid: 'viewer', author: 'Viewer', content: ' Hello ');
-    expect(
-        db.writes.paths, ['forum_posts/post/comments/new', 'forum_posts/post']);
+    expect(db.writes.paths, [
+      'forum_write_limits/viewer',
+      'forum_posts/post/comments/new',
+      'forum_posts/post'
+    ]);
     expect(db.writes.reply?['content'], 'Hello');
     expect(db.writes.reply?['uid'], 'viewer');
     expect(db.writes.updateData?['commentCount'], isA<FieldValue>());

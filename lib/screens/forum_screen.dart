@@ -300,7 +300,12 @@ class _ForumScreenState extends State<ForumScreen>
     }
   }
 
-  String _forumError(Object? error) {
+  String _forumError(Object? error, {bool contribution = false}) {
+    if (contribution &&
+        error is FirebaseException &&
+        error.code == 'permission-denied') {
+      return 'Please wait 30 seconds between posts or replies, then try again. If access remains unavailable, contact support.';
+    }
     if (error is FirebaseException) {
       return switch (error.code) {
         'permission-denied' =>
@@ -511,7 +516,8 @@ class _ForumScreenState extends State<ForumScreen>
                                           }
                                         } catch (error) {
                                           if (mounted) {
-                                            _snack(_forumError(error));
+                                            _snack(_forumError(error,
+                                                contribution: true));
                                           }
                                         } finally {
                                           _posting = false;
@@ -733,7 +739,9 @@ class _ForumScreenState extends State<ForumScreen>
                                 commentCtrl.clear();
                               }
                             } catch (error) {
-                              if (mounted) _snack(_forumError(error));
+                              if (mounted) {
+                                _snack(_forumError(error, contribution: true));
+                              }
                             } finally {
                               sending = false;
                             }

@@ -1,3 +1,4 @@
+import 'services/app_check_service.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -30,6 +31,7 @@ Future<void> _initializeApp() async {
   // Running them together caused MyListService to occasionally access FirebaseAuth
   // before the default Firebase app had been created.
   await _initializeFirebase();
+  await AppCheckService.initialize();
   await CrashReportingService.initialize();
   try {
     await Future.wait([

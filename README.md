@@ -73,6 +73,8 @@ and pull requests. It uses CI-only Firebase placeholders, not production
 credentials. It does not publish or deploy the app. Native ad rendering and
 integration tests still require device verification.
 
+Security release steps are in [abuse protection rollout](docs/SECURITY_ROLLOUT.md).
+
 ## Documentation and contributions
 
 Start with the [documentation hub](docs/README.md),

@@ -1,3 +1,4 @@
+import 'app_check_service.dart';
 import '../utils/backend_url.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -131,6 +132,7 @@ class RewardsService extends ChangeNotifier with WidgetsBindingObserver {
     }
     final uri = Uri.parse('${validateBackendUrl(base)}/api/rewards/$path');
     final headers = {
+      ...await AppCheckService.headers(),
       'Authorization': 'Bearer $token',
       'Content-Type': 'application/json'
     };

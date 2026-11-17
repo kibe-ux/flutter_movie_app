@@ -50,6 +50,7 @@ dependencies:
   # Trailers & Loading
   webview_flutter: ^4.10.0
   shimmer: ^3.0.0
+  firebase_app_check: ^0.3.2
 
 dev_dependencies:
   integration_test:

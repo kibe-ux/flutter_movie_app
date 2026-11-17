@@ -25,9 +25,16 @@ async function seed(entries) {
     for (const [location, data] of Object.entries(entries)) await setDoc(doc(context.firestore(), location), data);
   });
 }
+async function createPost(db, id, data) {
+  const batch = writeBatch(db);
+  batch.set(doc(db, 'forum_write_limits/' + data.uid), { timestamp: serverTimestamp(), target: 'post:' + id });
+  batch.set(doc(db, 'forum_posts/' + id), data);
+  return batch.commit();
+}
 async function seedPost(changes = {}) { await seed({ 'forum_posts/p': post('alice', changes) }); }
 function addReply(db, id = 'r', changes = {}, parentChanges = {}) {
   const batch = writeBatch(db);
+  batch.set(doc(db, 'forum_write_limits/bob'), { timestamp: serverTimestamp(), target: 'reply:p:' + id });
   batch.set(doc(db, 'forum_posts/p/comments/' + id), reply('bob', changes));
   batch.update(doc(db, 'forum_posts/p'), { commentCount: increment(1), lastCommentId: id, ...parentChanges });
   return batch.commit();
@@ -68,7 +75,7 @@ test('guests can read public posts/replies and feed queries', async () => {
   await assertSucceeds(getDocs(query(collection(guest, 'forum_posts'), where('category', '==', 'Discussion'), orderBy('timestamp', 'desc'))));
 });
 test('members create validated discussions; guests and anonymous accounts cannot write', async () => {
-  await assertSucceeds(setDoc(doc(member('alice'), 'forum_posts/p'), post()));
+  await assertSucceeds(createPost(member('alice'), 'p', post()));
   await assertFails(setDoc(doc(env.unauthenticatedContext().firestore(), 'forum_posts/guest'), post()));
   await assertFails(setDoc(doc(member('anon', 'anonymous'), 'forum_posts/anonymous'), post('anon')));
 });
@@ -79,7 +86,7 @@ test('post creation rejects spoofed UID, extra fields, invalid content/categorie
     { timestamp: Timestamp.fromMillis(1) }, { likes: 10 }, { likedBy: ['bob'] },
     { commentCount: 1 }, { lastCommentId: 'r' }, { deleting: true }, { author: 123 },
     { photoURL: 'javascript:alert(1)' }];
-  for (const [i, changes] of variants.entries()) await assertFails(setDoc(doc(alice, 'forum_posts/invalid' + i), post('alice', changes)));
+  for (const [i, changes] of variants.entries()) await assertFails(createPost(alice, 'invalid' + i, post('alice', changes)));
 });
 test('post ownership, author, content and timestamp remain immutable', async () => {
   await seedPost();
@@ -217,10 +224,10 @@ const removedPost = () => ({ removed: true, deleting: true, title: 'Discussion r
 
 test('community terms acceptance is required and cannot grant moderator privileges', async () => {
   const dave = member('dave');
-  await assertFails(setDoc(doc(dave, 'forum_posts/new'), post('dave')));
+  await assertFails(createPost(dave, 'new', post('dave')));
   await assertFails(setDoc(doc(dave, 'forum_members/dave'), { termsVersion: 1, acceptedAt: serverTimestamp(), moderator: true }));
   await assertSucceeds(setDoc(doc(dave, 'forum_members/dave'), { termsVersion: 1, acceptedAt: serverTimestamp() }));
-  await assertSucceeds(setDoc(doc(dave, 'forum_posts/new'), post('dave')));
+  await assertSucceeds(createPost(dave, 'new', post('dave')));
   await assertFails(getDoc(doc(member('bob'), 'forum_members/dave')));
 });
 test('members report actual content, but reports remain private and immutable to reporters', async () => {
@@ -328,4 +335,26 @@ test('deleting targets cannot receive new reports or block records during cleanu
   await assertFails(setDoc(doc(bob, 'forum_members/bob/blocked/missing'), {
     uid: 'missing', author: 'Missing', timestamp: serverTimestamp(),
   }));
+});
+
+
+test('contributions require a matching slot and cannot bypass cooldown by deleting or changing it', async () => {
+  const alice = member('alice');
+  await assertFails(setDoc(doc(alice, 'forum_posts/direct'), post()));
+  await assertSucceeds(createPost(alice, 'first', post()));
+  await assertFails(createPost(alice, 'second', post()));
+  await assertFails(deleteDoc(doc(alice, 'forum_write_limits/alice')));
+  await assertFails(setDoc(doc(alice, 'forum_write_limits/alice'), { timestamp: Timestamp.fromMillis(1), target: 'post:second' }));
+  await assertFails(setDoc(doc(member('bob'), 'forum_write_limits/alice'), { timestamp: serverTimestamp(), target: 'post:second' }));
+});
+test('one slot cannot authorize multiple posts in the same batch', async () => {
+  const alice = member('alice'); const batch = writeBatch(alice);
+  batch.set(doc(alice, 'forum_write_limits/alice'), { timestamp: serverTimestamp(), target: 'post:first' });
+  batch.set(doc(alice, 'forum_posts/first'), post());
+  batch.set(doc(alice, 'forum_posts/second'), post());
+  await assertFails(batch.commit());
+});
+test('expired cooldown permits the next contribution', async () => {
+  await seed({ 'forum_write_limits/alice': { timestamp: Timestamp.fromMillis(1), target: 'post:old' } });
+  await assertSucceeds(createPost(member('alice'), 'next', post()));
 });
