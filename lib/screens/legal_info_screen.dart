@@ -49,9 +49,19 @@ class LegalInfoScreen extends StatelessWidget {
                   'Start exploring as a guest, or sign in to use account features and join the community. Choose how you use Movie Hub, manage your device permissions, and review your privacy options. Our Privacy Policy explains how your information is handled.'
             ),
             (
+              heading: 'What you can do with Movie Hub',
+              text:
+                  'Browse movies and TV shows, explore title details, save favourites and personal lists, and take part in community discussions. Available features may vary depending on whether you are browsing as a guest or signed in.'
+            ),
+            (
               heading: 'Always improving',
               text:
                   'We are working to make Movie Hub easier to navigate and more dependable through bug fixes, maintenance, and useful updates. Your feedback helps us understand what works, what needs attention, and which improvements matter most to you.'
+            ),
+            (
+              heading: 'Our commitment',
+              text:
+                  'We aim to make Movie Hub welcoming and useful, respect the rights of creators and our community, and keep improving the app based on feedback. We work to explain our features and policies clearly so you can make informed choices while using Movie Hub.'
             ),
             (
               heading: 'Help when you need it',
@@ -73,59 +83,89 @@ class LegalInfoScreen extends StatelessWidget {
             (
               heading: 'Respect for rights holders',
               text:
-                  'We respect copyright and other intellectual-property rights. Movie Hub does not claim ownership of movie titles, artwork, metadata, trademarks, or content referenced by third-party services.'
+                  'We respect and are committed to protecting copyright and other intellectual-property rights. Movie Hub does not claim ownership of movie titles, images, artwork, metadata, trademarks, or other third-party materials shown or referenced in the app; those rights belong to their respective owners.'
             ),
             (
               heading: 'No hosted content',
               text:
-                  'Movie Hub does not host or deliver the files made available through external services. Any access to an external site is governed by that site and its policies.'
+                  'Movie Hub does not host or deliver movie files. Files stored or shared by users on their own devices or through external services are not hosted on our app. Access to an external site is governed by that site and its policies.'
             ),
             (
               heading: 'Copyright and DMCA notices',
               text:
-                  'If you are a rights holder or authorized agent and believe an item in the app raises a copyright concern, email supportmoviehub@gmail.com. Include your name and contact details, the copyrighted work, the specific in-app item or link at issue, and a statement of your authority and good-faith belief. We will review the notice and, where appropriate, remove or disable the relevant reference. This contact is not represented as a registered DMCA designated agent.'
+                  'We review copyright notices under applicable law, including the Digital Millennium Copyright Act (DMCA) where it applies. Rights holders and their authorized agents can send a formal notice using the separate Infringing notice requirements and Takedown requests and infringement reports sections below.'
+            ),
+            (
+              heading: 'Infringing notice requirements',
+              text:
+                  '• The title or identification of the copyrighted work.\n• A description of the material you believe is infringing and its exact location in the app, such as a page or link.\n• Your contact information, including name, mailing address, email address, and phone number.\n• A statement that you have a good-faith belief the use is not authorized by the rights holder, its agent, or the law.\n• A statement that the information in your notice is accurate and, where required by law, that you are authorized to act for the rights holder.\n• Your physical or electronic signature.'
+            ),
+            (
+              heading: 'Review of notices',
+              text:
+                  'We will review notices and, where appropriate and consistent with applicable law, remove or disable the relevant reference. This contact is not represented as a registered DMCA designated agent.'
+            ),
+            (
+              heading: 'Takedown requests',
+              text:
+                  'Rights holders or their authorized agents may request that an allegedly infringing reference be removed or disabled. Email supportmoviehub@gmail.com with the item’s title and exact in-app location, your contact details, and the notice information listed above. We will review the request and take appropriate action consistent with applicable law.'
+            ),
+            (
+              heading: 'Reporting infringement',
+              text:
+                  'To report a suspected copyright concern, email supportmoviehub@gmail.com. Include the title and in-app page or link, describe the concern, and provide your contact details. You do not need to be the rights holder to report a concern. We will review reports and may remove or disable a reference where appropriate and consistent with applicable law.'
+            ),
+            (
+              heading: 'Content sourcing',
+              text:
+                  'Movie Hub aims to provide access only to content that is legally available. We take reasonable steps to review sources and expect them to comply with applicable copyright laws and this policy. Sources are external services, and we cannot guarantee their content or practices.'
+            ),
+            (
+              heading: 'Legal compliance and piracy',
+              text:
+                  'Movie Hub expects everyone to follow applicable copyright laws and the terms of third-party services. We have no tolerance for piracy or attempts to use the app to find, share, or promote unauthorized copies of copyrighted works. Do not use Movie Hub or external links reached through it for unlawful access or distribution. Report suspected infringement to supportmoviehub@gmail.com. We will review reports and may remove or disable references where appropriate and consistent with applicable law.'
             ),
           ],
         LegalPageType.terms => [
             (
               heading: 'Using Movie Hub',
               text:
-                  'These terms explain the conditions for using Movie Hub, including discovery, saved collections, account features, the forum, and Cinema Rewards. Please read them alongside our Privacy Policy and Copyright Policy. If you do not agree, do not use the app. Some features are available to guests; others require a signed-in account.'
+                  'These Terms of Service explain the rules for using Movie Hub’s movie and TV discovery features, saved lists, accounts, community forum, and Cinema Rewards. The Privacy Policy explains how information is handled, and the Copyright Policy explains how to report rights concerns. By using Movie Hub, you agree to follow these terms and applicable laws. Some features are available to guests; account features require you to sign in. If you do not agree, please stop using the app.'
             ),
             (
               heading: 'Content ownership',
               text:
-                  'Movie titles, artwork, metadata, trademarks, and other third-party materials belong to their respective owners. Movie Hub helps you discover and organize information; displaying a title does not grant permission to use copyrighted material. This application uses the TMDB API but is not endorsed or certified by TMDB.'
+                  'Movie Hub is provided for informational and discovery purposes. Movie Hub owns its app design and original materials. Other content belongs to its respective owners. Viewing or saving a reference does not give you permission to copy, distribute, or otherwise use protected material. Movie Hub uses the TMDB API but is not endorsed or certified by TMDB.'
             ),
             (
               heading: 'Copyright policy and notices',
               text:
-                  'We respect intellectual-property rights. If you are a rights holder or authorized representative, send concerns to supportmoviehub@gmail.com. Include your contact details, the work concerned, the specific in-app item, and an explanation of your authority and concern. We review reports and may remove or disable references where appropriate. See our Copyright Policy for reporting details.'
+                  'Respect the rights of creators and use third-party materials only as permitted by their owners and applicable law. If you believe a reference in Movie Hub infringes copyright, report it using the steps in our Copyright Policy. We review notices and may remove or disable references when appropriate. Movie Hub does not host or deliver movie files.'
             ),
             (
               heading: 'User responsibility',
               text:
-                  'Use Movie Hub lawfully and respect the rights of others. Do not attempt unauthorized access to accounts or systems, disrupt the service, submit fraudulent information, or manipulate advertising or rewards. Access third-party services only in accordance with applicable law and their terms. Never share another person\'s private information without permission.'
+                  'Use Movie Hub lawfully and respectfully. Do not try to access accounts or systems without permission, disrupt or interfere with the app, submit information you know is false, misuse advertising or rewards, or use the app to find or promote pirated content. Follow the terms of third-party services you choose to visit. Do not post another person’s private information without their permission.'
             ),
             (
               heading: 'Account security and deletion',
               text:
-                  'Provide accurate account details and keep your sign-in credentials private. You are responsible for activity you authorize through your account. If you suspect unauthorized access, secure your account and contact Support. Request account deletion from Profile and complete the verification and confirmation steps. Cleanup may continue after a request is accepted. Uninstalling the app does not delete your account; our Privacy Policy explains deletion and retention.'
+                  'Provide accurate account details and keep your password private. You are responsible for activity carried out through your account, so tell Support promptly if you think someone else has accessed it. To delete your account, go to Profile and complete the verification and confirmation steps. Some cleanup may take time after a request is accepted. Uninstalling Movie Hub does not delete your account; see the Privacy Policy for details about deletion and data retention.'
             ),
             (
               heading: 'Privacy and saved information',
               text:
-                  'Our Privacy Policy explains the information used by Movie Hub and connected services, your privacy choices, and how to contact us about your data. Some saved titles, preferences, and history are stored on your device. Clearing app storage or reinstalling may remove them, and signing in does not by itself guarantee that device-only information is backed up or transferred.'
+                  'Read the Privacy Policy to understand what information Movie Hub and connected services use, the choices available to you, and how to contact us about your information. Some saved titles, preferences, and history are stored only on your device. Clearing app storage or reinstalling the app may remove them, and signing in does not guarantee that device-only information is backed up or transferred.'
             ),
             (
               heading: 'Advertising and your choices',
               text:
-                  'Movie Hub includes advertising. Ad availability and content can vary, and an advertisement is not an endorsement by Movie Hub. Where required and available, use Ad privacy choices to review your consent. Do not generate artificial ad views or clicks, or encourage others to do so. Rewarded ads are optional and are explained separately below.'
+                  'Movie Hub may show advertisements. Their availability and content can vary, and an advertisement does not mean Movie Hub endorses the advertised product or service. Where available, use Ad privacy choices to review your advertising consent. Do not create fake ad views or clicks or ask others to do so. Rewarded ads are optional; their rules are described in the Cinema Rewards section.'
             ),
             (
               heading: 'Forum rules and account suspension',
               text:
-                  'Follow the community rules and keep discussions respectful. Do not post harassment, hate speech, threats, sexually explicit or exploitative material, scams, spam, impersonation, unlawful content, or material you do not have permission to share. Use report and block tools to raise concerns and manage interactions. We may remove rule-breaking content or restrict accounts for serious or repeated violations. Contact Support with the relevant details if you believe a decision is incorrect.'
+                  'Keep discussions respectful and follow the community rules. Do not post harassment, hate speech, threats, sexual or exploitative material, scams, spam, impersonation, unlawful content, or material you do not have permission to share. Use report and block tools to raise concerns or manage interactions. We may remove content or limit account access when rules are broken, especially for serious or repeated violations. Contact Support with relevant details if you think we made a mistake.'
             ),
             (
               heading: 'Cinema Coins, rewarded ads, and redemption',
